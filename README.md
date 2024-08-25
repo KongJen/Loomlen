@@ -1,8 +1,6 @@
 <p><a target="_blank" href="https://app.eraser.io/workspace/OxmVappMO5RE8EK8NbJH" id="edit-in-eraser-github-link"><img alt="Edit in Eraser" src="https://firebasestorage.googleapis.com/v0/b/second-petal-295822.appspot.com/o/images%2Fgithub%2FOpen%20in%20Eraser.svg?alt=media&amp;token=968381c8-a7e7-472a-8ed6-4a6626da5501"></a></p>
 
 # Collaborative_Note-taking
-![Figure 1](/.eraser/OxmVappMO5RE8EK8NbJH___Ryxa1T7S33Xr58yLcTA4rYFgR9v1___---figure---ptFDXMkcUKy7zfnDrkHWX---figure---8VfT9VLF8sRO5RvGSzzwsw.png "Figure 1")
-
 
 
 
