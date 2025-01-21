@@ -6,7 +6,7 @@ users [icon: user, color: blue] {
   email string
   password string
   role string
-  //Pro_picture 
+  //Pro_picture
 }
 
 Note [icon: users, color: blue] {
@@ -35,7 +35,7 @@ Room [icon: home, color: blue] {
   note_id string
   user_id string
   document file
-//   access_level string
+  //   access_level string
 }
 
 folders [icon: folder] {
@@ -54,3 +54,5 @@ folders.note_id > Note.note_id
 // chat.workspaceId > workspaces.id
 // invite.workspaceId > workspaces.id
 invite.inviterId > users.user_id
+users.user_id <> History.user_id
+Note.note_id <> History.note_id
