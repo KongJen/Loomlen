@@ -8,10 +8,100 @@ class MyRoomPage extends StatefulWidget {
 }
 
 class _MyRoomPageState extends State<MyRoomPage> {
+  OverlayEntry? _overlayEntry;
+
   void toggleFavorite(int index) {
     setState(() {
       sampleData[index]['isFavorite'] = !sampleData[index]['isFavorite'];
     });
+  }
+
+  void _showOverlay(BuildContext context) {
+    // Remove any existing overlay before adding a new one
+    _removeOverlay();
+
+    OverlayState overlayState = Overlay.of(context)!;
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Stack(
+        children: [
+          // Background dimming effect
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _removeOverlay, // Close overlay when tapping outside
+              child: Container(
+                color: Colors.black.withOpacity(0.5),
+              ),
+            ),
+          ),
+          // Centered overlay content
+          Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 300,
+                padding: EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(10)),
+                      ),
+                      child: Stack(
+                        children: [
+                          Center(
+                            child: Text(
+                              'Settings',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: -17,
+                            right: -10,
+                            child: IconButton(
+                              icon: Icon(Icons.close, color: Colors.black),
+                              onPressed: _removeOverlay,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(),
+                    ListTile(
+                      leading: Icon(Icons.settings),
+                      title: Text('General Settings'),
+                      onTap: _removeOverlay,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    overlayState.insert(_overlayEntry!);
+  }
+
+  void _removeOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
   }
 
   @override
@@ -29,22 +119,51 @@ class _MyRoomPageState extends State<MyRoomPage> {
             ),
             child: Padding(
               padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + 35,
+                top: MediaQuery.of(context).padding.top,
                 left: 60,
                 right: 16,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Stack(
                 children: [
-                  Text(
-                    'My Room',
-                    style: TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black, // Add text color
+                  Positioned(
+                    top: 35,
+                    left: 0,
+                    child: Text(
+                      'My Room',
+                      style: TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
                     ),
                   ),
-                  // You can add more widgets here if needed
+                  Positioned(
+                    top: 0,
+                    right: 16,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.select_all, color: Colors.black),
+                          onPressed: () {
+                            print("Select clicked");
+                          },
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.settings, color: Colors.black),
+                          onPressed: () {
+                            _showOverlay(context);
+                          },
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.person, color: Colors.black),
+                          onPressed: () {
+                            print("Profile clicked");
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -59,10 +178,10 @@ class _MyRoomPageState extends State<MyRoomPage> {
               child: GridView.builder(
                 padding: const EdgeInsets.all(2.0),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 6, // Set number of columns
-                  crossAxisSpacing: 1.0, // Space between columns
-                  mainAxisSpacing: 16.0, // Space between rows
-                  childAspectRatio: 1, // Aspect ratio for each item
+                  crossAxisCount: 6,
+                  crossAxisSpacing: 1.0,
+                  mainAxisSpacing: 16.0,
+                  childAspectRatio: 1,
                 ),
                 itemCount: sampleData.length,
                 itemBuilder: (context, index) {
