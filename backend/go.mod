@@ -1,4 +1,4 @@
-module RoomLen_Backend
+module backend
 
 go 1.23.5
 
