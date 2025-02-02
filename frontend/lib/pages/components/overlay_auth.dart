@@ -27,30 +27,46 @@ class _OverlayAuthState extends State<OverlayAuth> {
         ? "http://10.0.2.2:8080/api/user/login"
         : "http://10.0.2.2:8080/api/user/signup";
 
-    var response = await http.post(
-      Uri.parse(url),
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({
-        "email": emailController.text,
-        "password": passwordController.text,
-      }),
-    );
+    print("Sending request to: $url");
+    print(
+        "Email: ${emailController.text}, Password: ${passwordController.text}");
 
-    if (response.statusCode == 200) {
-      var data = jsonDecode(response.body);
+    try {
+      var response = await http.post(
+        Uri.parse(url),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": emailController.text,
+          "password": passwordController.text,
+        }),
+      );
 
-      if (data.containsKey("token") && data.containsKey("email")) {
-        SharedPreferences prefs = await SharedPreferences.getInstance();
-        await prefs.setString("token", data["token"]);
-        await prefs.setString("email", data["email"]);
+      print("Response Status: ${response.statusCode}");
+      print("Response Body: ${response.body}");
 
-        setState(() {
-          isAuthenticated = true;
-          userEmail = data["email"];
-        });
+      if (response.statusCode == 200) {
+        var data = jsonDecode(response.body);
+
+        if (data.containsKey("token") && data.containsKey("user")) {
+          SharedPreferences prefs = await SharedPreferences.getInstance();
+          await prefs.setString("token", data["token"]);
+          await prefs.setString("email", data["user"]["email"]);
+          await prefs.setString("name", data["user"]["name"]);
+          await prefs.setString("created_at", data["user"]["created_at"]);
+          await prefs.setString("last_login", data["user"]["last_login"]);
+
+          setState(() {
+            isAuthenticated = true;
+            userEmail = data["user"]["email"];
+          });
+
+          print("Login successful!");
+        }
+      } else {
+        print("Error: ${response.body}");
       }
-    } else {
-      print("Error: ${response.body}");
+    } catch (e) {
+      print("Exception: $e");
     }
   }
 
@@ -107,34 +123,49 @@ class _OverlayAuthState extends State<OverlayAuth> {
     );
   }
 
+  void logout() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    setState(() {
+      isAuthenticated = false;
+      userEmail = "";
+    });
+  }
+
   /// 🔹 **Profile View (After Successful Login)**
   Widget buildProfileView() {
-    return Padding(
-      padding: EdgeInsets.all(16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.account_circle, size: 80, color: Colors.blue),
-          SizedBox(height: 10),
-          Text(userEmail,
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: () async {
-              SharedPreferences prefs = await SharedPreferences.getInstance();
-              await prefs.remove("token");
-              await prefs.remove("email");
+    return FutureBuilder<SharedPreferences>(
+      future: SharedPreferences.getInstance(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return CircularProgressIndicator();
+        var prefs = snapshot.data!;
+        String name = prefs.getString("name") ?? "Unknown User";
+        String email = prefs.getString("email") ?? "";
+        String lastLogin = prefs.getString("last_login") ?? "Never";
 
-              setState(() {
-                isAuthenticated = false;
-                userEmail = "";
-              });
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text("Logout", style: TextStyle(color: Colors.white)),
+        return Padding(
+          padding: EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.account_circle, size: 80, color: Colors.blue),
+              SizedBox(height: 10),
+              Text(name,
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(email, style: TextStyle(fontSize: 16)),
+              Text("Last Login: $lastLogin",
+                  style: TextStyle(fontSize: 14, color: Colors.grey)),
+              SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: logout,
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: Text("Logout", style: TextStyle(color: Colors.white)),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -202,7 +233,10 @@ class _OverlayAuthState extends State<OverlayAuth> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: authenticate,
+                  onPressed: () {
+                    print("Login button pressed");
+                    authenticate();
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     padding: EdgeInsets.symmetric(vertical: 12),
