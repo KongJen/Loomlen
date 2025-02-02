@@ -49,12 +49,6 @@
     - เก็บข้อมูลพื้นที่ทำงานของแต่ละทีม
     - ใช้สำหรับจัดการพื้นที่ทำงานร่วมของทีม, จัดระเบียบโปรเจ็กต์, และแบ่งแยกงานตามทีม
 
-
-
-<!-- eraser-additional-content -->
-## Diagrams
-<!-- eraser-additional-files -->
-<a href="/README-entity-relationship-1.eraserdiagram" data-element-id="KSX66uX76ziBGlIfaC1CX"><img src="/.eraser/OxmVappMO5RE8EK8NbJH___Ryxa1T7S33Xr58yLcTA4rYFgR9v1___---diagram----cf05de6a69407ed88f620ac13b335188.png" alt="" data-element-id="KSX66uX76ziBGlIfaC1CX" /></a>
 <!-- end-eraser-additional-files -->
 <!-- end-eraser-additional-content -->
 <!--- Eraser file: https://app.eraser.io/workspace/OxmVappMO5RE8EK8NbJH --->
