@@ -1,58 +1,163 @@
 entity-relationship-diagram
 
-users [icon: user, color: blue] {
+Users [icon: user, color: blue] {
   user_id string pk
   name string
-  email string
+  email string unique
   password string
   role string
+  created_at datetime
+  updated_at datetime
   //Pro_picture
 }
 
 Note [icon: users, color: blue] {
   note_id string pk
+  user_id string fk
   name string
+  content text
+  created_at datetime
+  updated_at datetime
 }
 
 Comment [icon: message-circle, color: green] {
-  commment_id number
-  note_id string
-  user_id string
+  comment_id string pk
+  note_id string fk
+  user_id string fk
   text string
-  timestamp datetime
+  created_at datetime
+  updated_at datetime
 }
 
 History [icon: mail, color: green] {
-  history_id string
-  note_id string
-  user_id string
+  history_id string pk
+  note_id string fk
+  user_id string fk
   action string
-  timestamp datetime
+  created_at datetime
 }
 
 Room [icon: home, color: blue] {
   room_id string pk
-  note_id string
-  user_id string
-  document file
-  //   access_level string
-}
-
-folders [icon: folder] {
-  folder_id string pk
-  user_id string
+  owner_id string fk
   name string
-  note_id string
+  description text
+  created_at datetime
+  updated_at datetime
 }
 
-users.Room <> Room.id
-Room.folderId > folders.folder_id
-Room.note_id > Note.note_id
-folders.note_id > Note.note_id
+RoomUsers [icon: users, color: blue] {
+  room_id string fk
+  user_id string fk
+  access_level string
+  joined_at datetime
+  primary key (room_id, user_id)
+}
 
-// workspaces.teamId > teams.id
-// chat.workspaceId > workspaces.id
-// invite.workspaceId > workspaces.id
-invite.inviterId > users.user_id
-users.user_id <> History.user_id
-Note.note_id <> History.note_id
+UserFolders [icon: folder, color: blue] {
+  folder_id string pk
+  user_id string fk
+  parent_folder_id string fk
+  name string
+  created_at datetime
+  updated_at datetime
+}
+
+UserFiles [icon: file, color: blue] {
+  file_id string pk
+  user_id string fk
+  folder_id string fk
+  name string
+  file_path string
+  file_type string
+  size number
+  created_at datetime
+  updated_at datetime
+}
+
+RoomFolders [icon: folder, color: green] {
+  folder_id string pk
+  room_id string fk
+  parent_folder_id string fk
+  name string
+  created_at datetime
+  updated_at datetime
+}
+
+RoomFiles [icon: file, color: green] {
+  file_id string pk
+  room_id string fk
+  folder_id string fk
+  uploader_id string fk
+  name string
+  file_path string
+  file_type string
+  size number
+  created_at datetime
+  updated_at datetime
+}
+
+Invite [icon: mail, color: yellow] {
+  invite_id string pk
+  inviter_id string fk
+  invitee_id string fk
+  room_id string fk
+  status string
+  created_at datetime
+  updated_at datetime
+}
+
+Teams [icon: group, color: purple] {
+  team_id string pk
+  name string
+  description string
+  created_at datetime
+  updated_at datetime
+}
+
+UserTeams [icon: users, color: purple] {
+  user_id string fk
+  team_id string fk
+  role string
+  joined_at datetime
+  primary key (user_id, team_id)
+}
+
+Workspaces [icon: briefcase, color: gray] {
+  workspace_id string pk
+  team_id string fk
+  name string
+  description string
+  created_at datetime
+  updated_at datetime
+}
+
+// Relationships
+Users.user_id < Note.user_id
+Users.user_id < Comment.user_id
+Users.user_id < History.user_id
+Users.user_id < Room.owner_id
+Users.user_id < RoomUsers.user_id
+Users.user_id < UserFolders.user_id
+Users.user_id < UserFiles.user_id
+Users.user_id < RoomFiles.uploader_id
+Users.user_id < Invite.inviter_id
+Users.user_id < Invite.invitee_id
+Users.user_id < UserTeams.user_id
+
+Note.note_id < Comment.note_id
+Note.note_id < History.note_id
+
+Room.room_id < RoomUsers.room_id
+Room.room_id < RoomFolders.room_id
+Room.room_id < RoomFiles.room_id
+Room.room_id < Invite.room_id
+
+UserFolders.folder_id < UserFolders.parent_folder_id
+UserFolders.folder_id < UserFiles.folder_id
+
+RoomFolders.folder_id < RoomFolders.parent_folder_id
+RoomFolders.folder_id < RoomFiles.folder_id
+
+Teams.team_id < UserTeams.team_id
+Teams.team_id < Workspaces.team_id
