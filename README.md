@@ -3,7 +3,7 @@
 # Collaborative_Note-taking
 
 
-![Figure 1](/.eraser/OxmVappMO5RE8EK8NbJH___Ryxa1T7S33Xr58yLcTA4rYFgR9v1___---figure---yQ_s1hCg3SyuA_I8XGlqz---figure---X3VZdf7lBVBOjYwQH60Rbw.png "Figure 1")
+![Figure 1](/.eraser/OxmVappMO5RE8EK8NbJH___Ryxa1T7S33Xr58yLcTA4rYFgR9v1___---figure---arxAgnuJOBkTRGdsaNnik---figure---X3VZdf7lBVBOjYwQH60Rbw.png "Figure 1")
 
 # ความหมายและหน้าที่ของแต่ละตารางในฐานข้อมูล
 1. Users
@@ -54,8 +54,7 @@
 <!-- eraser-additional-content -->
 ## Diagrams
 <!-- eraser-additional-files -->
-<a href="/README-entity-relationship-1.eraserdiagram" data-element-id="gH47RvcyakIBRB_a1cZpa"><img src="/.eraser/OxmVappMO5RE8EK8NbJH___Ryxa1T7S33Xr58yLcTA4rYFgR9v1___---diagram----292258dc7451de40c56c800e015cc2e0.png" alt="" data-element-id="gH47RvcyakIBRB_a1cZpa" /></a>
-<a href="/README-entity-relationship-2.eraserdiagram" data-element-id="KSX66uX76ziBGlIfaC1CX"><img src="/.eraser/OxmVappMO5RE8EK8NbJH___Ryxa1T7S33Xr58yLcTA4rYFgR9v1___---diagram----cf05de6a69407ed88f620ac13b335188.png" alt="" data-element-id="KSX66uX76ziBGlIfaC1CX" /></a>
+<a href="/README-entity-relationship-1.eraserdiagram" data-element-id="KSX66uX76ziBGlIfaC1CX"><img src="/.eraser/OxmVappMO5RE8EK8NbJH___Ryxa1T7S33Xr58yLcTA4rYFgR9v1___---diagram----cf05de6a69407ed88f620ac13b335188.png" alt="" data-element-id="KSX66uX76ziBGlIfaC1CX" /></a>
 <!-- end-eraser-additional-files -->
 <!-- end-eraser-additional-content -->
 <!--- Eraser file: https://app.eraser.io/workspace/OxmVappMO5RE8EK8NbJH --->
