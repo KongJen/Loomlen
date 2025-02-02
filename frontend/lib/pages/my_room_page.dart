@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'components/room.dart';
 import 'sample_data.dart';
+import 'components/overlay_setting.dart';
+import 'components/overlay_auth.dart';
 
 class MyRoomPage extends StatefulWidget {
   @override
@@ -16,85 +18,11 @@ class _MyRoomPageState extends State<MyRoomPage> {
     });
   }
 
-  void _showOverlay(BuildContext context) {
-    // Remove any existing overlay before adding a new one
-    _removeOverlay();
+  void _showOverlay(BuildContext context, Widget overlayWidget) {
+    _removeOverlay(); // Remove existing overlay if open
 
     OverlayState overlayState = Overlay.of(context)!;
-    _overlayEntry = OverlayEntry(
-      builder: (context) => Stack(
-        children: [
-          // Background dimming effect
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: _removeOverlay, // Close overlay when tapping outside
-              child: Container(
-                color: Colors.black.withOpacity(0.5),
-              ),
-            ),
-          ),
-          // Centered overlay content
-          Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                width: 300,
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius:
-                            BorderRadius.vertical(top: Radius.circular(10)),
-                      ),
-                      child: Stack(
-                        children: [
-                          Center(
-                            child: Text(
-                              'Settings',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: -17,
-                            right: -10,
-                            child: IconButton(
-                              icon: Icon(Icons.close, color: Colors.black),
-                              onPressed: _removeOverlay,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Divider(),
-                    ListTile(
-                      leading: Icon(Icons.settings),
-                      title: Text('General Settings'),
-                      onTap: _removeOverlay,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    _overlayEntry = OverlayEntry(builder: (context) => overlayWidget);
 
     overlayState.insert(_overlayEntry!);
   }
@@ -152,13 +80,16 @@ class _MyRoomPageState extends State<MyRoomPage> {
                         IconButton(
                           icon: Icon(Icons.settings, color: Colors.black),
                           onPressed: () {
-                            _showOverlay(context);
+                            _showOverlay(context,
+                                OverlaySettings(onClose: _removeOverlay));
                           },
                         ),
                         IconButton(
                           icon: Icon(Icons.person, color: Colors.black),
                           onPressed: () {
                             print("Profile clicked");
+                            _showOverlay(
+                                context, OverlayAuth(onClose: _removeOverlay));
                           },
                         ),
                       ],

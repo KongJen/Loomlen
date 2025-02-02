@@ -19,7 +19,7 @@ func ConnectDB() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
+	clientOptions := options.Client().ApplyURI("mongodb+srv://supakorn12062003:Kong%2Eno01@cluster0.1mlsy.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 	var err error
 	client, err = mongo.Connect(ctx, clientOptions)
 	if err != nil {
