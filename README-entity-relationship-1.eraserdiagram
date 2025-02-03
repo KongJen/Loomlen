@@ -1,58 +1,82 @@
 entity-relationship-diagram
 
-users [icon: user, color: blue] {
-  user_id string pk
-  name string
-  email string
-  password string
-  role string
-  //Pro_picture
+Users[icon: user]{
+  user_id UUID pk
+  email varchar unique
+  password hashed
+  name varchar 
+  created_at timestamp
+  last_login timestamp
 }
 
-Note [icon: users, color: blue] {
-  note_id string pk
-  name string
+Rooms[icon:home]{
+  room_id UUID pk
+  owner_id UUID fk
+  name varchar
+  is_favorite boolean
+  shared_link text
+  is_shared boolean
+  created_at timestamp
+  updated_at timestamp
 }
 
-Comment [icon: message-circle, color: green] {
-  commment_id number
-  note_id string
-  user_id string
-  text string
-  timestamp datetime
+Folders[icon:Folder]{
+  folder_id UUID pk
+  room_id UUID fk
+  name varchar 
+  created_at timestamp 
+  updated_at timestamp
 }
 
-History [icon: mail, color: green] {
-  history_id string
-  note_id string
-  user_id string
-  action string
-  timestamp datetime
+File[icon:File]{
+  file_id UUID pk
+  folder_id UUID fk 
+  room_id UUID fk
+  name varchar
+  content text
+  file_url varchar
+  template_used varchar
+  create_at timestamp
+  updated_at timestamp
 }
 
-Room [icon: home, color: blue] {
-  room_id string pk
-  note_id string
-  user_id string
-  document file
-  //   access_level string
+Roles[icon:k8s-role]{
+  role_id UUID pk
+  name varchar
+  permissions number
 }
 
-folders [icon: folder] {
-  folder_id string pk
-  user_id string
-  name string
-  note_id string
+RoomMembers[icon:table]{
+  room_member_id UUID pk
+  room_id UUID fk
+  user_id UUID fk
+  role_id UUID fk
+  joined_at timestamp
 }
 
-users.Room <> Room.id
-Room.folderId > folders.folder_id
-Room.note_id > Note.note_id
-folders.note_id > Note.note_id
+CloudStorage[icon:cloud]{
+  cloud_id UUID pk
+  owner_id UUID fk
+  room_id UUID fk
+  file_url varchar
+  updated_at timestamp  
+}
 
-// workspaces.teamId > teams.id
-// chat.workspaceId > workspaces.id
-// invite.workspaceId > workspaces.id
-invite.inviterId > users.user_id
-users.user_id <> History.user_id
-Note.note_id <> History.note_id
+Comment[icon:Comment]{
+  comment_id UUID pk
+  user_id UUID fk
+  file_id UUID fk
+  text varchar
+  position varchar
+  date timestamp
+}
+
+Users.user_id < Rooms.owner_id
+Rooms.room_id < Folders.room_id
+Rooms.room_id < File.room_id
+Folders.folder_id < File.folder_id
+Rooms.room_id < RoomMembers.room_id
+RoomMembers.role_id - Roles.role_id
+Rooms.room_id - CloudStorage.room_id
+File.file_id < Comment.file_id
+
