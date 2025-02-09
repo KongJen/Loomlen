@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-class RoomItem extends StatefulWidget {
+class FolderItem extends StatefulWidget {
   final String name;
   final String createdDate;
   final Color color;
   final bool isFavorite;
   final VoidCallback onToggleFavorite;
 
-  const RoomItem({
+  const FolderItem({
     Key? key,
     required this.name,
     required this.createdDate,
@@ -17,10 +17,10 @@ class RoomItem extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<RoomItem> createState() => _RoomItemState();
+  State<FolderItem> createState() => _FolderItemState();
 }
 
-class _RoomItemState extends State<RoomItem> {
+class _FolderItemState extends State<FolderItem> {
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -31,7 +31,7 @@ class _RoomItemState extends State<RoomItem> {
           Stack(
             children: [
               Icon(
-                Icons.home_filled,
+                Icons.folder_open,
                 size: 170,
                 color: widget.color,
               ),
@@ -51,8 +51,7 @@ class _RoomItemState extends State<RoomItem> {
                           offset: Offset(-0.5, 0.5),
                         )
                       ]),
-                  onPressed:
-                      widget.onToggleFavorite, // Trigger the toggle callback
+                  onPressed: widget.onToggleFavorite,
                 ),
               ),
             ],

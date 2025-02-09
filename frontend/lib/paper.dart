@@ -20,14 +20,14 @@ class _PaperState extends State<Paper> {
 
   // Digital Ink Recognition related variables
   final ml_kit.DigitalInkRecognizer _digitalInkRecognizer =
-      ml_kit.DigitalInkRecognizer(languageCode: 'en');
+      ml_kit.DigitalInkRecognizer(languageCode: 'th');
   final ml_kit.DigitalInkRecognizerModelManager _modelManager =
       ml_kit.DigitalInkRecognizerModelManager();
   final ml_kit.Ink _ink = ml_kit.Ink();
   List<ml_kit.StrokePoint> _strokePoints = [];
   String recognizedText = '';
   bool _modelDownloaded = false;
-  var _language = 'en';
+  var _language = 'th';
 
   @override
   void initState() {
