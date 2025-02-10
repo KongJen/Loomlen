@@ -62,8 +62,7 @@ class _BottomNavigationMenuState extends State<NavigationMenu> {
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           border: Border(
-            top: BorderSide(
-                color: Colors.grey, width: 1), // Outline color and width
+            top: BorderSide(color: Colors.grey, width: 1),
           ),
         ),
         child: BottomNavigationBar(

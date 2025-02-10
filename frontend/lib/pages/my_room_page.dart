@@ -1,13 +1,12 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
-import 'components/room.dart';
+import 'package:provider/provider.dart';
 import 'package:dotted_border/dotted_border.dart';
+import 'components/Room/room.dart';
 import 'components/overlay_setting.dart';
 import 'components/overlay_auth.dart';
 import 'components/overlay_createRoom.dart';
-import 'components/room_page.dart';
+import 'components/Room/room_provider.dart';
+import 'room_page.dart';
 
 class MyRoomPage extends StatefulWidget {
   @override
@@ -16,101 +15,33 @@ class MyRoomPage extends StatefulWidget {
 
 class _MyRoomPageState extends State<MyRoomPage> {
   OverlayEntry? _overlayEntry;
-  List<Map<String, dynamic>> rooms = [];
 
-  @override
-  void initState() {
-    super.initState();
-    _loadRooms();
-  }
-
-  void _loadRooms() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/rooms.json');
-
-    if (await file.exists()) {
-      final data = jsonDecode(await file.readAsString());
-
-      setState(() {
-        rooms = List<Map<String, dynamic>>.from(data).map((room) {
-          return {
-            'name': room['name'],
-            'createdDate': room['createdDate'],
-            'color': (room['color'] is int)
-                ? Color(room['color'])
-                : room['color'], // Convert int back to Color
-            'isFavorite': room['isFavorite'],
-          };
-        }).toList();
-      });
+  void _toggleOverlay(Widget? overlayWidget) {
+    if (_overlayEntry != null) {
+      _overlayEntry!.remove();
+      _overlayEntry = null;
+    } else if (overlayWidget != null) {
+      OverlayState overlayState = Overlay.of(context);
+      _overlayEntry = OverlayEntry(builder: (context) => overlayWidget);
+      overlayState.insert(_overlayEntry!);
     }
   }
 
-  void _saveRooms() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/rooms.json');
-
-    List<Map<String, dynamic>> roomsToSave = rooms.map((room) {
-      return {
-        'name': room['name'],
-        'createdDate': room['createdDate'],
-        'color': (room['color'] is Color)
-            ? (room['color'] as Color).value // Convert Color to int
-            : room['color'], // Already an int, no need to convert
-        'isFavorite': room['isFavorite'],
-      };
-    }).toList();
-
-    await file.writeAsString(jsonEncode(roomsToSave));
-  }
-
-  void _createRoom() {
-    setState(() {
-      rooms.add({
-        'name': 'Room ${rooms.length + 1}',
-        'createdDate': DateTime.now().toString(),
-        'color': Colors.primaries[rooms.length % Colors.primaries.length]
-            .value, // Store color as int
-        'isFavorite': false,
-      });
-      _saveRooms();
-    });
-  }
-
-  void toggleFavorite(int index) {
-    setState(() {
-      rooms[index]['isFavorite'] = !rooms[index]['isFavorite'];
-      _saveRooms();
-    });
-  }
-
-  void _showOverlay(BuildContext context, Widget overlayWidget) {
-    _removeOverlay();
-    OverlayState overlayState = Overlay.of(context)!;
-    _overlayEntry = OverlayEntry(builder: (context) => overlayWidget);
-    overlayState.insert(_overlayEntry!);
-  }
-
   void showCreateRoomOverlay() {
-    showDialog(
-      context: context,
-      builder: (context) => OverlayCreateRoom(
-        onClose: () => Navigator.pop(context),
-        onRoomCreated: () {
-          // Reload the rooms list
-          _loadRooms();
-        },
+    _toggleOverlay(
+      OverlayCreateRoom(
+        onClose: () => _toggleOverlay(null),
+        onRoomCreated: () =>
+            setState(() {}), // Refresh the page when a new room is added
       ),
     );
   }
 
-  void _removeOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
-  }
-
   @override
   Widget build(BuildContext context) {
+    final roomProvider = Provider.of<RoomProvider>(context);
+    final rooms = roomProvider.rooms;
+
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(100.0),
@@ -118,9 +49,7 @@ class _MyRoomPageState extends State<MyRoomPage> {
           elevation: 0,
           flexibleSpace: Container(
             decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey, width: 1),
-              ),
+              border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
             ),
             child: Padding(
               padding: EdgeInsets.only(
@@ -157,15 +86,15 @@ class _MyRoomPageState extends State<MyRoomPage> {
                         IconButton(
                           icon: Icon(Icons.settings, color: Colors.black),
                           onPressed: () {
-                            _showOverlay(context,
-                                OverlaySettings(onClose: _removeOverlay));
+                            _toggleOverlay(OverlaySettings(
+                                onClose: () => _toggleOverlay(null)));
                           },
                         ),
                         IconButton(
                           icon: Icon(Icons.person, color: Colors.black),
                           onPressed: () {
-                            _showOverlay(
-                                context, OverlayAuth(onClose: _removeOverlay));
+                            _toggleOverlay(OverlayAuth(
+                                onClose: () => _toggleOverlay(null)));
                           },
                         ),
                       ],
@@ -190,29 +119,24 @@ class _MyRoomPageState extends State<MyRoomPage> {
                   mainAxisSpacing: 16.0,
                   childAspectRatio: 1,
                 ),
-                itemCount: rooms.length + 1, // +1 for the extra "New" item
+                itemCount: rooms.length + 1,
                 itemBuilder: (context, index) {
                   if (index == 0) {
-                    // First item with dashed border
                     return GestureDetector(
-                      onTap: showCreateRoomOverlay, // Call overlay function
+                      onTap: showCreateRoomOverlay,
                       child: Column(
                         children: [
-                          // Fixed size container with dashed border
                           Container(
                             margin: const EdgeInsets.only(top: 50.0),
                             child: DottedBorder(
                               borderType: BorderType.RRect,
                               radius: Radius.circular(8.0),
-                              dashPattern: [
-                                8,
-                                4
-                              ], // Dashes with 8px length and 4px spacing
+                              dashPattern: [8, 4],
                               color: Colors.blue,
                               strokeWidth: 2,
                               child: Container(
-                                width: 100.0, // Set width
-                                height: 100.0, // Set height
+                                width: 100.0,
+                                height: 100.0,
                                 alignment: Alignment.center,
                                 child: const Icon(Icons.add,
                                     size: 32, color: Colors.blue),
@@ -226,9 +150,7 @@ class _MyRoomPageState extends State<MyRoomPage> {
                       ),
                     );
                   } else {
-                    // Normal room items
-                    final room = rooms[index -
-                        1]; // Adjust index since we added one extra item
+                    final room = rooms[index - 1];
                     return GestureDetector(
                       onTap: () {
                         Navigator.push(
@@ -236,9 +158,8 @@ class _MyRoomPageState extends State<MyRoomPage> {
                           MaterialPageRoute(
                             builder: (context) => RoomDetailPage(
                               room: room,
-                              onRoomUpdated: () {
-                                _loadRooms();
-                              },
+                              onRoomUpdated: () =>
+                                  setState(() {}), // Refresh UI
                             ),
                           ),
                         );
@@ -246,9 +167,12 @@ class _MyRoomPageState extends State<MyRoomPage> {
                       child: RoomItem(
                         name: room['name'],
                         createdDate: room['createdDate'],
-                        color: room['color'],
+                        color: (room['color'] is int)
+                            ? Color(room['color'])
+                            : room['color'],
                         isFavorite: room['isFavorite'],
-                        onToggleFavorite: () => toggleFavorite(index - 1),
+                        onToggleFavorite: () =>
+                            roomProvider.toggleFavorite(room['name']),
                       ),
                     );
                   }
