@@ -1,0 +1,1 @@
+com.google_mlkit_commons
