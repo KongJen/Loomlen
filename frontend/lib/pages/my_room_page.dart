@@ -31,8 +31,6 @@ class _MyRoomPageState extends State<MyRoomPage> {
     _toggleOverlay(
       OverlayCreateRoom(
         onClose: () => _toggleOverlay(null),
-        onRoomCreated: () =>
-            setState(() {}), // Refresh the page when a new room is added
       ),
     );
   }

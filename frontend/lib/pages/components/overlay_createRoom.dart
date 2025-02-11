@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'package:path_provider/path_provider.dart';
+import "Room/room_provider.dart";
 
 class OverlayCreateRoom extends StatefulWidget {
   final VoidCallback onClose;
-  final VoidCallback? onRoomCreated;
 
-  const OverlayCreateRoom({
-    Key? key,
-    required this.onClose,
-    this.onRoomCreated,
-  }) : super(key: key);
+  const OverlayCreateRoom({Key? key, required this.onClose}) : super(key: key);
 
   @override
   _OverlayCreateRoomState createState() => _OverlayCreateRoomState();
@@ -32,33 +29,15 @@ class _OverlayCreateRoomState extends State<OverlayCreateRoom> {
     Colors.pink,
   ];
 
-  Future<void> createRoom() async {
+  void createRoom() {
     if (nameController.text.trim().isEmpty) return;
 
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/rooms.json');
+    final roomProvider = Provider.of<RoomProvider>(context, listen: false);
 
-    List<Map<String, dynamic>> rooms = [];
+    roomProvider.addRoom(
+        nameController.text.trim(), selectedColor); // ✅ Add room via Provider
 
-    if (await file.exists()) {
-      final data = jsonDecode(await file.readAsString());
-      rooms = List<Map<String, dynamic>>.from(data);
-    }
-
-    // Add new room
-    rooms.add({
-      'name': nameController.text.trim(),
-      'createdDate': DateTime.now().toString(),
-      'color': selectedColor.value, // Store color as int
-      'isFavorite': false,
-    });
-
-    // Save updated rooms list
-    await file.writeAsString(jsonEncode(rooms));
-
-    // Notify parent and close overlay
-    widget.onRoomCreated?.call();
-    widget.onClose();
+    widget.onClose(); // ✅ Close overlay
   }
 
   @override
@@ -187,7 +166,7 @@ class _OverlayCreateRoomState extends State<OverlayCreateRoom> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: createRoom,
+                            onPressed: createRoom, // ✅ Use function
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue,
                               padding: EdgeInsets.symmetric(vertical: 12),
