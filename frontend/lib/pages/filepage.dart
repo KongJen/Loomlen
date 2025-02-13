@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:dotted_border/dotted_border.dart';
-import 'components/filedialog.dart';
-import 'components/fileitem.dart';
+import '../widget/filedialog.dart';
+import '../widget/fileitem.dart';
 import 'file_detail_page.dart';
 
 class MyFilePage extends StatefulWidget {

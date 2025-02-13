@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'components/Room/room.dart';
-import 'components/Room/room_provider.dart';
+import '../OBJ/object.dart';
+import '../OBJ/provider.dart';
 import 'room_page.dart';
 
 class FavoritesPage extends StatefulWidget {
+  const FavoritesPage({super.key});
+
   @override
   State<FavoritesPage> createState() => _FavoritesPageState();
 }
@@ -110,12 +112,14 @@ class _FavoritesPageState extends State<FavoritesPage>
                       );
                     },
                     child: RoomItem(
+                      id: room['id'],
                       name: room['name'],
                       createdDate: room['createdDate'],
                       color: (room['color'] is int)
                           ? Color(room['color'])
                           : room['color'],
                       isFavorite: room['isFavorite'],
+                      folderIds: room['folderIds'] ?? [],
                       onToggleFavorite: () {
                         Provider.of<RoomProvider>(context, listen: false)
                             .toggleFavorite(room['name']);

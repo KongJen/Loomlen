@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:dotted_border/dotted_border.dart';
-import 'components/Room/room.dart';
-import 'components/overlay_setting.dart';
-import 'components/overlay_auth.dart';
-import 'components/overlay_createRoom.dart';
-import 'components/Room/room_provider.dart';
+import '../OBJ/object.dart';
+import '../widget/overlay_setting.dart';
+import '../widget/overlay_auth.dart';
+import '../widget/overlay_createRoom.dart';
+import '../OBJ/provider.dart';
 import 'room_page.dart';
 
 class MyRoomPage extends StatefulWidget {
+  const MyRoomPage({super.key});
+
   @override
   State<MyRoomPage> createState() => _MyRoomPageState();
 }
@@ -149,6 +151,11 @@ class _MyRoomPageState extends State<MyRoomPage> {
                     );
                   } else {
                     final room = rooms[index - 1];
+                    // print('Room ID: ${room['id']}');
+                    // print('Room Name: ${room['name']}');
+                    // print('Room Color: ${room['color']}');
+                    // print('Room Created Date: ${room['createdDate']}');
+                    // print('Room Folders: ${room['foldes']}');
                     return GestureDetector(
                       onTap: () {
                         Navigator.push(
@@ -163,12 +170,14 @@ class _MyRoomPageState extends State<MyRoomPage> {
                         );
                       },
                       child: RoomItem(
+                        id: room['id'],
                         name: room['name'],
                         createdDate: room['createdDate'],
                         color: (room['color'] is int)
                             ? Color(room['color'])
                             : room['color'],
                         isFavorite: room['isFavorite'],
+                        folderIds: room['folderIds'] ?? [],
                         onToggleFavorite: () =>
                             roomProvider.toggleFavorite(room['name']),
                       ),
