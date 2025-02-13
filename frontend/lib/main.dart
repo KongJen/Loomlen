@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend/navigation_menu.dart';
-import 'package:frontend/pages/components/Room/room_provider.dart';
+import 'package:frontend/OBJ/provider.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => RoomProvider(),
-      child: const MyApp(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => FolderProvider()),
+        ChangeNotifierProvider(create: (context) => RoomProvider()),
+      ],
+      child: MyApp(),
     ),
   );
 }
@@ -18,7 +21,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Notetaking App',
+      title: 'Notetaking App',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
