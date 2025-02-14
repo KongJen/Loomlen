@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../OBJ/provider.dart';
-import 'package:uuid/uuid.dart';
 
 class OverlayCreateFolder extends StatefulWidget {
-  final String roomId;
+  final String parentId;
+  final bool isInFolder;
   final VoidCallback onClose;
 
   const OverlayCreateFolder({
-    Key? key,
-    required this.roomId,
+    super.key,
     required this.onClose,
-  }) : super(key: key);
+    required this.parentId,
+    required this.isInFolder,
+  });
 
   @override
+  // ignore: library_private_types_in_public_api
   _OverlayCreateFolderState createState() => _OverlayCreateFolderState();
 }
 
@@ -40,19 +42,24 @@ class _OverlayCreateFolderState extends State<OverlayCreateFolder> {
 
     final folderId =
         folderProvider.addFolder(nameController.text.trim(), selectedColor);
-    roomProvider.addFolderToRoom(widget.roomId, folderId);
+    if (widget.isInFolder == true) {
+      folderProvider.addFolderToFolder(widget.parentId, folderId);
+    } else {
+      roomProvider.addFolderToRoom(widget.parentId, folderId);
+    }
 
     widget.onClose();
   }
 
   @override
   Widget build(BuildContext context) {
-    debugPrint("Room Name: ${widget.roomId}");
+    debugPrint("Room Name: ${widget.parentId}");
     return Stack(
       children: [
         Positioned.fill(
           child: GestureDetector(
             onTap: widget.onClose,
+            // ignore: deprecated_member_use
             child: Container(color: Colors.black.withOpacity(0.5)),
           ),
         ),
@@ -126,7 +133,7 @@ class _OverlayCreateFolderState extends State<OverlayCreateFolder> {
                         ),
                         SizedBox(height: 8),
                         // Color Picker
-                        Container(
+                        SizedBox(
                           height: 50,
                           child: ListView.builder(
                             scrollDirection: Axis.horizontal,
