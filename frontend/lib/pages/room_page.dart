@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../OBJ/provider.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:provider/provider.dart';
+import '../widget/overlaymenu.dart';
 import '../widget/overlay_createFolder.dart';
 import '../OBJ/object.dart';
 
@@ -40,6 +41,26 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
       _overlayEntry = OverlayEntry(builder: (context) => overlayWidget);
       overlayState.insert(_overlayEntry!);
     }
+  }
+
+  void showOverlaySelect(
+      String parentId, BuildContext context, Offset position) {
+    _toggleOverlay(
+      OverlaySelect(
+        overlayPosition: position,
+        onCreateFolder: () {
+          _toggleOverlay(null);
+          showCreateFolderOverlay(parentId);
+        },
+        onCreateFile: () {
+          _toggleOverlay(null);
+          // showCreateFileOverlay();
+        },
+        onClose: () {
+          _toggleOverlay(null);
+        },
+      ),
+    );
   }
 
   void showCreateFolderOverlay(String parentId) {
@@ -165,9 +186,14 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return GestureDetector(
-                      onTap: () => showCreateFolderOverlay(currentFolder != null
-                          ? currentFolder!['id']
-                          : currentRoom['id']),
+                      onTapDown: (TapDownDetails details) => showOverlaySelect(
+                        currentFolder != null
+                            ? currentFolder!['id']
+                            : currentRoom['id'],
+                        context,
+                        details
+                            .globalPosition, // Now it correctly gets the tap position
+                      ),
                       child: Column(
                         children: [
                           Container(
