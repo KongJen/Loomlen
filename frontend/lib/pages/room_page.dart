@@ -22,11 +22,13 @@ class RoomDetailPage extends StatefulWidget {
 class _RoomDetailPageState extends State<RoomDetailPage> {
   late Map<String, dynamic> currentRoom;
   OverlayEntry? _overlayEntry;
+  List<Map<String, dynamic>> navigationStack = [];
+  Map<String, dynamic>? currentFolder;
 
   @override
   void initState() {
     super.initState();
-    currentRoom = Map<String, dynamic>.from(widget.room); // Create a local copy
+    currentRoom = Map<String, dynamic>.from(widget.room);
   }
 
   void _toggleOverlay(Widget? overlayWidget) {
@@ -40,11 +42,62 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     }
   }
 
-  void showCreateFolderOverlay(String roomId) {
+  void showCreateFolderOverlay(String parentId) {
     _toggleOverlay(
       OverlayCreateFolder(
-        roomId: roomId,
+        parentId: currentFolder != null ? currentFolder!['id'] : parentId,
+        isInFolder: currentFolder != null,
         onClose: () => _toggleOverlay(null),
+      ),
+    );
+  }
+
+  void navigateToFolder(Map<String, dynamic> folder) {
+    setState(() {
+      if (currentFolder != null) {
+        navigationStack.add(currentFolder!);
+      }
+      currentFolder = folder;
+    });
+  }
+
+  void navigateBack() {
+    if (navigationStack.isNotEmpty) {
+      setState(() {
+        currentFolder = navigationStack.removeLast();
+      });
+    } else {
+      setState(() {
+        currentFolder = null;
+      });
+    }
+  }
+
+  Widget buildBreadcrumb() {
+    List<Map<String, dynamic>> fullPath = [currentRoom];
+    if (navigationStack.isNotEmpty) {
+      fullPath.addAll(navigationStack);
+    }
+    if (currentFolder != null) {
+      fullPath.add(currentFolder!);
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: fullPath.map((folder) {
+          int index = fullPath.indexOf(folder);
+          return Row(
+            children: [
+              if (index > 0)
+                const Icon(Icons.chevron_right, color: Colors.white),
+              Text(
+                folder['name'],
+                style: const TextStyle(color: Colors.white),
+              ),
+            ],
+          );
+        }).toList(),
       ),
     );
   }
@@ -52,35 +105,31 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   @override
   Widget build(BuildContext context) {
     final folderProvider = Provider.of<FolderProvider>(context);
-    // Safely handle null folderIds by defaulting to an empty list if null
-    final folderIds =
-        currentRoom['folderIds'] ?? []; // Default to empty list if null
+    final List<String> currentFolderIds = currentFolder != null
+        ? (currentFolder!['subfolderIds'] ?? [])
+        : (currentRoom['folderIds'] ?? []);
 
-    // Filter folders based on 'folderIds' of the current room
     final folders = folderProvider.folders
-        .where((folder) => folderIds.contains(folder['id']))
+        .where((folder) => currentFolderIds.contains(folder['id']))
         .toList();
 
-    // Print all data from the filtered folders
-    folders.forEach((folder) {
-      print("Folder ID: ${folder['id']}");
-      print("Folder Name: ${folder['name']}");
-      print("Folder Created Date: ${folder['createdDate']}");
-      print("Folder Color: ${folder['color']}");
-      print("Folder IsFavorite: ${folder['isFavorite']}");
-    });
-
-    print("folderIds from currentRoom: $folderIds");
-    print("folderName: ${currentRoom['folderIds']}");
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          currentRoom['name'],
-          style: const TextStyle(color: Colors.white),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: currentFolder != null
+              ? navigateBack
+              : () => Navigator.pop(context),
         ),
-        backgroundColor: currentRoom['color'] is int
-            ? Color(currentRoom['color'])
-            : currentRoom['color'],
+        title: buildBreadcrumb(),
+        backgroundColor:
+            (currentFolder != null && currentFolder!['color'] != null)
+                ? (currentFolder!['color'] is int
+                    ? Color(currentFolder!['color'])
+                    : currentFolder!['color'])
+                : (currentRoom['color'] is int
+                    ? Color(currentRoom['color'])
+                    : currentRoom['color']),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
@@ -91,11 +140,9 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
             onPressed: () {
               final roomProvider =
                   Provider.of<RoomProvider>(context, listen: false);
-              roomProvider
-                  .toggleFavorite(currentRoom['name']); // ✅ Call the function
+              roomProvider.toggleFavorite(currentRoom['name']);
               setState(() {
-                currentRoom['isFavorite'] =
-                    !currentRoom['isFavorite']; // ✅ Update UI instantly
+                currentRoom['isFavorite'] = !currentRoom['isFavorite'];
               });
             },
           ),
@@ -118,7 +165,9 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return GestureDetector(
-                      onTap: () => showCreateFolderOverlay(currentRoom['id']),
+                      onTap: () => showCreateFolderOverlay(currentFolder != null
+                          ? currentFolder!['id']
+                          : currentRoom['id']),
                       child: Column(
                         children: [
                           Container(
@@ -147,7 +196,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                   } else {
                     final folder = folders[index - 1];
                     return GestureDetector(
-                      onTap: () {},
+                      onTap: () => navigateToFolder(folder),
                       child: FolderItem(
                         id: folder['id'],
                         name: folder['name'],
@@ -156,7 +205,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                             ? Color(folder['color'])
                             : folder['color'],
                         isFavorite: folder['isFavorite'],
-                        subfolders: [], // Ensure no undefined errors
+                        subfolderIds: folder['subfolderIds'] ?? [],
+                        fileIds: folder['fileIds'] ?? [],
                         onToggleFavorite: () =>
                             folderProvider.toggleFavoriteFolder(folder['id']),
                       ),

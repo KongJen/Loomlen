@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
-import 'object.dart';
 
 //------------------------ Room Provider ------------------------
 
@@ -33,7 +32,7 @@ class RoomProvider extends ChangeNotifier {
           'color':
               (room['color'] is int) ? Color(room['color']) : room['color'],
           'isFavorite': room['isFavorite'],
-          'folderIds': List<String>.from(room['folderids'] ?? []),
+          'folderIds': List<String>.from(room['folderIds'] ?? []),
         };
       }).toList();
 
@@ -54,7 +53,7 @@ class RoomProvider extends ChangeNotifier {
             ? (room['color'] as Color).value
             : room['color'],
         'isFavorite': room['isFavorite'],
-        'folderids': room['folderIds'] ?? [],
+        'folderIds': room['folderIds'] ?? [],
       };
     }).toList();
     print("Saveroom $roomsToSave");
@@ -99,7 +98,7 @@ class RoomProvider extends ChangeNotifier {
       }
 
       // Add the new folder ID to the list
-      (folders as List<String>).add(folderId);
+      folders.add(folderId);
 
       // Save the updated rooms and notify listeners
       _rooms[index]['folderIds'] = folders; // Correct the key here
@@ -148,10 +147,8 @@ class FolderProvider extends ChangeNotifier {
                 ? Color(folder['color'])
                 : folder['color'],
             'isFavorite': folder['isFavorite'],
-            'folderids': (folder['folderids'] as List<dynamic>?)
-                    ?.map((folder) => folder['id'] as String)
-                    .toList() ??
-                [],
+            'subfolderIds': List<String>.from(folder['subfolderIds'] ?? []),
+            'fileIds': List<String>.from(folder['fileIds'] ?? []),
           };
         }).toList();
 
@@ -176,6 +173,8 @@ class FolderProvider extends ChangeNotifier {
             ? (folder['color'] as Color).value
             : folder['color'],
         'isFavorite': folder['isFavorite'],
+        'subfolderIds': folder['subfolderIds'] ?? [],
+        'fileIds': folder['fileIds'] ?? [],
       };
     }).toList();
 
@@ -208,5 +207,141 @@ class FolderProvider extends ChangeNotifier {
     notifyListeners();
 
     return folderId;
+  }
+
+  void addFolderToFolder(String folderId, String subfolderId) {
+    final index = _folders.indexWhere((folder) => folder['id'] == folderId);
+    if (index != -1) {
+      // Ensure 'folderIds' is a List<String> before adding the new folder
+      var folders = _folders[index]['subfolderIds'];
+
+      // If folders is not already a List<String>, initialize it
+      if (folders == null || folders is! List<String>) {
+        folders = <String>[]; // Initialize an empty list if needed
+      }
+
+      // Add the new folder ID to the list
+      folders.add(subfolderId);
+
+      // Save the updated rooms and notify listeners
+      _folders[index]['subfolderIds'] = folders; // Correct the key here
+      _saveFolders();
+      notifyListeners();
+    }
+  }
+
+  void addFileToFolder(String folderId, String fileId) {
+    final index = _folders.indexWhere((folder) => folder['id'] == folderId);
+    if (index != -1) {
+      // Ensure 'folderIds' is a List<String> before adding the new folder
+      var files = _folders[index]['fileIds'];
+
+      // If folders is not already a List<String>, initialize it
+      if (files == null || files is! List<String>) {
+        files = <String>[]; // Initialize an empty list if needed
+      }
+
+      // Add the new folder ID to the list
+      files.add(fileId);
+
+      // Save the updated rooms and notify listeners
+      _folders[index]['fileIds'] = files; // Correct the key here
+      _saveFolders();
+      notifyListeners();
+    }
+  }
+}
+
+//------------------------ File Provider ----------------------------
+
+class FileProvider extends ChangeNotifier {
+  List<Map<String, dynamic>> _files = [];
+  final Uuid _uuid = Uuid();
+
+  List<Map<String, dynamic>> get files => _files;
+
+  FileProvider() {
+    _loadFiles();
+  }
+
+  Future<void> _loadFiles() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/files.json');
+
+    if (await file.exists()) {
+      final fileContent = await file.readAsString();
+
+      // Check if file content is empty
+      if (fileContent.isEmpty) {
+        // Handle the case when the file is empty
+        _files = [];
+        notifyListeners();
+        return;
+      }
+
+      try {
+        final data = jsonDecode(fileContent);
+
+        _files = List<Map<String, dynamic>>.from(data).map((file) {
+          return {
+            'id': file['id'],
+            'name': file['name'],
+            'createdDate': file['createdDate'],
+            'size': file['size'],
+            'isFavorite': file['isFavorite'],
+          };
+        }).toList();
+
+        notifyListeners();
+      } catch (e) {
+        print("Error decoding JSON: $e");
+      }
+    }
+  }
+
+  // Save files to local storage
+  Future<void> _saveFiles() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/files.json');
+
+    List<Map<String, dynamic>> filesToSave = _files.map((file) {
+      return {
+        'id': file['id'],
+        'name': file['name'],
+        'createdDate': file['createdDate'],
+        'size': file['size'],
+        'isFavorite': file['isFavorite'],
+      };
+    }).toList();
+
+    await file.writeAsString(jsonEncode(filesToSave));
+  }
+
+  /// Toggle favorite status of a file
+  void toggleFavoriteFile(String fileId) {
+    final index = _files.indexWhere((file) => file['id'] == fileId);
+    if (index != -1) {
+      _files[index]['isFavorite'] = !_files[index]['isFavorite'];
+      _saveFiles();
+      notifyListeners();
+    }
+  }
+
+  /// Add a new file
+  String addFile(String name, int size) {
+    final String fileId = _uuid.v4();
+    final newFile = {
+      'id': fileId,
+      'name': name,
+      'createdDate': DateTime.now().toIso8601String(),
+      'size': size,
+      'isFavorite': false,
+    };
+
+    _files.add(newFile);
+    _saveFiles();
+    notifyListeners();
+
+    return fileId;
   }
 }

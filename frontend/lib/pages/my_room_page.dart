@@ -79,9 +79,7 @@ class _MyRoomPageState extends State<MyRoomPage> {
                       children: [
                         IconButton(
                           icon: Icon(Icons.select_all, color: Colors.black),
-                          onPressed: () {
-                            print("Select clicked");
-                          },
+                          onPressed: () {},
                         ),
                         IconButton(
                           icon: Icon(Icons.settings, color: Colors.black),
@@ -155,7 +153,7 @@ class _MyRoomPageState extends State<MyRoomPage> {
                     // print('Room Name: ${room['name']}');
                     // print('Room Color: ${room['color']}');
                     // print('Room Created Date: ${room['createdDate']}');
-                    // print('Room Folders: ${room['foldes']}');
+                    // print('Room FolderIds: ${room['folderIds']}');
                     return GestureDetector(
                       onTap: () {
                         Navigator.push(
