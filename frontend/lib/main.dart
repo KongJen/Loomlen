@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend/navigation_menu.dart';
 import 'package:frontend/OBJ/provider.dart';
+import 'package:frontend/paper.dart';
 
 void main() {
   runApp(
@@ -9,6 +10,7 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (context) => FolderProvider()),
         ChangeNotifierProvider(create: (context) => RoomProvider()),
+        ChangeNotifierProvider(create: (context) => FileProvider()),
       ],
       child: MyApp(),
     ),

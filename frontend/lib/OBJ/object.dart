@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:frontend/paper.dart';
+import '../model/drawingpoint.dart';
 import 'dart:ui' as ui;
 
 /*--------------RoomItem--------------------*/
@@ -12,6 +14,7 @@ class RoomItem extends StatefulWidget {
   final bool isFavorite;
   final VoidCallback onToggleFavorite;
   final List<String> folderIds;
+  final List<String> fileIds;
 
   const RoomItem({
     Key? key,
@@ -22,6 +25,7 @@ class RoomItem extends StatefulWidget {
     required this.isFavorite,
     required this.onToggleFavorite,
     required this.folderIds,
+    required this.fileIds,
   }) : super(key: key);
 
   @override
@@ -178,19 +182,23 @@ class FileItem extends StatefulWidget {
   final String id;
   final String name;
   final String createdDate;
-  final String template;
   // final List<DrawingState> history;
   final int currentHistoryIndex;
   final String? recognizedText;
   final bool isFavorite;
   final VoidCallback onToggleFavorite;
+  final String templateId; // Changed from template string to templateId
+  final TemplateType templateType; // Added template type
+  final double spacing; // Added spacing
 
   const FileItem({
     Key? key,
     required this.id,
     required this.name,
     required this.createdDate,
-    this.template = 'blank',
+    this.templateId = 'plain',
+    this.templateType = TemplateType.plain,
+    this.spacing = 30.0,
     // required this.history,
     this.currentHistoryIndex = -1,
     this.recognizedText,
@@ -237,143 +245,158 @@ class _FileItemState extends State<FileItem> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Stack(
-            children: [
-              Container(
-                width: 170,
-                height: 170,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.3),
-                      spreadRadius: 1,
-                      blurRadius: 3,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Stack(
-                    children: [
-                      // Template or background
-                      if (backgroundImage != null)
-                        SizedBox(
-                          width: 170,
-                          height: 170,
-                          child: CustomPaint(
-                            painter: NotePainter(
-                              // points: widget
-                              //     .history[widget.currentHistoryIndex].points,
-                              backgroundImage: backgroundImage,
-                              scale: 170 / backgroundImage!.width,
-                            ),
-                          ),
-                        )
-                      else
-                        // Show template preview if no background
-                        _buildTemplatePreview(),
-
-                      // Show recognized text preview if available
-                      if (widget.recognizedText != null &&
-                          widget.recognizedText!.isNotEmpty)
-                        Positioned(
-                          bottom: 5,
-                          left: 5,
-                          right: 5,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.6),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              widget.recognizedText!,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              // Favorite button
-              Positioned(
-                right: 15,
-                top: 15,
-                child: IconButton(
-                  icon: Icon(
-                    Icons.star_rate_rounded,
-                    size: 50,
-                    color: widget.isFavorite
-                        ? Colors.red
-                        : const Color.fromARGB(255, 212, 212, 212),
-                    shadows: const [
+    final template = PaperTemplate(
+      id: widget.templateId,
+      name: _getTemplateName(),
+      templateType: widget.templateType,
+      spacing: widget.spacing,
+    );
+    return SizedBox(
+      // Added a SizedBox to constrain the overall size
+      width: 190,
+      height: 210,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+            horizontal: 8.0), // Reduced horizontal padding
+        child: Column(
+          mainAxisSize: MainAxisSize.min, // Changed to min to prevent expansion
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Stack(
+              children: [
+                Container(
+                  width: 170,
+                  height: 170,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
                       BoxShadow(
-                        color: Colors.black,
-                        blurRadius: 2,
-                        offset: Offset(-0.5, 0.5),
-                      )
+                        color: Colors.grey.withOpacity(0.3),
+                        spreadRadius: 1,
+                        blurRadius: 3,
+                        offset: const Offset(0, 2),
+                      ),
                     ],
                   ),
-                  onPressed: widget.onToggleFavorite,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Stack(
+                      children: [
+                        CustomPaint(
+                          painter: TemplateThumbnailPainter(template: template),
+                          size: const Size(80, 60),
+                        ),
+                        if (widget.recognizedText != null &&
+                            widget.recognizedText!.isNotEmpty)
+                          Positioned(
+                            bottom: 5,
+                            left: 5,
+                            right: 5,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                widget.recognizedText!,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
+                Positioned(
+                  right: 15,
+                  top: 15,
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.star_rate_rounded,
+                      size: 50,
+                      color: widget.isFavorite
+                          ? Colors.red
+                          : const Color.fromARGB(255, 212, 212, 212),
+                      shadows: const [
+                        BoxShadow(
+                          color: Colors.black,
+                          blurRadius: 2,
+                          offset: Offset(-0.5, 0.5),
+                        )
+                      ],
+                    ),
+                    onPressed: widget.onToggleFavorite,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4), // Reduced vertical spacing
+            Flexible(
+              // Added Flexible to allow text to shrink if needed
+              child: Text(
+                widget.name,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.blueAccent,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            widget.name,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-              color: Colors.blueAccent,
             ),
-          ),
-          const SizedBox(height: 2.0),
-          Text(
-            widget.createdDate,
-            style: const TextStyle(
-              fontSize: 10,
-              color: Colors.grey,
+            const SizedBox(height: 4.0),
+            Flexible(
+              // Added Flexible to allow text to shrink if needed
+              child: Text(
+                widget.createdDate,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildTemplatePreview() {
-    switch (widget.template) {
-      case 'grid':
-        return CustomPaint(
-          painter: GridPainter(),
-          size: const Size(170, 170),
-        );
-      case 'lined':
-        return CustomPaint(
-          painter: LinedPaperPainter(),
-          size: const Size(170, 170),
-        );
-      case 'todo':
-        return CustomPaint(
-          painter: TodoTemplatePainter(),
-          size: const Size(170, 170),
-        );
+    final template = PaperTemplate(
+      id: widget.templateId,
+      name: _getTemplateName(),
+      templateType: widget.templateType,
+      spacing: widget.spacing,
+    );
+
+    // Use a single custom painter for all template types
+    return CustomPaint(
+      painter: TemplateThumbnailPainter(template: template),
+      size: const Size(170, 170),
+    );
+  }
+
+  String _getTemplateName() {
+    switch (widget.templateType) {
+      case TemplateType.plain:
+        return 'Plain Paper';
+      case TemplateType.lined:
+        return 'Lined Paper';
+      case TemplateType.grid:
+        return 'Grid Paper';
+      case TemplateType.dotted:
+        return 'Dotted Paper';
       default:
-        return Container(color: Colors.white);
+        return 'Plain Paper';
     }
   }
 }
@@ -483,3 +506,120 @@ class TodoTemplatePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
+//--------------- Paper Template -----------------------//
+
+class PaperTemplate {
+  final String id;
+  final String name;
+  final Color backgroundColor;
+  final Color lineColor;
+  final double lineWidth;
+  final TemplateType templateType;
+  final double spacing;
+
+  const PaperTemplate({
+    required this.id,
+    required this.name,
+    this.backgroundColor = Colors.white,
+    this.lineColor = const Color(0xFFCCCCCC),
+    this.lineWidth = 1.0,
+    this.templateType = TemplateType.plain,
+    this.spacing = 30.0,
+  });
+
+  void paintTemplate(Canvas canvas, Size size) {
+    // Fill the background
+    final Paint backgroundPaint = Paint()..color = backgroundColor;
+    canvas.drawRect(Offset.zero & size, backgroundPaint);
+
+    final Paint linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = lineWidth
+      ..style = PaintingStyle.stroke;
+
+    // Draw template based on type
+    switch (templateType) {
+      case TemplateType.plain:
+        // Plain paper has just the background
+        break;
+      case TemplateType.lined:
+        _drawLinedPaper(canvas, size, linePaint);
+        break;
+      case TemplateType.grid:
+        _drawGridPaper(canvas, size, linePaint);
+        break;
+      case TemplateType.dotted:
+        _drawDottedPaper(canvas, size, linePaint);
+        break;
+    }
+  }
+
+  void _drawLinedPaper(Canvas canvas, Size size, Paint paint) {
+    for (double y = spacing; y < size.height; y += spacing) {
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        paint,
+      );
+    }
+  }
+
+  void _drawGridPaper(Canvas canvas, Size size, Paint paint) {
+    // Draw horizontal lines
+    for (double y = spacing; y < size.height; y += spacing) {
+      canvas.drawLine(
+        Offset(0, y),
+        Offset(size.width, y),
+        paint,
+      );
+    }
+
+    // Draw vertical lines
+    for (double x = spacing; x < size.width; x += spacing) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x, size.height),
+        paint,
+      );
+    }
+  }
+
+  void _drawDottedPaper(Canvas canvas, Size size, Paint paint) {
+    final radius = 1.0;
+
+    paint.style = PaintingStyle.fill;
+
+    for (double x = spacing; x < size.width; x += spacing) {
+      for (double y = spacing; y < size.height; y += spacing) {
+        canvas.drawCircle(
+          Offset(x, y),
+          radius,
+          paint,
+        );
+      }
+    }
+  }
+}
+
+enum TemplateType {
+  plain,
+  lined,
+  grid,
+  dotted,
+}
+
+class TemplateThumbnailPainter extends CustomPainter {
+  final PaperTemplate template;
+
+  TemplateThumbnailPainter({required this.template});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    template.paintTemplate(canvas, size);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+//---------------------------------------------------------//

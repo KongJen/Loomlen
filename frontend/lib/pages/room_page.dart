@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../widget/overlaymenu.dart';
 import '../widget/overlay_createFolder.dart';
 import '../OBJ/object.dart';
+import '../widget/overlay_createFile.dart';
+import '../paper.dart';
 
 class RoomDetailPage extends StatefulWidget {
   final Map<String, dynamic> room;
@@ -25,6 +27,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   OverlayEntry? _overlayEntry;
   List<Map<String, dynamic>> navigationStack = [];
   Map<String, dynamic>? currentFolder;
+  Map<String,dynamic>? currentFile;
 
   @override
   void initState() {
@@ -54,7 +57,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
         },
         onCreateFile: () {
           _toggleOverlay(null);
-          // showCreateFileOverlay();
+          showCreateFileOverlay(parentId);
         },
         onClose: () {
           _toggleOverlay(null);
@@ -73,6 +76,16 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     );
   }
 
+    void showCreateFileOverlay(String parentId) {
+    _toggleOverlay(
+      OverlayCreateFile(
+        parentId: currentFile != null ? currentFile!['id'] : parentId,
+        isInFolder: currentFolder != null,
+        onClose: () => _toggleOverlay(null),
+      ),
+    );
+  }
+
   void navigateToFolder(Map<String, dynamic> folder) {
     setState(() {
       if (currentFolder != null) {
@@ -81,6 +94,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
       currentFolder = folder;
     });
   }
+
+   
 
   void navigateBack() {
     if (navigationStack.isNotEmpty) {
@@ -126,6 +141,11 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   @override
   Widget build(BuildContext context) {
     final folderProvider = Provider.of<FolderProvider>(context);
+    final fileProvider = Provider.of<FileProvider>(context);
+
+  print('Current Folder IDs: ${currentFolder != null ? currentFolder!['subfolderIds'] : currentRoom['folderIds']}');
+  print('Current File IDs: ${currentFolder != null ? currentFolder!['fileIds'] : currentRoom['fileIds']}');
+
     final List<String> currentFolderIds = currentFolder != null
         ? (currentFolder!['subfolderIds'] ?? [])
         : (currentRoom['folderIds'] ?? []);
@@ -133,6 +153,18 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final folders = folderProvider.folders
         .where((folder) => currentFolderIds.contains(folder['id']))
         .toList();
+
+    final List<String> currentFileIds = currentFolder != null
+      ? (currentFolder!['fileIds'] ?? [])
+      : (currentRoom['fileIds'] ?? []);
+
+    final files = fileProvider.files
+      .where((file) => currentFileIds.contains(file['id']))
+      .toList();
+
+    print('Filtered Folders: ${folders.length}');
+    print('Filtered Files: ${files.length}');
+
 
     return Scaffold(
       appBar: AppBar(
@@ -182,7 +214,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                   mainAxisSpacing: 16.0,
                   childAspectRatio: 1,
                 ),
-                itemCount: folders.length + 1,
+                itemCount: folders.length + files.length + 1,
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return GestureDetector(
@@ -219,7 +251,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                         ],
                       ),
                     );
-                  } else {
+                  } else if(index <= folders.length){
                     final folder = folders[index - 1];
                     return GestureDetector(
                       onTap: () => navigateToFolder(folder),
@@ -237,7 +269,22 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                             folderProvider.toggleFavoriteFolder(folder['id']),
                       ),
                     );
-                  }
+                    }else {
+                    final file = files[index - folders.length - 1];
+                    return GestureDetector(
+                      onTap: () {Navigator.push(context, MaterialPageRoute(builder: (context) => Paper(name: file['name'],fileId: file['id'],)));},
+                      child: FileItem(
+                        id: file['id'],
+                        name: file['name'],
+                        createdDate: file['createdDate'],
+                        isFavorite: file['isFavorite'],
+                        onToggleFavorite: () =>
+                            fileProvider.toggleFavoriteFile(file['id']),
+                        
+                      ),
+                    );
+                    }
+                  
                 },
               ),
             ),
