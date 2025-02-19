@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
+import 'package:frontend/OBJ/object.dart';
 
 //------------------------ Room Provider ------------------------
 
@@ -33,6 +34,7 @@ class RoomProvider extends ChangeNotifier {
               (room['color'] is int) ? Color(room['color']) : room['color'],
           'isFavorite': room['isFavorite'],
           'folderIds': List<String>.from(room['folderIds'] ?? []),
+          'fileIds': List<String>.from(room['fileIds'] ?? []),
         };
       }).toList();
 
@@ -54,6 +56,7 @@ class RoomProvider extends ChangeNotifier {
             : room['color'],
         'isFavorite': room['isFavorite'],
         'folderIds': room['folderIds'] ?? [],
+        'fileIds': room['fileIds'] ?? [],
       };
     }).toList();
     print("Saveroom $roomsToSave");
@@ -104,6 +107,30 @@ class RoomProvider extends ChangeNotifier {
       _rooms[index]['folderIds'] = folders; // Correct the key here
       _saveRooms();
       notifyListeners();
+    }
+  }
+
+  void addFileToRoom(String roomId, String fileId) {
+    final index = _rooms.indexWhere((room) => room['id'] == roomId);
+    //Change this function to add File
+    if (index != -1) {
+      // Ensure 'folderIds' is a List<String> before adding the new folder
+      var files = _rooms[index]['fileIds'];
+
+      // If folders is not already a List<String>, initialize it
+      if (files == null || files is! List<String>) {
+        files = <String>[]; // Initialize an empty list if needed
+      }
+
+      // Add the new folder ID to the list
+      files.add(fileId);
+
+      // Save the updated rooms and notify listeners
+      _rooms[index]['fileIds'] = files; // Correct the key here
+      _saveRooms();
+      notifyListeners();
+
+      print("File $fileId added to room $roomId");
     }
   }
 }
@@ -248,6 +275,9 @@ class FolderProvider extends ChangeNotifier {
       _folders[index]['fileIds'] = files; // Correct the key here
       _saveFolders();
       notifyListeners();
+
+      print("File $fileId added to folder $folderId");
+
     }
   }
 }
@@ -289,12 +319,16 @@ class FileProvider extends ChangeNotifier {
             'createdDate': file['createdDate'],
             'size': file['size'],
             'isFavorite': file['isFavorite'],
+            'templateId': file['templateId'],
+            'templateType': file['templateType'],
+            'spacing': file['spacing'],
           };
         }).toList();
 
         notifyListeners();
       } catch (e) {
         print("Error decoding JSON: $e");
+        _files = [];
       }
     }
   }
@@ -311,6 +345,9 @@ class FileProvider extends ChangeNotifier {
         'createdDate': file['createdDate'],
         'size': file['size'],
         'isFavorite': file['isFavorite'],
+        'templateId': file['templateId'],
+            'templateType': file['templateType'],
+            'spacing': file['spacing'],
       };
     }).toList();
 
@@ -328,20 +365,36 @@ class FileProvider extends ChangeNotifier {
   }
 
   /// Add a new file
-  String addFile(String name, int size) {
+  String addFile(String name, int size, PaperTemplate template) {
     final String fileId = _uuid.v4();
+    final String templateId = template.id;
     final newFile = {
       'id': fileId,
       'name': name,
       'createdDate': DateTime.now().toIso8601String(),
       'size': size,
       'isFavorite': false,
+      'fileIds': <String>[],
+      'templateId': template.id,
+      'templateType': template.templateType.toString(),
+      'spacing': template.spacing,
     };
 
     _files.add(newFile);
     _saveFiles();
     notifyListeners();
 
+    print("File created with ID: $fileId");
+    print("File created with Template : $templateId");
+
     return fileId;
+  }
+
+  Map<String, dynamic>? getFileById(String fileId) {
+    final index = _files.indexWhere((file) => file['id'] == fileId);
+    if (index != -1) {
+      return _files[index];
+    }
+    return null;
   }
 }

@@ -120,6 +120,7 @@ class _FavoritesPageState extends State<FavoritesPage>
                           : room['color'],
                       isFavorite: room['isFavorite'],
                       folderIds: room['folderIds'] ?? [],
+                      fileIds: room['fileIds'] ?? [],
                       onToggleFavorite: () {
                         Provider.of<RoomProvider>(context, listen: false)
                             .toggleFavorite(room['name']);

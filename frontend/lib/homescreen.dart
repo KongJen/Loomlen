@@ -19,8 +19,7 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Center(
         child: InkWell(
           onTap: () {
-            Navigator.push(context,
-                MaterialPageRoute(builder: (context) => const Paper()));
+            
           },
           child: Container(
             height: 60,

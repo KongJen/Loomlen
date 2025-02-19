@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/model/drawingpoint.dart';
+import 'package:frontend/OBJ/object.dart';
 import 'package:google_mlkit_digital_ink_recognition/google_mlkit_digital_ink_recognition.dart'
     as ml_kit;
+import 'package:frontend/OBJ/provider.dart';
+import 'package:provider/provider.dart';
 
 class Paper extends StatefulWidget {
-  const Paper({super.key});
+  final String name;
+  final String? fileId;
+
+  const Paper({
+    Key? key,
+    required this.name,
+    this.fileId,
+  }) : super(key: key);
 
   @override
   State<Paper> createState() => _PaperState();
@@ -17,6 +27,33 @@ class _PaperState extends State<Paper> {
 
   Color selectedColor = Colors.black;
   double selectedWidth = 2.0;
+
+  late PaperTemplate selectedTemplate;
+  List<PaperTemplate> availableTemplates = [
+    const PaperTemplate(
+      id: 'plain',
+      name: 'Plain Paper',
+      templateType: TemplateType.plain,
+    ),
+    const PaperTemplate(
+      id: 'lined',
+      name: 'Lined Paper',
+      templateType: TemplateType.lined,
+      spacing: 30.0,
+    ),
+    const PaperTemplate(
+      id: 'grid',
+      name: 'Grid Paper',
+      templateType: TemplateType.grid,
+      spacing: 30.0,
+    ),
+    const PaperTemplate(
+      id: 'dotted',
+      name: 'Dotted Paper',
+      templateType: TemplateType.dotted,
+      spacing: 30.0,
+    ),
+  ];
 
   // Digital Ink Recognition related variables
   final ml_kit.DigitalInkRecognizer _digitalInkRecognizer =
@@ -33,6 +70,42 @@ class _PaperState extends State<Paper> {
   void initState() {
     super.initState();
     _downloadModel();
+
+    if (widget.fileId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadTemplateFromFile();
+      });
+    }
+  }
+
+  void _loadTemplateFromFile() {
+    final fileProvider = Provider.of<FileProvider>(context, listen: false);
+    final fileData = fileProvider.getFileById(widget.fileId!);
+    
+    if (fileData != null) {
+      // Parse templateType from string
+      TemplateType templateType = TemplateType.plain;
+      if (fileData['templateType'] != null) {
+        final typeString = fileData['templateType'];
+        if (typeString.contains('lined')) {
+          templateType = TemplateType.lined;
+        } else if (typeString.contains('grid')) {
+          templateType = TemplateType.grid;
+        } else if (typeString.contains('dotted')) {
+          templateType = TemplateType.dotted;
+        }
+      }
+      
+      // Create template from saved data
+      setState(() {
+        selectedTemplate = PaperTemplate(
+          id: fileData['templateId'] ?? 'plain',
+          name: templateType.toString().split('.').last.capitalize() + ' Paper',
+          templateType: templateType,
+          spacing: fileData['spacing']?.toDouble() ?? 30.0,
+        );
+      });
+    }
   }
 
   Future<void> _downloadModel() async {
@@ -135,7 +208,7 @@ class _PaperState extends State<Paper> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('Paper'),
+        title: Text(widget.name),
         actions: [
           if (!_modelDownloaded)
             const Center(
@@ -238,7 +311,8 @@ class _PaperState extends State<Paper> {
                       ),
                       child: ClipRect(
                         child: CustomPaint(
-                          painter: DrawingPainter(drawingPoints: drawingPoints),
+                          painter: DrawingPainter(drawingPoints: drawingPoints,
+                            template: selectedTemplate,),
                         ),
                       ),
                     ),
@@ -266,11 +340,16 @@ class _PaperState extends State<Paper> {
 
 class DrawingPainter extends CustomPainter {
   final List<DrawingPoint> drawingPoints;
+  final PaperTemplate template;
 
-  DrawingPainter({required this.drawingPoints});
+  DrawingPainter({required this.drawingPoints, required this.template});
 
   @override
   void paint(Canvas canvas, Size size) {
+    // First paint the template
+    template.paintTemplate(canvas, size);
+    
+    // Then paint the drawing points
     for (var drawingPoint in drawingPoints) {
       final paint = Paint()
         ..color = drawingPoint.color
@@ -294,4 +373,23 @@ class DrawingPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return true;
   }
+}
+
+extension StringExtension on String {
+  String capitalize() {
+    return "${this[0].toUpperCase()}${this.substring(1)}";
+  }
+}
+class TemplateThumbnailPainter extends CustomPainter {
+  final PaperTemplate template;
+
+  TemplateThumbnailPainter({required this.template});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    template.paintTemplate(canvas, size);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
