@@ -6,6 +6,16 @@ import 'package:google_mlkit_digital_ink_recognition/google_mlkit_digital_ink_re
 import 'package:frontend/OBJ/provider.dart';
 import 'package:provider/provider.dart';
 
+enum DrawingMode {
+  pencil,
+  eraser,
+}
+
+enum EraserMode {
+  point,
+  stroke,
+}
+
 class Paper extends StatefulWidget {
   final String name;
   final String? fileId;
@@ -27,8 +37,15 @@ class _PaperState extends State<Paper> {
 
   Color selectedColor = Colors.black;
   double selectedWidth = 2.0;
+  DrawingMode selectedMode = DrawingMode.pencil;
 
-  late PaperTemplate selectedTemplate;
+  double eraserWidth = 10.0;
+  EraserMode eraserMode = EraserMode.point;
+  Offset? lastErasePosition;
+  DateTime _lastUpdate = DateTime.now(); // For throttling
+  static const int _updateIntervalMs = 120;
+
+  late PaperTemplate selectedTemplate = availableTemplates.first;
   List<PaperTemplate> availableTemplates = [
     const PaperTemplate(
       id: 'plain',
@@ -66,6 +83,13 @@ class _PaperState extends State<Paper> {
   bool _modelDownloaded = false;
   var _language = 'th';
 
+  final List<Color> availableColors = [
+    Colors.black,
+    Colors.red,
+    Colors.blue,
+    Colors.green,
+    Colors.yellow,
+  ];
   @override
   void initState() {
     super.initState();
@@ -81,7 +105,7 @@ class _PaperState extends State<Paper> {
   void _loadTemplateFromFile() {
     final fileProvider = Provider.of<FileProvider>(context, listen: false);
     final fileData = fileProvider.getFileById(widget.fileId!);
-    
+
     if (fileData != null) {
       // Parse templateType from string
       TemplateType templateType = TemplateType.plain;
@@ -95,7 +119,7 @@ class _PaperState extends State<Paper> {
           templateType = TemplateType.dotted;
         }
       }
-      
+
       // Create template from saved data
       setState(() {
         selectedTemplate = PaperTemplate(
@@ -133,6 +157,10 @@ class _PaperState extends State<Paper> {
   @override
   void dispose() {
     _digitalInkRecognizer.close();
+    drawingPoints.clear();
+    historyDrawingPoints.clear();
+    _ink.strokes.clear();
+    _strokePoints.clear();
     super.dispose();
   }
 
@@ -203,6 +231,250 @@ class _PaperState extends State<Paper> {
     }
   }
 
+  // Eraser point
+  void _eraseAtPoint(Offset point) {
+    if (drawingPoints.isEmpty) return;
+
+    try {
+      if (eraserMode == EraserMode.stroke) {
+        drawingPoints.removeWhere((drawingPoint) {
+          for (int i = 0; i < drawingPoint.offsets.length - 1; i++) {
+            if (_isPointNearSegment(point, drawingPoint.offsets[i],
+                drawingPoint.offsets[i + 1], eraserWidth)) {
+              return true;
+            }
+          }
+          return drawingPoint.offsets
+              .any((offset) => (offset - point).distance <= eraserWidth);
+        });
+      } else if (eraserMode == EraserMode.point) {
+        List<DrawingPoint> newPoints = [];
+
+        for (var drawingPoint in drawingPoints) {
+          List<Offset> currentSegment = [];
+          bool modified = false;
+
+          print('Processing stroke ${drawingPoint.id}');
+
+          for (int i = 0; i < drawingPoint.offsets.length; i++) {
+            Offset currentOffset = drawingPoint.offsets[i];
+            bool eraseCurrent = (currentOffset - point).distance <= eraserWidth;
+
+            // Check segment to previous point (if exists)
+            if (i > 0 && !eraseCurrent) {
+              Offset prevOffset = drawingPoint.offsets[i - 1];
+              if (_isPointNearSegment(
+                  point, prevOffset, currentOffset, eraserWidth)) {
+                eraseCurrent = true;
+                print('Segment erased between $prevOffset and $currentOffset');
+              }
+            }
+
+            // Check segment to next point (if exists)
+            if (i < drawingPoint.offsets.length - 1) {
+              Offset nextOffset = drawingPoint.offsets[i + 1];
+              if (_isPointNearSegment(
+                  point, currentOffset, nextOffset, eraserWidth)) {
+                eraseCurrent = true;
+                if (currentSegment.isNotEmpty) {
+                  newPoints.add(drawingPoint.copyWith(
+                      offsets: List.from(currentSegment)));
+                  print('Added segment before erase: $currentSegment');
+                  currentSegment.clear();
+                }
+                modified = true;
+                // Skip to next point since this one will be erased
+                continue;
+              }
+            }
+
+            if (!eraseCurrent) {
+              currentSegment.add(currentOffset);
+            } else {
+              if (currentSegment.isNotEmpty) {
+                newPoints.add(
+                    drawingPoint.copyWith(offsets: List.from(currentSegment)));
+                print('Added segment before erased point: $currentSegment');
+                currentSegment.clear();
+              }
+              modified = true;
+              print('Point erased: $currentOffset');
+            }
+          }
+
+          if (currentSegment.isNotEmpty) {
+            newPoints
+                .add(drawingPoint.copyWith(offsets: List.from(currentSegment)));
+            print('Added remaining segment: $currentSegment');
+          } else if (!modified) {
+            newPoints.add(drawingPoint);
+            print('Stroke unchanged: ${drawingPoint.id}');
+          }
+        }
+
+        drawingPoints.clear();
+        drawingPoints.addAll(newPoints);
+        print('Updated drawingPoints: ${drawingPoints.length} strokes');
+      }
+      historyDrawingPoints = List.from(drawingPoints);
+    } catch (e, stackTrace) {
+      print('Erase error: $e\n$stackTrace');
+      drawingPoints.clear();
+      historyDrawingPoints.clear();
+    }
+  }
+
+  bool _isPointNearSegment(
+      Offset point, Offset start, Offset end, double threshold) {
+    final double segmentLength = (end - start).distance;
+    if (segmentLength == 0) return (point - start).distance <= threshold;
+
+    double t = ((point.dx - start.dx) * (end.dx - start.dx) +
+            (point.dy - start.dy) * (end.dy - start.dy)) /
+        (segmentLength * segmentLength);
+    t = t.clamp(0.0, 1.0);
+
+    final Offset closestPoint = start + (end - start) * t;
+    final double distanceToLine = (point - closestPoint).distance;
+
+    return distanceToLine <= threshold ||
+        (point - start).distance <= threshold ||
+        (point - end).distance <= threshold;
+  }
+
+  void _throttledRedraw() {
+    final now = DateTime.now();
+    if (now.difference(_lastUpdate).inMilliseconds >= _updateIntervalMs) {
+      setState(() {
+        _lastUpdate = now;
+      });
+    }
+  }
+
+  // Widget for the pencil settings bar
+  Widget _buildPencilSettingsBar() {
+    return Container(
+      padding: const EdgeInsets.all(8.0),
+      color: Colors.grey.shade200,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Pencil Size Slider
+          Row(
+            children: [
+              const Text('Size: ', style: TextStyle(fontSize: 16)),
+              Expanded(
+                child: Slider(
+                  value: selectedWidth,
+                  min: 1.0,
+                  max: 20.0,
+                  divisions: 19,
+                  label: selectedWidth.round().toString(),
+                  onChanged: (value) {
+                    setState(() {
+                      selectedWidth = value;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          // Color Selection
+          Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: availableColors.map((color) {
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    selectedColor = color;
+                  });
+                },
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: selectedColor == color
+                          ? Colors.white
+                          : Colors.transparent,
+                      width: 2.0,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Eraser settings bar
+  Widget _buildEraserSettingsBar() {
+    return Container(
+      padding: const EdgeInsets.all(8.0),
+      color: Colors.grey.shade200,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Eraser Size Slider
+          Row(
+            children: [
+              const Text('Eraser Size: ', style: TextStyle(fontSize: 16)),
+              Expanded(
+                child: Slider(
+                  value: eraserWidth,
+                  min: 5.0,
+                  max: 50.0,
+                  divisions: 45,
+                  label: eraserWidth.round().toString(),
+                  onChanged: (value) {
+                    setState(() {
+                      eraserWidth = value;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          // Eraser Mode Toggle
+          Row(
+            children: [
+              const Text('Mode: ', style: TextStyle(fontSize: 16)),
+              const SizedBox(width: 8),
+              ToggleButtons(
+                borderRadius: BorderRadius.circular(8),
+                selectedColor: Colors.white,
+                fillColor: Colors.blue,
+                constraints: const BoxConstraints(
+                  minHeight: 36,
+                  minWidth: 80,
+                ),
+                isSelected: [
+                  eraserMode == EraserMode.stroke,
+                  eraserMode == EraserMode.point,
+                ],
+                children: const [
+                  Text('Stroke'),
+                  Text('Point'),
+                ],
+                onPressed: (index) {
+                  setState(() {
+                    eraserMode =
+                        index == 0 ? EraserMode.stroke : EraserMode.point;
+                  });
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -210,6 +482,30 @@ class _PaperState extends State<Paper> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.name),
         actions: [
+          IconButton(
+            icon: Icon(
+              Icons.edit,
+              color: selectedMode == DrawingMode.pencil ? Colors.blue : null,
+            ),
+            onPressed: () {
+              setState(() {
+                selectedMode = DrawingMode.pencil;
+              });
+            },
+            tooltip: 'Pencil',
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.delete,
+              color: selectedMode == DrawingMode.eraser ? Colors.blue : null,
+            ),
+            onPressed: () {
+              setState(() {
+                selectedMode = DrawingMode.eraser;
+              });
+            },
+            tooltip: 'Eraser',
+          ),
           if (!_modelDownloaded)
             const Center(
               child: Padding(
@@ -239,6 +535,9 @@ class _PaperState extends State<Paper> {
       ),
       body: Column(
         children: [
+          // Show pencil settings bar only in pencil mode
+          if (selectedMode == DrawingMode.pencil) _buildPencilSettingsBar(),
+          if (selectedMode == DrawingMode.eraser) _buildEraserSettingsBar(),
           Expanded(
             child: InteractiveViewer(
               boundaryMargin: const EdgeInsets.only(bottom: 20),
@@ -250,69 +549,116 @@ class _PaperState extends State<Paper> {
                 padding: const EdgeInsets.all(16),
                 child: Center(
                   child: GestureDetector(
-                    onPanStart: (details) {
-                      setState(() {
-                        currentDrawingPoint = DrawingPoint(
-                          id: DateTime.now().microsecondsSinceEpoch,
-                          offsets: [details.localPosition],
-                          color: selectedColor,
-                          width: selectedWidth,
-                        );
-                        if (currentDrawingPoint == null) return;
-                        drawingPoints.add(currentDrawingPoint!);
-                        historyDrawingPoints = List.of(drawingPoints);
-
-                        // Add point for ML Kit recognition
-                        _addNewStroke(
-                          details.localPosition,
-                          DateTime.now().millisecondsSinceEpoch,
-                        );
-                      });
-                    },
-                    onPanUpdate: (details) {
-                      setState(() {
-                        if (currentDrawingPoint == null) return;
-
-                        currentDrawingPoint = currentDrawingPoint?.copyWith(
-                          offsets: currentDrawingPoint!.offsets
-                            ..add(details.localPosition),
-                        );
-                        drawingPoints.last = currentDrawingPoint!;
-                        historyDrawingPoints = List.of(drawingPoints);
-
-                        // Add point for ML Kit recognition
-                        _addNewStroke(
-                          details.localPosition,
-                          DateTime.now().millisecondsSinceEpoch,
-                        );
-                      });
-                    },
-                    onPanEnd: (_) {
-                      currentDrawingPoint = null;
-                      _finishStroke(); // Finish the stroke for ML Kit
-                    },
-                    child: Container(
-                      width: 210 * 3,
-                      height: 297 * 3,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.shade300,
-                            offset: const Offset(0, 3),
-                            blurRadius: 5,
-                            spreadRadius: 2,
+                    child: GestureDetector(
+                      onPanStart: (details) {
+                        try {
+                          if (selectedMode == DrawingMode.pencil) {
+                            currentDrawingPoint = DrawingPoint(
+                              id: DateTime.now().microsecondsSinceEpoch,
+                              offsets: [details.localPosition],
+                              color: selectedColor,
+                              width: selectedWidth,
+                            );
+                            drawingPoints.add(currentDrawingPoint!);
+                            _addNewStroke(
+                              details.localPosition,
+                              DateTime.now().millisecondsSinceEpoch,
+                            );
+                          } else if (selectedMode == DrawingMode.eraser) {
+                            _eraseAtPoint(details.localPosition);
+                            lastErasePosition = details.localPosition;
+                          }
+                          historyDrawingPoints = List.from(drawingPoints);
+                          _throttledRedraw();
+                        } catch (e, stackTrace) {
+                          print('Pan start error: $e\n$stackTrace');
+                        }
+                      },
+                      onPanUpdate: (details) {
+                        try {
+                          if (selectedMode == DrawingMode.pencil) {
+                            if (currentDrawingPoint != null) {
+                              currentDrawingPoint =
+                                  currentDrawingPoint!.copyWith(
+                                offsets: currentDrawingPoint!.offsets
+                                  ..add(details.localPosition),
+                              );
+                              drawingPoints.last = currentDrawingPoint!;
+                              _addNewStroke(
+                                details.localPosition,
+                                DateTime.now().millisecondsSinceEpoch,
+                              );
+                            }
+                          } else if (selectedMode == DrawingMode.eraser) {
+                            if (lastErasePosition != null) {
+                              double distance =
+                                  (details.localPosition - lastErasePosition!)
+                                      .distance;
+                              if (distance > eraserWidth / 2) {
+                                // Larger steps for efficiency
+                                int steps =
+                                    (distance / (eraserWidth / 2)).ceil();
+                                steps = steps.clamp(
+                                    1, 3); // Minimal steps for speed
+                                for (int i = 0; i <= steps; i++) {
+                                  Offset interpolatePoint = Offset.lerp(
+                                      lastErasePosition!,
+                                      details.localPosition,
+                                      i / steps)!;
+                                  _eraseAtPoint(interpolatePoint);
+                                }
+                                lastErasePosition = details.localPosition;
+                              }
+                            } else {
+                              _eraseAtPoint(details.localPosition);
+                              lastErasePosition = details.localPosition;
+                            }
+                          }
+                          historyDrawingPoints = List.from(drawingPoints);
+                          _throttledRedraw();
+                        } catch (e, stackTrace) {
+                          print('Pan update error: $e\n$stackTrace');
+                        }
+                      },
+                      onPanEnd: (_) {
+                        try {
+                          if (selectedMode == DrawingMode.pencil) {
+                            currentDrawingPoint = null;
+                            _finishStroke();
+                          }
+                          lastErasePosition = null;
+                          historyDrawingPoints = List.from(drawingPoints);
+                          setState(() {}); // Final update on pan end
+                        } catch (e, stackTrace) {
+                          print('Pan end error: $e\n$stackTrace');
+                        }
+                      },
+                      // Paper Size
+                      child: Container(
+                        width: 210 * 3,
+                        height: 297 * 3,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.shade300,
+                              offset: const Offset(0, 3),
+                              blurRadius: 5,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                          border: Border.all(
+                            color: Colors.grey.shade400,
+                            width: 1.5,
                           ),
-                        ],
-                        border: Border.all(
-                          color: Colors.grey.shade400,
-                          width: 1.5,
                         ),
-                      ),
-                      child: ClipRect(
-                        child: CustomPaint(
-                          painter: DrawingPainter(drawingPoints: drawingPoints,
-                            template: selectedTemplate,),
+                        child: ClipRect(
+                          child: CustomPaint(
+                            painter: DrawingPainter(
+                              drawingPoints: drawingPoints,
+                              template: selectedTemplate,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -346,33 +692,32 @@ class DrawingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // First paint the template
     template.paintTemplate(canvas, size);
-    
-    // Then paint the drawing points
+
+    final paint = Paint()
+      ..isAntiAlias = true
+      ..strokeCap = StrokeCap.round;
+
     for (var drawingPoint in drawingPoints) {
-      final paint = Paint()
-        ..color = drawingPoint.color
-        ..isAntiAlias = true
-        ..strokeWidth = drawingPoint.width
-        ..strokeCap = StrokeCap.round;
+      if (drawingPoint.offsets.isEmpty) continue;
 
-      for (var i = 0; i < drawingPoint.offsets.length; i++) {
-        var notLastOffset = i != drawingPoint.offsets.length - 1;
+      paint.color = drawingPoint.color;
+      paint.strokeWidth = drawingPoint.width;
 
-        if (notLastOffset) {
-          final current = drawingPoint.offsets[i];
-          final next = drawingPoint.offsets[i + 1];
-          canvas.drawLine(current, next, paint);
-        }
+      for (int i = 0; i < drawingPoint.offsets.length - 1; i++) {
+        canvas.drawLine(
+            drawingPoint.offsets[i], drawingPoint.offsets[i + 1], paint);
+      }
+
+      if (drawingPoint.offsets.length == 1) {
+        canvas.drawCircle(
+            drawingPoint.offsets[0], drawingPoint.width / 2, paint);
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return true;
-  }
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 extension StringExtension on String {
@@ -380,6 +725,7 @@ extension StringExtension on String {
     return "${this[0].toUpperCase()}${this.substring(1)}";
   }
 }
+
 class TemplateThumbnailPainter extends CustomPainter {
   final PaperTemplate template;
 
