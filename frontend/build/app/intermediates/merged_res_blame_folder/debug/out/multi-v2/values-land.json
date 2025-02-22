@@ -4,7 +4,7 @@
             "outputFile": "com.example.frontend.app-mergeDebugResources-44:/values-land/values-land.xml",
             "map": [
                 {
-                    "source": "C:\\Users\\USER\\.gradle\\caches\\transforms-3\\6ddfe7bc5a026c54878de2bc1391ef46\\transformed\\appcompat-1.1.0\\res\\values-land\\values-land.xml",
+                    "source": "C:\\Users\\USER\\.gradle\\caches\\transforms-3\\78092378f0e0a1133c4dbafbdff1ef40\\transformed\\appcompat-1.1.0\\res\\values-land\\values-land.xml",
                     "from": {
                         "startLines": "2,3,4",
                         "startColumns": "4,4,4",

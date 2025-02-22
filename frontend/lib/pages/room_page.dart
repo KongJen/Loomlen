@@ -27,7 +27,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   OverlayEntry? _overlayEntry;
   List<Map<String, dynamic>> navigationStack = [];
   Map<String, dynamic>? currentFolder;
-  Map<String,dynamic>? currentFile;
+  Map<String, dynamic>? currentFile;
 
   @override
   void initState() {
@@ -76,7 +76,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     );
   }
 
-    void showCreateFileOverlay(String parentId) {
+  void showCreateFileOverlay(String parentId) {
     _toggleOverlay(
       OverlayCreateFile(
         parentId: currentFile != null ? currentFile!['id'] : parentId,
@@ -95,8 +95,6 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     });
   }
 
-   
-
   void navigateBack() {
     if (navigationStack.isNotEmpty) {
       setState(() {
@@ -114,17 +112,24 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     if (navigationStack.isNotEmpty) {
       fullPath.addAll(navigationStack);
     }
+
     if (currentFolder != null) {
       fullPath.add(currentFolder!);
     }
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
+    if (fullPath.length < 5) {
+      return Row(
         children: fullPath.map((folder) {
           int index = fullPath.indexOf(folder);
           return Row(
             children: [
+              if (index == 0)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 5),
+                  child: Icon(
+                    Icons.home_filled,
+                    color: Colors.white,
+                  ),
+                ),
               if (index > 0)
                 const Icon(Icons.chevron_right, color: Colors.white),
               Text(
@@ -134,8 +139,40 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
             ],
           );
         }).toList(),
-      ),
-    );
+      );
+    } else {
+      return Row(
+        children: [
+          const Padding(
+            padding: const EdgeInsets.only(bottom: 5),
+            child: Icon(
+              Icons.home_filled,
+              color: Colors.white,
+            ),
+          ),
+          Text(
+            fullPath[0]['name'],
+            style: const TextStyle(color: Colors.white),
+          ),
+          const Icon(
+            Icons.chevron_right,
+            color: Colors.white,
+          ),
+          Text(
+            '...',
+            style: const TextStyle(color: Colors.white),
+          ),
+          const Icon(
+            Icons.chevron_right,
+            color: Colors.white,
+          ),
+          Text(
+            fullPath[fullPath.length - 1]['name'],
+            style: const TextStyle(color: Colors.white),
+          ),
+        ],
+      );
+    }
   }
 
   @override
@@ -143,8 +180,10 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final folderProvider = Provider.of<FolderProvider>(context);
     final fileProvider = Provider.of<FileProvider>(context);
 
-  print('Current Folder IDs: ${currentFolder != null ? currentFolder!['subfolderIds'] : currentRoom['folderIds']}');
-  print('Current File IDs: ${currentFolder != null ? currentFolder!['fileIds'] : currentRoom['fileIds']}');
+    print(
+        'Current Folder IDs: ${currentFolder != null ? currentFolder!['subfolderIds'] : currentRoom['folderIds']}');
+    print(
+        'Current File IDs: ${currentFolder != null ? currentFolder!['fileIds'] : currentRoom['fileIds']}');
 
     final List<String> currentFolderIds = currentFolder != null
         ? (currentFolder!['subfolderIds'] ?? [])
@@ -155,16 +194,15 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
         .toList();
 
     final List<String> currentFileIds = currentFolder != null
-      ? (currentFolder!['fileIds'] ?? [])
-      : (currentRoom['fileIds'] ?? []);
+        ? (currentFolder!['fileIds'] ?? [])
+        : (currentRoom['fileIds'] ?? []);
 
     final files = fileProvider.files
-      .where((file) => currentFileIds.contains(file['id']))
-      .toList();
+        .where((file) => currentFileIds.contains(file['id']))
+        .toList();
 
     print('Filtered Folders: ${folders.length}');
     print('Filtered Files: ${files.length}');
-
 
     return Scaffold(
       appBar: AppBar(
@@ -251,7 +289,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                         ],
                       ),
                     );
-                  } else if(index <= folders.length){
+                  } else if (index <= folders.length) {
                     final folder = folders[index - 1];
                     return GestureDetector(
                       onTap: () => navigateToFolder(folder),
@@ -269,10 +307,18 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                             folderProvider.toggleFavoriteFolder(folder['id']),
                       ),
                     );
-                    }else {
+                  } else {
                     final file = files[index - folders.length - 1];
                     return GestureDetector(
-                      onTap: () {Navigator.push(context, MaterialPageRoute(builder: (context) => Paper(name: file['name'],fileId: file['id'],)));},
+                      onTap: () {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => Paper(
+                                      name: file['name'],
+                                      fileId: file['id'],
+                                    )));
+                      },
                       child: FileItem(
                         id: file['id'],
                         name: file['name'],
@@ -280,11 +326,9 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                         isFavorite: file['isFavorite'],
                         onToggleFavorite: () =>
                             fileProvider.toggleFavoriteFile(file['id']),
-                        
                       ),
                     );
-                    }
-                  
+                  }
                 },
               ),
             ),
