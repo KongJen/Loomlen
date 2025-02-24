@@ -21,4 +21,34 @@ class DrawingPoint {
       offsets: offsets ?? this.offsets,
     );
   }
+
+  // Convert to JSON
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'offsets': offsets.map((offset) => {'x': offset.dx, 'y': offset.dy}).toList(),
+      'color': color.value,
+      'width': width,
+    };
+  }
+
+  // Create from JSON
+  static DrawingPoint fromJson(Map<String, dynamic> json) {
+    List<Offset> offsetsList = [];
+
+    // Make sure to properly parse all offsets
+  if (json['offsets'] != null) {
+    final offsetsData = json['offsets'] as List;
+    offsetsList = offsetsData.map<Offset>((point) => 
+      Offset(point['x'].toDouble(), point['y'].toDouble())
+    ).toList();
+  }
+
+    return DrawingPoint(
+      id: json['id'],
+      offsets: offsetsList,
+      color: Color(json['color']),
+      width: json['width'],
+    );
+  }
 }

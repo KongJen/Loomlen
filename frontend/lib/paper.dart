@@ -5,6 +5,7 @@ import 'package:google_mlkit_digital_ink_recognition/google_mlkit_digital_ink_re
     as ml_kit;
 import 'package:frontend/OBJ/provider.dart';
 import 'package:provider/provider.dart';
+import 'dart:math';
 
 enum DrawingMode {
   pencil,
@@ -34,6 +35,11 @@ class _PaperState extends State<Paper> {
   List<DrawingPoint> drawingPoints = [];
   List<DrawingPoint> historyDrawingPoints = [];
   DrawingPoint? currentDrawingPoint;
+
+  List<Map<String, dynamic>> strokeHistory = [];
+
+  List<List<DrawingPoint>> undoStack = [];
+  List<List<DrawingPoint>> redoStack = [];
 
   Color selectedColor = Colors.black;
   double selectedWidth = 2.0;
@@ -98,7 +104,91 @@ class _PaperState extends State<Paper> {
     if (widget.fileId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _loadTemplateFromFile();
+        _loadDrawingFromFile();
       });
+    }
+  }
+
+  void _loadDrawingFromFile() {
+    final fileProvider = Provider.of<FileProvider>(context, listen: false);
+    final fileData = fileProvider.getFileById(widget.fileId!);
+
+    if (fileData != null && fileData['drawingData'] != null) {
+      try {
+        final List<dynamic> loadedStrokes = fileData['drawingData'];
+        print("Loading ${loadedStrokes.length} strokes from file");
+
+        setState(() {
+          drawingPoints = [];
+          strokeHistory = List<Map<String, dynamic>>.from(loadedStrokes);
+
+          int pointsCount = 0;
+          // Reconstruct drawingPoints from saved data
+          for (var stroke in strokeHistory) {
+            if (stroke['type'] == 'drawing') {
+              try {
+                final Map<String, dynamic> data = stroke['data'];
+
+                final DrawingPoint point = DrawingPoint.fromJson(data);
+
+                if (point.offsets.isNotEmpty) {
+                  drawingPoints.add(point);
+                  pointsCount += point.offsets.length;
+                } else {
+                  print("Warning: Skipping stroke with no offsets");
+                }
+              } catch (e) {
+                print("Error processing stroke: $e");
+              }
+            }
+          }
+
+          historyDrawingPoints = List.from(drawingPoints);
+        });
+      } catch (e, stackTrace) {
+        print('Error loading drawing data: $e');
+        print(stackTrace);
+      }
+    }
+  }
+
+  Future<void> saveDrawing() async {
+    final fileProvider = Provider.of<FileProvider>(context, listen: false);
+
+    List<Map<String, dynamic>> cleanHistory = [];
+
+    //save the current drawing points as drawing actions
+    for (var point in drawingPoints) {
+      cleanHistory.add({
+        'type': 'drawing',
+        'data': point.toJson(),
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+    }
+
+    if (widget.fileId != null) {
+      await fileProvider.updateFileDrawingData(
+        widget.fileId!,
+        cleanHistory,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Drawing saved successfully')),
+      );
+    } else {
+      // For new files
+      final String fileId = fileProvider.addFile(
+        widget.name,
+        drawingPoints.length,
+        selectedTemplate,
+        cleanHistory,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('New drawing saved successfully')),
+        );
+      }
     }
   }
 
@@ -130,6 +220,53 @@ class _PaperState extends State<Paper> {
         );
       });
     }
+  }
+
+  void undo() {
+    if (drawingPoints.isEmpty) return;
+
+    setState(() {
+      if (drawingPoints.isNotEmpty) {
+        // Save last stroke to redo stack
+        DrawingPoint lastPoint = drawingPoints.removeLast();
+        redoStack
+            .add([lastPoint]); // Add as a list to maintain format consistency
+
+        // Update the stroke history to match current drawing points
+        _updateStrokeHistoryFromDrawingPoints();
+      }
+    });
+  }
+
+  void redo() {
+    if (redoStack.isEmpty) return;
+
+    setState(() {
+      // Get the last undone stroke
+      List<DrawingPoint> redoPoints = redoStack.removeLast();
+
+      // Add it back to drawing points
+      drawingPoints.addAll(redoPoints);
+
+      // Update the stroke history to match current drawing points
+      _updateStrokeHistoryFromDrawingPoints();
+    });
+  }
+
+  void _updateStrokeHistoryFromDrawingPoints() {
+    // Convert current drawing points to a cleaned-up history
+    List<Map<String, dynamic>> cleanHistory = [];
+
+    //save the current drawing points as drawing actions
+    for (var point in drawingPoints) {
+      cleanHistory.add({
+        'type': 'drawing',
+        'data': point.toJson(),
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+    }
+
+    strokeHistory = cleanHistory;
   }
 
   Future<void> _downloadModel() async {
@@ -236,25 +373,37 @@ class _PaperState extends State<Paper> {
     if (drawingPoints.isEmpty) return;
 
     try {
+      List<int> removedStrokeIds = [];
+
       if (eraserMode == EraserMode.stroke) {
-        drawingPoints.removeWhere((drawingPoint) {
+        // Collect IDs of strokes to be removed
+        drawingPoints.where((drawingPoint) {
           for (int i = 0; i < drawingPoint.offsets.length - 1; i++) {
             if (_isPointNearSegment(point, drawingPoint.offsets[i],
                 drawingPoint.offsets[i + 1], eraserWidth)) {
+              removedStrokeIds.add(drawingPoint.id);
               return true;
             }
           }
           return drawingPoint.offsets
               .any((offset) => (offset - point).distance <= eraserWidth);
-        });
+        }).forEach((point) => removedStrokeIds.add(point.id));
+
+        // Remove from drawingPoints
+        drawingPoints.removeWhere((dp) => removedStrokeIds.contains(dp.id));
+
+        // Remove corresponding entries from strokeHistory
+        strokeHistory.removeWhere((stroke) =>
+            stroke['type'] == 'drawing' &&
+            removedStrokeIds.contains(stroke['data']['id']));
       } else if (eraserMode == EraserMode.point) {
+        // Track which strokes are modified or removed
         List<DrawingPoint> newPoints = [];
+        Map<int, Map<String, dynamic>> updatedStrokes = {};
 
         for (var drawingPoint in drawingPoints) {
           List<Offset> currentSegment = [];
           bool modified = false;
-
-          print('Processing stroke ${drawingPoint.id}');
 
           for (int i = 0; i < drawingPoint.offsets.length; i++) {
             Offset currentOffset = drawingPoint.offsets[i];
@@ -266,25 +415,6 @@ class _PaperState extends State<Paper> {
               if (_isPointNearSegment(
                   point, prevOffset, currentOffset, eraserWidth)) {
                 eraseCurrent = true;
-                print('Segment erased between $prevOffset and $currentOffset');
-              }
-            }
-
-            // Check segment to next point (if exists)
-            if (i < drawingPoint.offsets.length - 1) {
-              Offset nextOffset = drawingPoint.offsets[i + 1];
-              if (_isPointNearSegment(
-                  point, currentOffset, nextOffset, eraserWidth)) {
-                eraseCurrent = true;
-                if (currentSegment.isNotEmpty) {
-                  newPoints.add(drawingPoint.copyWith(
-                      offsets: List.from(currentSegment)));
-                  print('Added segment before erase: $currentSegment');
-                  currentSegment.clear();
-                }
-                modified = true;
-                // Skip to next point since this one will be erased
-                continue;
               }
             }
 
@@ -292,35 +422,61 @@ class _PaperState extends State<Paper> {
               currentSegment.add(currentOffset);
             } else {
               if (currentSegment.isNotEmpty) {
-                newPoints.add(
-                    drawingPoint.copyWith(offsets: List.from(currentSegment)));
-                print('Added segment before erased point: $currentSegment');
+                var newPoint =
+                    drawingPoint.copyWith(offsets: List.from(currentSegment));
+                newPoints.add(newPoint);
+                updatedStrokes[newPoint.id] = newPoint.toJson();
                 currentSegment.clear();
               }
               modified = true;
-              print('Point erased: $currentOffset');
             }
           }
 
           if (currentSegment.isNotEmpty) {
-            newPoints
-                .add(drawingPoint.copyWith(offsets: List.from(currentSegment)));
-            print('Added remaining segment: $currentSegment');
+            var newPoint =
+                drawingPoint.copyWith(offsets: List.from(currentSegment));
+            newPoints.add(newPoint);
+            updatedStrokes[newPoint.id] = newPoint.toJson();
           } else if (!modified) {
             newPoints.add(drawingPoint);
-            print('Stroke unchanged: ${drawingPoint.id}');
+          } else {
+            // If fully erased, track ID to remove from history
+            removedStrokeIds.add(drawingPoint.id);
+          }
+        }
+
+        // Update strokeHistory to match the new state
+        // Remove fully erased strokes
+        strokeHistory.removeWhere((stroke) =>
+            stroke['type'] == 'drawing' &&
+            removedStrokeIds.contains(stroke['data']['id']));
+
+        // Update modified strokes
+        for (int i = 0; i < strokeHistory.length; i++) {
+          if (strokeHistory[i]['type'] == 'drawing') {
+            int strokeId = strokeHistory[i]['data']['id'];
+            if (updatedStrokes.containsKey(strokeId)) {
+              strokeHistory[i]['data'] = updatedStrokes[strokeId];
+            }
           }
         }
 
         drawingPoints.clear();
         drawingPoints.addAll(newPoints);
-        print('Updated drawingPoints: ${drawingPoints.length} strokes');
       }
+
+      // Add the eraser action to strokeHistory
+      strokeHistory.add({
+        'type': 'eraser',
+        'position': {'x': point.dx, 'y': point.dy},
+        'width': eraserWidth,
+        'mode': eraserMode.toString(),
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+
       historyDrawingPoints = List.from(drawingPoints);
     } catch (e, stackTrace) {
       print('Erase error: $e\n$stackTrace');
-      drawingPoints.clear();
-      historyDrawingPoints.clear();
     }
   }
 
@@ -519,6 +675,21 @@ class _PaperState extends State<Paper> {
             tooltip: _modelDownloaded ? 'Recognize Text' : 'Loading model...',
           ),
           IconButton(
+            icon: const Icon(Icons.undo),
+            onPressed: drawingPoints.isEmpty ? null : undo,
+            tooltip: 'Undo',
+          ),
+          IconButton(
+            icon: const Icon(Icons.redo),
+            onPressed: redoStack.isEmpty ? null : redo,
+            tooltip: 'Redo',
+          ),
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: saveDrawing,
+            tooltip: 'Save Drawing',
+          ),
+          IconButton(
             icon: const Icon(Icons.clear),
             onPressed: () {
               setState(() {
@@ -527,6 +698,8 @@ class _PaperState extends State<Paper> {
                 _ink.strokes.clear();
                 _strokePoints.clear();
                 recognizedText = '';
+                undoStack.clear();
+        redoStack.clear();
               });
             },
             tooltip: 'Clear',
@@ -553,18 +726,50 @@ class _PaperState extends State<Paper> {
                       onPanStart: (details) {
                         try {
                           if (selectedMode == DrawingMode.pencil) {
+                            // Clear redo stack when starting a new drawing action
+                            redoStack.clear();
+
+                            // Create the current drawing point
                             currentDrawingPoint = DrawingPoint(
                               id: DateTime.now().microsecondsSinceEpoch,
                               offsets: [details.localPosition],
                               color: selectedColor,
                               width: selectedWidth,
                             );
+
+                            // Add to drawing points
                             drawingPoints.add(currentDrawingPoint!);
+
+                            // Add to stroke history
+                            strokeHistory.add({
+                              'type': 'drawing',
+                              'data': currentDrawingPoint!.toJson(),
+                              'timestamp':
+                                  DateTime.now().millisecondsSinceEpoch,
+                            });
+
                             _addNewStroke(
                               details.localPosition,
                               DateTime.now().millisecondsSinceEpoch,
                             );
                           } else if (selectedMode == DrawingMode.eraser) {
+                            // Store eraser action in history
+                            final eraserAction = {
+                              'type': 'eraser',
+                              'position': {
+                                'x': details.localPosition.dx,
+                                'y': details.localPosition.dy
+                              },
+                              'width': eraserWidth,
+                              'mode': eraserMode.toString(),
+                              'timestamp':
+                                  DateTime.now().millisecondsSinceEpoch,
+                            };
+                            strokeHistory.add(eraserAction);
+
+                            // Save current state before erasing for undo
+                            undoStack.add(List.from(drawingPoints));
+
                             _eraseAtPoint(details.localPosition);
                             lastErasePosition = details.localPosition;
                           }
@@ -578,41 +783,31 @@ class _PaperState extends State<Paper> {
                         try {
                           if (selectedMode == DrawingMode.pencil) {
                             if (currentDrawingPoint != null) {
+                              // Update the current drawing point with the new offset
                               currentDrawingPoint =
                                   currentDrawingPoint!.copyWith(
                                 offsets: currentDrawingPoint!.offsets
                                   ..add(details.localPosition),
                               );
                               drawingPoints.last = currentDrawingPoint!;
+
+                              // Important: Update the stroke in the history with all updated offsets
+                              if (strokeHistory.isNotEmpty &&
+                                  strokeHistory.last['type'] == 'drawing' &&
+                                  strokeHistory.last['data']['id'] ==
+                                      currentDrawingPoint!.id) {
+                                // Update the existing stroke's data
+                                strokeHistory.last['data'] =
+                                    currentDrawingPoint!.toJson();
+                              }
+
                               _addNewStroke(
                                 details.localPosition,
                                 DateTime.now().millisecondsSinceEpoch,
                               );
                             }
                           } else if (selectedMode == DrawingMode.eraser) {
-                            if (lastErasePosition != null) {
-                              double distance =
-                                  (details.localPosition - lastErasePosition!)
-                                      .distance;
-                              if (distance > eraserWidth / 2) {
-                                // Larger steps for efficiency
-                                int steps =
-                                    (distance / (eraserWidth / 2)).ceil();
-                                steps = steps.clamp(
-                                    1, 3); // Minimal steps for speed
-                                for (int i = 0; i <= steps; i++) {
-                                  Offset interpolatePoint = Offset.lerp(
-                                      lastErasePosition!,
-                                      details.localPosition,
-                                      i / steps)!;
-                                  _eraseAtPoint(interpolatePoint);
-                                }
-                                lastErasePosition = details.localPosition;
-                              }
-                            } else {
-                              _eraseAtPoint(details.localPosition);
-                              lastErasePosition = details.localPosition;
-                            }
+                            // Your existing eraser code...
                           }
                           historyDrawingPoints = List.from(drawingPoints);
                           _throttledRedraw();
@@ -623,11 +818,18 @@ class _PaperState extends State<Paper> {
                       onPanEnd: (_) {
                         try {
                           if (selectedMode == DrawingMode.pencil) {
-                            currentDrawingPoint = null;
-                            _finishStroke();
+                            // Only add to undo stack if we've made a complete stroke
+                            if (currentDrawingPoint != null) {
+                              // Instead of adding historyDrawingPoints, we're keeping track of individual strokes
+                              undoStack.add([currentDrawingPoint!]);
+                              currentDrawingPoint = null;
+                              _finishStroke();
+                            }
+                          } else if (selectedMode == DrawingMode.eraser) {
+                            // For eraser, we need to track what was erased
+                            // This is more complex, but we'll simplify for now
+                            lastErasePosition = null;
                           }
-                          lastErasePosition = null;
-                          historyDrawingPoints = List.from(drawingPoints);
                           setState(() {}); // Final update on pan end
                         } catch (e, stackTrace) {
                           print('Pan end error: $e\n$stackTrace');
