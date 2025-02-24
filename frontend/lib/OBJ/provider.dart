@@ -277,7 +277,6 @@ class FolderProvider extends ChangeNotifier {
       notifyListeners();
 
       print("File $fileId added to folder $folderId");
-
     }
   }
 }
@@ -322,6 +321,7 @@ class FileProvider extends ChangeNotifier {
             'templateId': file['templateId'],
             'templateType': file['templateType'],
             'spacing': file['spacing'],
+            'drawingData': file['drawingData'],
           };
         }).toList();
 
@@ -346,8 +346,9 @@ class FileProvider extends ChangeNotifier {
         'size': file['size'],
         'isFavorite': file['isFavorite'],
         'templateId': file['templateId'],
-            'templateType': file['templateType'],
-            'spacing': file['spacing'],
+        'templateType': file['templateType'],
+        'spacing': file['spacing'],
+        'drawingData': file['drawingData'],
       };
     }).toList();
 
@@ -365,7 +366,8 @@ class FileProvider extends ChangeNotifier {
   }
 
   /// Add a new file
-  String addFile(String name, int size, PaperTemplate template) {
+  String addFile(String name, int size, PaperTemplate template,
+      [List<Map<String, dynamic>>? drawingData]) {
     final String fileId = _uuid.v4();
     final String templateId = template.id;
     final newFile = {
@@ -378,6 +380,7 @@ class FileProvider extends ChangeNotifier {
       'templateId': template.id,
       'templateType': template.templateType.toString(),
       'spacing': template.spacing,
+      'drawingData': drawingData ?? [],
     };
 
     _files.add(newFile);
@@ -388,6 +391,16 @@ class FileProvider extends ChangeNotifier {
     print("File created with Template : $templateId");
 
     return fileId;
+  }
+
+  Future<void> updateFileDrawingData(
+      String fileId, List<Map<String, dynamic>> drawingData) async {
+    final index = _files.indexWhere((file) => file['id'] == fileId);
+    if (index != -1) {
+      _files[index]['drawingData'] = drawingData;
+      _saveFiles();
+      notifyListeners();
+    }
   }
 
   Map<String, dynamic>? getFileById(String fileId) {
