@@ -36,6 +36,8 @@ class _PaperState extends State<Paper> {
   List<DrawingPoint> historyDrawingPoints = [];
   DrawingPoint? currentDrawingPoint;
 
+  bool _hasUnsavedChanges = false;
+
   List<Map<String, dynamic>> strokeHistory = [];
 
   List<List<DrawingPoint>> undoStack = [];
@@ -190,6 +192,7 @@ class _PaperState extends State<Paper> {
         );
       }
     }
+    _hasUnsavedChanges = false;
   }
 
   void _loadTemplateFromFile() {
@@ -298,6 +301,9 @@ class _PaperState extends State<Paper> {
     historyDrawingPoints.clear();
     _ink.strokes.clear();
     _strokePoints.clear();
+    if (_hasUnsavedChanges) {
+    saveDrawing();
+  }
     super.dispose();
   }
 
@@ -507,6 +513,10 @@ class _PaperState extends State<Paper> {
     }
   }
 
+  void _markAsUnsaved() {
+  _hasUnsavedChanges = true;
+}
+
   // Widget for the pencil settings bar
   Widget _buildPencilSettingsBar() {
     return Container(
@@ -635,6 +645,15 @@ class _PaperState extends State<Paper> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color:Colors.black),
+          onPressed: () => {
+            Navigator.of(context).pop(),
+            if (_hasUnsavedChanges){
+            saveDrawing(),
+            }
+          },
+        ),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.name),
         actions: [
@@ -752,6 +771,7 @@ class _PaperState extends State<Paper> {
                               details.localPosition,
                               DateTime.now().millisecondsSinceEpoch,
                             );
+                            _markAsUnsaved();
                           } else if (selectedMode == DrawingMode.eraser) {
                             // Store eraser action in history
                             final eraserAction = {
@@ -772,6 +792,7 @@ class _PaperState extends State<Paper> {
 
                             _eraseAtPoint(details.localPosition);
                             lastErasePosition = details.localPosition;
+                            _markAsUnsaved();
                           }
                           historyDrawingPoints = List.from(drawingPoints);
                           _throttledRedraw();
@@ -805,9 +826,11 @@ class _PaperState extends State<Paper> {
                                 details.localPosition,
                                 DateTime.now().millisecondsSinceEpoch,
                               );
+                              _markAsUnsaved();
                             }
                           } else if (selectedMode == DrawingMode.eraser) {
                             // Your existing eraser code...
+                            
                           }
                           historyDrawingPoints = List.from(drawingPoints);
                           _throttledRedraw();
