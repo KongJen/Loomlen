@@ -1,30 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/model/drawingpoint.dart';
 import 'package:frontend/OBJ/object.dart';
-import 'package:google_mlkit_digital_ink_recognition/google_mlkit_digital_ink_recognition.dart'
-    as ml_kit;
 import 'package:frontend/OBJ/provider.dart';
 import 'package:provider/provider.dart';
 
-enum DrawingMode {
-  pencil,
-  eraser,
-}
+enum DrawingMode { pencil, eraser }
 
-enum EraserMode {
-  point,
-  stroke,
-}
+enum EraserMode { point, stroke }
 
 class Paper extends StatefulWidget {
   final String name;
   final String? fileId;
 
-  const Paper({
-    Key? key,
-    required this.name,
-    this.fileId,
-  }) : super(key: key);
+  const Paper({Key? key, required this.name, this.fileId}) : super(key: key);
 
   @override
   State<Paper> createState() => _PaperState();
@@ -42,8 +30,9 @@ class _PaperState extends State<Paper> {
   double eraserWidth = 10.0;
   EraserMode eraserMode = EraserMode.point;
   Offset? lastErasePosition;
+
   DateTime _lastUpdate = DateTime.now(); // For throttling
-  static const int _updateIntervalMs = 120;
+  static const int _updateIntervalMs = 100;
 
   late PaperTemplate selectedTemplate = availableTemplates.first;
   List<PaperTemplate> availableTemplates = [
@@ -72,16 +61,11 @@ class _PaperState extends State<Paper> {
     ),
   ];
 
-  // Digital Ink Recognition related variables
-  final ml_kit.DigitalInkRecognizer _digitalInkRecognizer =
-      ml_kit.DigitalInkRecognizer(languageCode: 'th');
-  final ml_kit.DigitalInkRecognizerModelManager _modelManager =
-      ml_kit.DigitalInkRecognizerModelManager();
-  final ml_kit.Ink _ink = ml_kit.Ink();
-  List<ml_kit.StrokePoint> _strokePoints = [];
-  String recognizedText = '';
-  bool _modelDownloaded = false;
-  var _language = 'th';
+  // A4 dimensions in points (1mm = 2.83465 points, scaled for Flutter)
+  static const double a4Width = 210 * 2.83465; // ~595 points
+  static const double a4Height = 297 * 2.83465; // ~842 points
+
+  late TransformationController _controller;
 
   final List<Color> availableColors = [
     Colors.black,
@@ -93,13 +77,28 @@ class _PaperState extends State<Paper> {
   @override
   void initState() {
     super.initState();
-    _downloadModel();
+    _controller = TransformationController();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _centerCanvas();
+    });
 
     if (widget.fileId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _loadTemplateFromFile();
       });
     }
+  }
+
+  void _centerCanvas() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final initialX = (screenWidth - a4Width) / 2;
+    const initialY = 20.0; // Start at top
+
+    _controller.value = Matrix4.identity()..translate(initialX, initialY);
+    print(
+      'Centering - Screen Width: $screenWidth, Canvas Width: $a4Width, Initial X: $initialX',
+    );
   }
 
   void _loadTemplateFromFile() {
@@ -132,103 +131,12 @@ class _PaperState extends State<Paper> {
     }
   }
 
-  Future<void> _downloadModel() async {
-    try {
-      final bool response = await _modelManager.downloadModel(_language);
-      setState(() {
-        _modelDownloaded = response;
-      });
-      if (response) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Model downloaded successfully')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error downloading model: $e')),
-        );
-      }
-    }
-  }
-
   @override
   void dispose() {
-    _digitalInkRecognizer.close();
+    _controller.dispose();
     drawingPoints.clear();
     historyDrawingPoints.clear();
-    _ink.strokes.clear();
-    _strokePoints.clear();
     super.dispose();
-  }
-
-  Future<void> _recognizeText() async {
-    if (!_modelDownloaded) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please wait for the model to download'),
-        ),
-      );
-      return;
-    }
-
-    if (_ink.strokes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please write something first'),
-        ),
-      );
-      return;
-    }
-
-    try {
-      setState(() {
-        recognizedText = 'Recognizing...';
-      });
-
-      final List<ml_kit.RecognitionCandidate> candidates =
-          await _digitalInkRecognizer.recognize(_ink);
-
-      if (candidates.isNotEmpty) {
-        setState(() {
-          recognizedText = candidates.first.text;
-          print('Recognized text: $recognizedText'); // For debugging
-        });
-      } else {
-        setState(() {
-          recognizedText = 'No text recognized';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        recognizedText = '';
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error recognizing text: $e')),
-        );
-      }
-    }
-  }
-
-  void _addNewStroke(Offset point, int timestamp) {
-    // Convert drawing point to StrokePoint for ML Kit
-    final ml_kit.StrokePoint strokePoint = ml_kit.StrokePoint(
-      x: point.dx,
-      y: point.dy,
-      t: timestamp,
-    );
-    _strokePoints.add(strokePoint);
-  }
-
-  void _finishStroke() {
-    if (_strokePoints.isNotEmpty) {
-      final stroke = ml_kit.Stroke()..points = _strokePoints;
-      _ink.strokes.add(stroke);
-      _strokePoints = [];
-    }
   }
 
   // Eraser point
@@ -239,13 +147,18 @@ class _PaperState extends State<Paper> {
       if (eraserMode == EraserMode.stroke) {
         drawingPoints.removeWhere((drawingPoint) {
           for (int i = 0; i < drawingPoint.offsets.length - 1; i++) {
-            if (_isPointNearSegment(point, drawingPoint.offsets[i],
-                drawingPoint.offsets[i + 1], eraserWidth)) {
+            if (_isPointNearSegment(
+              point,
+              drawingPoint.offsets[i],
+              drawingPoint.offsets[i + 1],
+              eraserWidth,
+            )) {
               return true;
             }
           }
-          return drawingPoint.offsets
-              .any((offset) => (offset - point).distance <= eraserWidth);
+          return drawingPoint.offsets.any(
+            (offset) => (offset - point).distance <= eraserWidth,
+          );
         });
       } else if (eraserMode == EraserMode.point) {
         List<DrawingPoint> newPoints = [];
@@ -264,7 +177,11 @@ class _PaperState extends State<Paper> {
             if (i > 0 && !eraseCurrent) {
               Offset prevOffset = drawingPoint.offsets[i - 1];
               if (_isPointNearSegment(
-                  point, prevOffset, currentOffset, eraserWidth)) {
+                point,
+                prevOffset,
+                currentOffset,
+                eraserWidth,
+              )) {
                 eraseCurrent = true;
                 print('Segment erased between $prevOffset and $currentOffset');
               }
@@ -274,11 +191,16 @@ class _PaperState extends State<Paper> {
             if (i < drawingPoint.offsets.length - 1) {
               Offset nextOffset = drawingPoint.offsets[i + 1];
               if (_isPointNearSegment(
-                  point, currentOffset, nextOffset, eraserWidth)) {
+                point,
+                currentOffset,
+                nextOffset,
+                eraserWidth,
+              )) {
                 eraseCurrent = true;
                 if (currentSegment.isNotEmpty) {
-                  newPoints.add(drawingPoint.copyWith(
-                      offsets: List.from(currentSegment)));
+                  newPoints.add(
+                    drawingPoint.copyWith(offsets: List.from(currentSegment)),
+                  );
                   print('Added segment before erase: $currentSegment');
                   currentSegment.clear();
                 }
@@ -293,7 +215,8 @@ class _PaperState extends State<Paper> {
             } else {
               if (currentSegment.isNotEmpty) {
                 newPoints.add(
-                    drawingPoint.copyWith(offsets: List.from(currentSegment)));
+                  drawingPoint.copyWith(offsets: List.from(currentSegment)),
+                );
                 print('Added segment before erased point: $currentSegment');
                 currentSegment.clear();
               }
@@ -303,8 +226,9 @@ class _PaperState extends State<Paper> {
           }
 
           if (currentSegment.isNotEmpty) {
-            newPoints
-                .add(drawingPoint.copyWith(offsets: List.from(currentSegment)));
+            newPoints.add(
+              drawingPoint.copyWith(offsets: List.from(currentSegment)),
+            );
             print('Added remaining segment: $currentSegment');
           } else if (!modified) {
             newPoints.add(drawingPoint);
@@ -325,11 +249,16 @@ class _PaperState extends State<Paper> {
   }
 
   bool _isPointNearSegment(
-      Offset point, Offset start, Offset end, double threshold) {
+    Offset point,
+    Offset start,
+    Offset end,
+    double threshold,
+  ) {
     final double segmentLength = (end - start).distance;
     if (segmentLength == 0) return (point - start).distance <= threshold;
 
-    double t = ((point.dx - start.dx) * (end.dx - start.dx) +
+    double t =
+        ((point.dx - start.dx) * (end.dx - start.dx) +
             (point.dy - start.dy) * (end.dy - start.dy)) /
         (segmentLength * segmentLength);
     t = t.clamp(0.0, 1.0);
@@ -382,30 +311,32 @@ class _PaperState extends State<Paper> {
           // Color Selection
           Row(
             mainAxisAlignment: MainAxisAlignment.start,
-            children: availableColors.map((color) {
-              return GestureDetector(
-                onTap: () {
-                  setState(() {
-                    selectedColor = color;
-                  });
-                },
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: selectedColor == color
-                          ? Colors.white
-                          : Colors.transparent,
-                      width: 2.0,
+            children:
+                availableColors.map((color) {
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        selectedColor = color;
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color:
+                              selectedColor == color
+                                  ? Colors.white
+                                  : Colors.transparent,
+                          width: 2.0,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              );
-            }).toList(),
+                  );
+                }).toList(),
           ),
         ],
       ),
@@ -449,18 +380,12 @@ class _PaperState extends State<Paper> {
                 borderRadius: BorderRadius.circular(8),
                 selectedColor: Colors.white,
                 fillColor: Colors.blue,
-                constraints: const BoxConstraints(
-                  minHeight: 36,
-                  minWidth: 80,
-                ),
+                constraints: const BoxConstraints(minHeight: 36, minWidth: 80),
                 isSelected: [
                   eraserMode == EraserMode.stroke,
                   eraserMode == EraserMode.point,
                 ],
-                children: const [
-                  Text('Stroke'),
-                  Text('Point'),
-                ],
+                children: const [Text('Stroke'), Text('Point')],
                 onPressed: (index) {
                   setState(() {
                     eraserMode =
@@ -475,8 +400,17 @@ class _PaperState extends State<Paper> {
     );
   }
 
+  bool _isWithinCanvas(Offset point) {
+    return point.dx >= 0 &&
+        point.dx <= a4Width &&
+        point.dy >= 0 &&
+        point.dy <= a4Height;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -487,11 +421,7 @@ class _PaperState extends State<Paper> {
               Icons.edit,
               color: selectedMode == DrawingMode.pencil ? Colors.blue : null,
             ),
-            onPressed: () {
-              setState(() {
-                selectedMode = DrawingMode.pencil;
-              });
-            },
+            onPressed: () => setState(() => selectedMode = DrawingMode.pencil),
             tooltip: 'Pencil',
           ),
           IconButton(
@@ -499,24 +429,8 @@ class _PaperState extends State<Paper> {
               Icons.delete,
               color: selectedMode == DrawingMode.eraser ? Colors.blue : null,
             ),
-            onPressed: () {
-              setState(() {
-                selectedMode = DrawingMode.eraser;
-              });
-            },
+            onPressed: () => setState(() => selectedMode = DrawingMode.eraser),
             tooltip: 'Eraser',
-          ),
-          if (!_modelDownloaded)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8.0),
-                child: CircularProgressIndicator(),
-              ),
-            ),
-          IconButton(
-            icon: const Icon(Icons.text_fields),
-            onPressed: _modelDownloaded ? _recognizeText : null,
-            tooltip: _modelDownloaded ? 'Recognize Text' : 'Loading model...',
           ),
           IconButton(
             icon: const Icon(Icons.clear),
@@ -524,9 +438,6 @@ class _PaperState extends State<Paper> {
               setState(() {
                 drawingPoints.clear();
                 historyDrawingPoints.clear();
-                _ink.strokes.clear();
-                _strokePoints.clear();
-                recognizedText = '';
               });
             },
             tooltip: 'Clear',
@@ -535,168 +446,166 @@ class _PaperState extends State<Paper> {
       ),
       body: Column(
         children: [
-          // Show pencil settings bar only in pencil mode
           if (selectedMode == DrawingMode.pencil) _buildPencilSettingsBar(),
           if (selectedMode == DrawingMode.eraser) _buildEraserSettingsBar(),
           Expanded(
-            child: InteractiveViewer(
-              boundaryMargin: const EdgeInsets.only(bottom: 20),
-              minScale: 1,
-              maxScale: 3.0,
-              child: Container(
-                width: MediaQuery.of(context).size.width,
-                height: MediaQuery.of(context).size.height,
-                padding: const EdgeInsets.all(16),
+            child: Center(
+              child: InteractiveViewer(
+                transformationController: _controller,
+                minScale: 1.0,
+                maxScale: 2.0,
+                // Calculate boundary margin to allow scrolling only when zoomed
+                boundaryMargin: EdgeInsets.symmetric(
+                  horizontal:
+                      (screenSize.width - a4Width) / 2 > 0
+                          ? (screenSize.width - a4Width) / 2
+                          : 0,
+                  vertical:
+                      (screenSize.height - a4Height) / 2 > 0
+                          ? (screenSize.height - a4Height) / 2
+                          : 20,
+                ),
+                constrained:
+                    false, // Ensures the content fits within the viewer
                 child: Center(
-                  child: GestureDetector(
-                    child: GestureDetector(
-                      onPanStart: (details) {
-                        try {
-                          if (selectedMode == DrawingMode.pencil) {
-                            currentDrawingPoint = DrawingPoint(
-                              id: DateTime.now().microsecondsSinceEpoch,
-                              offsets: [details.localPosition],
-                              color: selectedColor,
-                              width: selectedWidth,
-                            );
-                            drawingPoints.add(currentDrawingPoint!);
-                            _addNewStroke(
-                              details.localPosition,
-                              DateTime.now().millisecondsSinceEpoch,
-                            );
-                          } else if (selectedMode == DrawingMode.eraser) {
-                            _eraseAtPoint(details.localPosition);
-                            lastErasePosition = details.localPosition;
-                          }
-                          historyDrawingPoints = List.from(drawingPoints);
-                          _throttledRedraw();
-                        } catch (e, stackTrace) {
-                          print('Pan start error: $e\n$stackTrace');
-                        }
-                      },
-                      onPanUpdate: (details) {
-                        try {
-                          if (selectedMode == DrawingMode.pencil) {
-                            if (currentDrawingPoint != null) {
-                              currentDrawingPoint =
-                                  currentDrawingPoint!.copyWith(
-                                offsets: currentDrawingPoint!.offsets
-                                  ..add(details.localPosition),
-                              );
-                              drawingPoints.last = currentDrawingPoint!;
-                              _addNewStroke(
-                                details.localPosition,
-                                DateTime.now().millisecondsSinceEpoch,
-                              );
-                            }
-                          } else if (selectedMode == DrawingMode.eraser) {
-                            if (lastErasePosition != null) {
-                              double distance =
-                                  (details.localPosition - lastErasePosition!)
-                                      .distance;
-                              if (distance > eraserWidth / 2) {
-                                // Larger steps for efficiency
-                                int steps =
-                                    (distance / (eraserWidth / 2)).ceil();
-                                steps = steps.clamp(
-                                    1, 3); // Minimal steps for speed
-                                for (int i = 0; i <= steps; i++) {
-                                  Offset interpolatePoint = Offset.lerp(
-                                      lastErasePosition!,
-                                      details.localPosition,
-                                      i / steps)!;
-                                  _eraseAtPoint(interpolatePoint);
-                                }
-                                lastErasePosition = details.localPosition;
-                              }
-                            } else {
-                              _eraseAtPoint(details.localPosition);
-                              lastErasePosition = details.localPosition;
-                            }
-                          }
-                          historyDrawingPoints = List.from(drawingPoints);
-                          _throttledRedraw();
-                        } catch (e, stackTrace) {
-                          print('Pan update error: $e\n$stackTrace');
-                        }
-                      },
-                      onPanEnd: (_) {
-                        try {
-                          if (selectedMode == DrawingMode.pencil) {
-                            currentDrawingPoint = null;
-                            _finishStroke();
-                          }
-                          lastErasePosition = null;
-                          historyDrawingPoints = List.from(drawingPoints);
-                          setState(() {}); // Final update on pan end
-                        } catch (e, stackTrace) {
-                          print('Pan end error: $e\n$stackTrace');
-                        }
-                      },
-                      // Paper Size
-                      child: Container(
-                        width: 210 * 3,
-                        height: 297 * 3,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.grey.shade300,
-                              offset: const Offset(0, 3),
-                              blurRadius: 5,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                          border: Border.all(
-                            color: Colors.grey.shade400,
-                            width: 1.5,
-                          ),
+                  child: Container(
+                    width: a4Width,
+                    height: a4Height,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.shade300,
+                          offset: const Offset(0, 3),
+                          blurRadius: 5,
+                          spreadRadius: 2,
                         ),
-                        child: ClipRect(
+                      ],
+                      border: Border.all(
+                        color: Colors.grey.shade400,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Stack(
+                      clipBehavior: Clip.hardEdge,
+                      children: [
+                        CustomPaint(
+                          painter: TemplatePainter(template: selectedTemplate),
+                          size: Size(a4Width, a4Height),
+                        ),
+                        GestureDetector(
+                          onPanStart: (details) {
+                            try {
+                              Offset localPosition = details.localPosition;
+                              if (!_isWithinCanvas(localPosition)) return;
+
+                              if (selectedMode == DrawingMode.pencil) {
+                                currentDrawingPoint = DrawingPoint(
+                                  id: DateTime.now().microsecondsSinceEpoch,
+                                  offsets: [localPosition],
+                                  color: selectedColor,
+                                  width: selectedWidth,
+                                );
+                                drawingPoints.add(currentDrawingPoint!);
+                              } else if (selectedMode == DrawingMode.eraser) {
+                                _eraseAtPoint(localPosition);
+                                lastErasePosition = localPosition;
+                              }
+                              historyDrawingPoints = List.from(drawingPoints);
+                              _throttledRedraw();
+                            } catch (e, stackTrace) {
+                              print('Pan start error: $e\n$stackTrace');
+                            }
+                          },
+                          onPanUpdate: (details) {
+                            try {
+                              Offset localPosition = details.localPosition;
+                              if (!_isWithinCanvas(localPosition)) return;
+
+                              if (selectedMode == DrawingMode.pencil) {
+                                if (currentDrawingPoint != null) {
+                                  currentDrawingPoint = currentDrawingPoint!
+                                      .copyWith(
+                                        offsets:
+                                            currentDrawingPoint!.offsets
+                                              ..add(localPosition),
+                                      );
+                                  drawingPoints.last = currentDrawingPoint!;
+                                }
+                              } else if (selectedMode == DrawingMode.eraser) {
+                                if (lastErasePosition != null) {
+                                  double distance =
+                                      (localPosition - lastErasePosition!)
+                                          .distance;
+                                  if (distance > eraserWidth) {
+                                    for (int i = 0; i <= 1; i++) {
+                                      Offset interpolatePoint =
+                                          Offset.lerp(
+                                            lastErasePosition!,
+                                            localPosition,
+                                            i / 1,
+                                          )!;
+                                      if (_isWithinCanvas(interpolatePoint)) {
+                                        _eraseAtPoint(interpolatePoint);
+                                      }
+                                    }
+                                    lastErasePosition = localPosition;
+                                  }
+                                } else {
+                                  _eraseAtPoint(localPosition);
+                                  lastErasePosition = localPosition;
+                                }
+                              }
+                              historyDrawingPoints = List.from(drawingPoints);
+                              _throttledRedraw();
+                            } catch (e, stackTrace) {
+                              print('Pan update error: $e\n$stackTrace');
+                            }
+                          },
+                          onPanEnd: (_) {
+                            try {
+                              if (selectedMode == DrawingMode.pencil) {
+                                currentDrawingPoint = null;
+                              }
+                              lastErasePosition = null;
+                              historyDrawingPoints = List.from(drawingPoints);
+                              setState(() {});
+                            } catch (e, stackTrace) {
+                              print('Pan end error: $e\n$stackTrace');
+                            }
+                          },
                           child: CustomPaint(
                             painter: DrawingPainter(
                               drawingPoints: drawingPoints,
-                              template: selectedTemplate,
                             ),
+                            size: Size(a4Width, a4Height),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
           ),
-          // Display recognized text
-          if (recognizedText.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(16),
-              width: double.infinity,
-              color: Colors.grey.shade200,
-              child: Text(
-                'Recognized Text: $recognizedText',
-                style: const TextStyle(fontSize: 16),
-              ),
-            ),
         ],
       ),
     );
   }
 }
 
+// Updated DrawingPainter (no template)
 class DrawingPainter extends CustomPainter {
   final List<DrawingPoint> drawingPoints;
-  final PaperTemplate template;
 
-  DrawingPainter({required this.drawingPoints, required this.template});
+  DrawingPainter({required this.drawingPoints});
 
   @override
   void paint(Canvas canvas, Size size) {
-    template.paintTemplate(canvas, size);
-
-    final paint = Paint()
-      ..isAntiAlias = true
-      ..strokeCap = StrokeCap.round;
+    final paint =
+        Paint()
+          ..isAntiAlias = true
+          ..strokeCap = StrokeCap.round;
 
     for (var drawingPoint in drawingPoints) {
       if (drawingPoint.offsets.isEmpty) continue;
@@ -706,12 +615,10 @@ class DrawingPainter extends CustomPainter {
 
       for (int i = 0; i < drawingPoint.offsets.length - 1; i++) {
         canvas.drawLine(
-            drawingPoint.offsets[i], drawingPoint.offsets[i + 1], paint);
-      }
-
-      if (drawingPoint.offsets.length == 1) {
-        canvas.drawCircle(
-            drawingPoint.offsets[0], drawingPoint.width / 2, paint);
+          drawingPoint.offsets[i],
+          drawingPoint.offsets[i + 1],
+          paint,
+        );
       }
     }
   }
@@ -720,22 +627,24 @@ class DrawingPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
-extension StringExtension on String {
-  String capitalize() {
-    return "${this[0].toUpperCase()}${this.substring(1)}";
-  }
-}
-
-class TemplateThumbnailPainter extends CustomPainter {
+// New TemplatePainter
+class TemplatePainter extends CustomPainter {
   final PaperTemplate template;
 
-  TemplateThumbnailPainter({required this.template});
+  TemplatePainter({required this.template});
 
-  @override
   void paint(Canvas canvas, Size size) {
+    // Clip the canvas to the A4 size to ensure lines don’t draw outside
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
     template.paintTemplate(canvas, size);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false; // Templates are static
+}
+
+extension StringExtension on String {
+  String capitalize() {
+    return "${this[0].toUpperCase()}${this.substring(1)}";
+  }
 }
