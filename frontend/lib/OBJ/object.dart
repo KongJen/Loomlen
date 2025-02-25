@@ -42,27 +42,27 @@ class _RoomItemState extends State<RoomItem> {
         children: [
           Stack(
             children: [
-              Icon(
-                Icons.home_filled,
-                size: 170,
-                color: widget.color,
-              ),
+              Icon(Icons.home_filled, size: 170, color: widget.color),
               Positioned(
                 right: 15,
                 top: 15,
                 child: IconButton(
-                  icon: Icon(Icons.star_rate_rounded,
-                      size: 50,
-                      color: widget.isFavorite
-                          ? Colors.red // Show red if favorite
-                          : const Color.fromARGB(255, 212, 212, 212),
-                      shadows: [
-                        BoxShadow(
-                          color: Colors.black,
-                          blurRadius: 2,
-                          offset: Offset(-0.5, 0.5),
-                        )
-                      ]),
+                  icon: Icon(
+                    Icons.star_rate_rounded,
+                    size: 50,
+                    color:
+                        widget.isFavorite
+                            ? Colors
+                                .red // Show red if favorite
+                            : const Color.fromARGB(255, 212, 212, 212),
+                    shadows: [
+                      BoxShadow(
+                        color: Colors.black,
+                        blurRadius: 2,
+                        offset: Offset(-0.5, 0.5),
+                      ),
+                    ],
+                  ),
                   onPressed:
                       widget.onToggleFavorite, // Trigger the toggle callback
                 ),
@@ -80,10 +80,7 @@ class _RoomItemState extends State<RoomItem> {
           SizedBox(height: 2.0),
           Text(
             widget.createdDate,
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey,
-            ),
+            style: TextStyle(fontSize: 10, color: Colors.grey),
           ),
         ],
       ),
@@ -128,27 +125,27 @@ class _FolderItemState extends State<FolderItem> {
         children: [
           Stack(
             children: [
-              Icon(
-                Icons.folder_open,
-                size: 170,
-                color: widget.color,
-              ),
+              Icon(Icons.folder_open, size: 170, color: widget.color),
               Positioned(
                 right: 15,
                 top: 15,
                 child: IconButton(
-                  icon: Icon(Icons.star_rate_rounded,
-                      size: 50,
-                      color: widget.isFavorite
-                          ? Colors.red // Show red if favorite
-                          : const Color.fromARGB(255, 212, 212, 212),
-                      shadows: [
-                        BoxShadow(
-                          color: Colors.black,
-                          blurRadius: 2,
-                          offset: Offset(-0.5, 0.5),
-                        )
-                      ]),
+                  icon: Icon(
+                    Icons.star_rate_rounded,
+                    size: 50,
+                    color:
+                        widget.isFavorite
+                            ? Colors
+                                .red // Show red if favorite
+                            : const Color.fromARGB(255, 212, 212, 212),
+                    shadows: [
+                      BoxShadow(
+                        color: Colors.black,
+                        blurRadius: 2,
+                        offset: Offset(-0.5, 0.5),
+                      ),
+                    ],
+                  ),
                   onPressed: widget.onToggleFavorite,
                 ),
               ),
@@ -165,10 +162,7 @@ class _FolderItemState extends State<FolderItem> {
           SizedBox(height: 2.0),
           Text(
             widget.createdDate,
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey,
-            ),
+            style: TextStyle(fontSize: 10, color: Colors.grey),
           ),
         ],
       ),
@@ -257,7 +251,8 @@ class _FileItemState extends State<FileItem> {
       height: 210,
       child: Padding(
         padding: const EdgeInsets.symmetric(
-            horizontal: 8.0), // Reduced horizontal padding
+          horizontal: 8.0,
+        ), // Reduced horizontal padding
         child: Column(
           mainAxisSize: MainAxisSize.min, // Changed to min to prevent expansion
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -321,15 +316,16 @@ class _FileItemState extends State<FileItem> {
                     icon: Icon(
                       Icons.star_rate_rounded,
                       size: 50,
-                      color: widget.isFavorite
-                          ? Colors.red
-                          : const Color.fromARGB(255, 212, 212, 212),
+                      color:
+                          widget.isFavorite
+                              ? Colors.red
+                              : const Color.fromARGB(255, 212, 212, 212),
                       shadows: const [
                         BoxShadow(
                           color: Colors.black,
                           blurRadius: 2,
                           offset: Offset(-0.5, 0.5),
-                        )
+                        ),
                       ],
                     ),
                     onPressed: widget.onToggleFavorite,
@@ -356,10 +352,7 @@ class _FileItemState extends State<FileItem> {
               // Added Flexible to allow text to shrink if needed
               child: Text(
                 widget.createdDate,
-                style: const TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey,
-                ),
+                style: const TextStyle(fontSize: 10, color: Colors.grey),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),
@@ -420,11 +413,7 @@ class NotePainter extends CustomPainter {
 
     // Draw background if exists
     if (backgroundImage != null) {
-      canvas.drawImage(
-        backgroundImage!,
-        Offset.zero,
-        Paint(),
-      );
+      canvas.drawImage(backgroundImage!, Offset.zero, Paint());
     }
 
     // Draw points
@@ -452,9 +441,10 @@ class NotePainter extends CustomPainter {
 class GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.grey.withOpacity(0.3)
-      ..strokeWidth = 0.5;
+    final paint =
+        Paint()
+          ..color = Colors.grey.withOpacity(0.3)
+          ..strokeWidth = 0.5;
 
     // Draw grid lines
     for (double i = 0; i <= size.width; i += 20) {
@@ -472,9 +462,10 @@ class GridPainter extends CustomPainter {
 class LinedPaperPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.blue.withOpacity(0.3)
-      ..strokeWidth = 0.5;
+    final paint =
+        Paint()
+          ..color = Colors.blue.withOpacity(0.3)
+          ..strokeWidth = 0.5;
 
     // Draw horizontal lines
     for (double i = 20; i <= size.height; i += 20) {
@@ -489,17 +480,15 @@ class LinedPaperPainter extends CustomPainter {
 class TodoTemplatePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.grey.withOpacity(0.5)
-      ..strokeWidth = 0.5;
+    final paint =
+        Paint()
+          ..color = Colors.grey.withOpacity(0.5)
+          ..strokeWidth = 0.5;
 
     // Draw checkbox outlines
     for (int i = 0; i < 5; i++) {
       final top = 30.0 + (i * 30);
-      canvas.drawRect(
-        Rect.fromLTWH(20, top, 15, 15),
-        paint,
-      );
+      canvas.drawRect(Rect.fromLTWH(20, top, 15, 15), paint);
     }
   }
 
@@ -533,10 +522,11 @@ class PaperTemplate {
     final Paint backgroundPaint = Paint()..color = backgroundColor;
     canvas.drawRect(Offset.zero & size, backgroundPaint);
 
-    final Paint linePaint = Paint()
-      ..color = lineColor
-      ..strokeWidth = lineWidth
-      ..style = PaintingStyle.stroke;
+    final Paint linePaint =
+        Paint()
+          ..color = lineColor
+          ..strokeWidth = lineWidth
+          ..style = PaintingStyle.stroke;
 
     // Draw template based on type
     switch (templateType) {
@@ -557,31 +547,19 @@ class PaperTemplate {
 
   void _drawLinedPaper(Canvas canvas, Size size, Paint paint) {
     for (double y = spacing; y < size.height; y += spacing) {
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        paint,
-      );
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
   }
 
   void _drawGridPaper(Canvas canvas, Size size, Paint paint) {
     // Draw horizontal lines
     for (double y = spacing; y < size.height; y += spacing) {
-      canvas.drawLine(
-        Offset(0, y),
-        Offset(size.width, y),
-        paint,
-      );
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
 
     // Draw vertical lines
     for (double x = spacing; x < size.width; x += spacing) {
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x, size.height),
-        paint,
-      );
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
   }
 
@@ -592,22 +570,13 @@ class PaperTemplate {
 
     for (double x = spacing; x < size.width; x += spacing) {
       for (double y = spacing; y < size.height; y += spacing) {
-        canvas.drawCircle(
-          Offset(x, y),
-          radius,
-          paint,
-        );
+        canvas.drawCircle(Offset(x, y), radius, paint);
       }
     }
   }
 }
 
-enum TemplateType {
-  plain,
-  lined,
-  grid,
-  dotted,
-}
+enum TemplateType { plain, lined, grid, dotted }
 
 class TemplateThumbnailPainter extends CustomPainter {
   final PaperTemplate template;
@@ -622,4 +591,5 @@ class TemplateThumbnailPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+
 //---------------------------------------------------------//
