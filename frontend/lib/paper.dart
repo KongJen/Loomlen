@@ -4,6 +4,8 @@ import 'package:frontend/OBJ/object.dart';
 import 'package:frontend/OBJ/provider.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
+import 'package:frontend/widget/setting_bar.dart';
+import 'package:frontend/OBJ/template_config.dart';
 
 enum DrawingMode { pencil, eraser }
 
@@ -41,31 +43,6 @@ class _PaperState extends State<Paper> {
   static const int _updateIntervalMs = 100;
 
   late PaperTemplate selectedTemplate;
-  final List<PaperTemplate> availableTemplates = const [
-    PaperTemplate(
-      id: 'plain',
-      name: 'Plain Paper',
-      templateType: TemplateType.plain,
-    ),
-    PaperTemplate(
-      id: 'lined',
-      name: 'Lined Paper',
-      templateType: TemplateType.lined,
-      spacing: 30.0,
-    ),
-    PaperTemplate(
-      id: 'grid',
-      name: 'Grid Paper',
-      templateType: TemplateType.grid,
-      spacing: 30.0,
-    ),
-    PaperTemplate(
-      id: 'dotted',
-      name: 'Dotted Paper',
-      templateType: TemplateType.dotted,
-      spacing: 30.0,
-    ),
-  ];
 
   static const double a4Width = 210 * 2.83465; // A4 width in points (~595)
   static const double a4Height = 297 * 2.83465; // A4 height in points (~842)
@@ -83,7 +60,7 @@ class _PaperState extends State<Paper> {
   void initState() {
     super.initState();
     _controller = TransformationController();
-    selectedTemplate = availableTemplates.first;
+    selectedTemplate = TemplateConfig.getDefaultTemplate();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _centerCanvas();
@@ -188,7 +165,7 @@ class _PaperState extends State<Paper> {
     if (drawingPoints.isEmpty) return;
     setState(() {
       final lastStroke = drawingPoints.removeLast();
-      undoStack.add([lastStroke]);
+      redoStack.add([lastStroke]);
       _updateStrokeHistory();
     });
   }
@@ -357,110 +334,6 @@ class _PaperState extends State<Paper> {
     }
   }
 
-  Widget _buildPencilSettingsBar() {
-    return Container(
-      padding: const EdgeInsets.all(8.0),
-      color: Colors.grey.shade200,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text('Size: ', style: TextStyle(fontSize: 16)),
-              Expanded(
-                child: Slider(
-                  value: selectedWidth,
-                  min: 1.0,
-                  max: 20.0,
-                  divisions: 19,
-                  label: selectedWidth.round().toString(),
-                  onChanged: (value) => setState(() => selectedWidth = value),
-                ),
-              ),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children:
-                availableColors
-                    .map(
-                      (color) => GestureDetector(
-                        onTap: () => setState(() => selectedColor = color),
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                          width: 30,
-                          height: 30,
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color:
-                                  selectedColor == color
-                                      ? Colors.white
-                                      : Colors.transparent,
-                              width: 2.0,
-                            ),
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEraserSettingsBar() {
-    return Container(
-      padding: const EdgeInsets.all(8.0),
-      color: Colors.grey.shade200,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text('Eraser Size: ', style: TextStyle(fontSize: 16)),
-              Expanded(
-                child: Slider(
-                  value: eraserWidth,
-                  min: 5.0,
-                  max: 50.0,
-                  divisions: 45,
-                  label: eraserWidth.round().toString(),
-                  onChanged: (value) => setState(() => eraserWidth = value),
-                ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              const Text('Mode: ', style: TextStyle(fontSize: 16)),
-              const SizedBox(width: 8),
-              ToggleButtons(
-                borderRadius: BorderRadius.circular(8),
-                selectedColor: Colors.white,
-                fillColor: Colors.blue,
-                constraints: const BoxConstraints(minHeight: 36, minWidth: 80),
-                isSelected: [
-                  eraserMode == EraserMode.stroke,
-                  eraserMode == EraserMode.point,
-                ],
-                children: const [Text('Stroke'), Text('Point')],
-                onPressed:
-                    (index) => setState(
-                      () =>
-                          eraserMode =
-                              index == 0 ? EraserMode.stroke : EraserMode.point,
-                    ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   bool _isWithinCanvas(Offset point) =>
       point.dx >= 0 &&
       point.dx <= a4Width &&
@@ -529,8 +402,21 @@ class _PaperState extends State<Paper> {
       ),
       body: Column(
         children: [
-          if (selectedMode == DrawingMode.pencil) _buildPencilSettingsBar(),
-          if (selectedMode == DrawingMode.eraser) _buildEraserSettingsBar(),
+          if (selectedMode == DrawingMode.pencil)
+            buildPencilSettingsBar(
+              selectedWidth: selectedWidth,
+              selectedColor: selectedColor,
+              availableColors: availableColors,
+              onWidthChanged: (value) => setState(() => selectedWidth = value),
+              onColorChanged: (color) => setState(() => selectedColor = color),
+            ),
+          if (selectedMode == DrawingMode.eraser)
+            buildEraserSettingsBar(
+              eraserWidth: eraserWidth,
+              eraserMode: eraserMode,
+              onWidthChanged: (value) => setState(() => eraserWidth = value),
+              onModeChanged: (mode) => setState(() => eraserMode = mode),
+            ),
           Expanded(
             child: Center(
               child: InteractiveViewer(
@@ -712,8 +598,4 @@ class TemplatePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-extension StringExtension on String {
-  String capitalize() => '${this[0].toUpperCase()}${substring(1)}';
 }
