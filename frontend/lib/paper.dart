@@ -282,8 +282,9 @@ class _PaperState extends State<Paper> {
         for (var i = 0; i < strokeHistory.length; i++) {
           if (strokeHistory[i]['type'] == 'drawing') {
             final strokeId = strokeHistory[i]['data']['id'] as int;
-            if (updatedStrokes.containsKey(strokeId))
+            if (updatedStrokes.containsKey(strokeId)) {
               strokeHistory[i]['data'] = updatedStrokes[strokeId];
+            }
           }
         }
 
@@ -507,8 +508,9 @@ class _PaperState extends State<Paper> {
                                           localPosition,
                                           i / 1,
                                         )!;
-                                    if (_isWithinCanvas(interpolatePoint))
+                                    if (_isWithinCanvas(interpolatePoint)) {
                                       _eraseAtPoint(interpolatePoint);
+                                    }
                                   }
                                   lastErasePosition = localPosition;
                                 }

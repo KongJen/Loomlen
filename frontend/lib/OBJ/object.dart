@@ -1,8 +1,4 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:frontend/paper.dart';
-import '../model/drawingpoint.dart';
 import 'dart:ui' as ui;
 
 /*--------------RoomItem--------------------*/
@@ -17,7 +13,7 @@ class RoomItem extends StatefulWidget {
   final List<String> fileIds;
 
   const RoomItem({
-    Key? key,
+    super.key,
     required this.id,
     required this.name,
     required this.createdDate,
@@ -26,7 +22,7 @@ class RoomItem extends StatefulWidget {
     required this.onToggleFavorite,
     required this.folderIds,
     required this.fileIds,
-  }) : super(key: key);
+  });
 
   @override
   State<RoomItem> createState() => _RoomItemState();
@@ -100,7 +96,7 @@ class FolderItem extends StatefulWidget {
   final List<String> fileIds;
 
   const FolderItem({
-    Key? key,
+    super.key,
     required this.id,
     required this.name,
     required this.createdDate,
@@ -109,7 +105,7 @@ class FolderItem extends StatefulWidget {
     required this.onToggleFavorite,
     required this.subfolderIds,
     required this.fileIds,
-  }) : super(key: key);
+  });
 
   @override
   State<FolderItem> createState() => _FolderItemState();
@@ -186,7 +182,7 @@ class FileItem extends StatefulWidget {
   final double spacing; // Added spacing
 
   const FileItem({
-    Key? key,
+    super.key,
     required this.id,
     required this.name,
     required this.createdDate,
@@ -198,7 +194,7 @@ class FileItem extends StatefulWidget {
     this.recognizedText,
     required this.isFavorite,
     required this.onToggleFavorite,
-  }) : super(key: key);
+  });
 
   @override
   State<FileItem> createState() => _FileItemState();
@@ -221,21 +217,6 @@ class _FileItemState extends State<FileItem> {
   //     }
   //   }
   // }
-
-  Future<void> _loadBackgroundImage(String base64Image) async {
-    try {
-      final bytes = base64Decode(base64Image);
-      final codec = await ui.instantiateImageCodec(bytes);
-      final frame = await codec.getNextFrame();
-      if (mounted) {
-        setState(() {
-          backgroundImage = frame.image;
-        });
-      }
-    } catch (e) {
-      print('Error loading preview: $e');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -267,6 +248,7 @@ class _FileItemState extends State<FileItem> {
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
+                        // ignore: deprecated_member_use
                         color: Colors.grey.withOpacity(0.3),
                         spreadRadius: 1,
                         blurRadius: 3,
@@ -291,6 +273,7 @@ class _FileItemState extends State<FileItem> {
                             child: Container(
                               padding: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
+                                // ignore: deprecated_member_use
                                 color: Colors.black.withOpacity(0.6),
                                 borderRadius: BorderRadius.circular(4),
                               ),
@@ -363,21 +346,6 @@ class _FileItemState extends State<FileItem> {
     );
   }
 
-  Widget _buildTemplatePreview() {
-    final template = PaperTemplate(
-      id: widget.templateId,
-      name: _getTemplateName(),
-      templateType: widget.templateType,
-      spacing: widget.spacing,
-    );
-
-    // Use a single custom painter for all template types
-    return CustomPaint(
-      painter: TemplateThumbnailPainter(template: template),
-      size: const Size(170, 170),
-    );
-  }
-
   String _getTemplateName() {
     switch (widget.templateType) {
       case TemplateType.plain:
@@ -388,8 +356,6 @@ class _FileItemState extends State<FileItem> {
         return 'Grid Paper';
       case TemplateType.dotted:
         return 'Dotted Paper';
-      default:
-        return 'Plain Paper';
     }
   }
 }
@@ -443,6 +409,7 @@ class GridPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint =
         Paint()
+          // ignore: deprecated_member_use
           ..color = Colors.grey.withOpacity(0.3)
           ..strokeWidth = 0.5;
 
@@ -464,6 +431,7 @@ class LinedPaperPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint =
         Paint()
+          // ignore: deprecated_member_use
           ..color = Colors.blue.withOpacity(0.3)
           ..strokeWidth = 0.5;
 
@@ -482,6 +450,7 @@ class TodoTemplatePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint =
         Paint()
+          // ignore: deprecated_member_use
           ..color = Colors.grey.withOpacity(0.5)
           ..strokeWidth = 0.5;
 

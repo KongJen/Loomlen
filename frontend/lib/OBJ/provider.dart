@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
@@ -25,18 +26,19 @@ class RoomProvider extends ChangeNotifier {
     if (await file.exists()) {
       final data = jsonDecode(await file.readAsString());
 
-      _rooms = List<Map<String, dynamic>>.from(data).map((room) {
-        return {
-          'id': room['id'],
-          'name': room['name'],
-          'createdDate': room['createdDate'],
-          'color':
-              (room['color'] is int) ? Color(room['color']) : room['color'],
-          'isFavorite': room['isFavorite'],
-          'folderIds': List<String>.from(room['folderIds'] ?? []),
-          'fileIds': List<String>.from(room['fileIds'] ?? []),
-        };
-      }).toList();
+      _rooms =
+          List<Map<String, dynamic>>.from(data).map((room) {
+            return {
+              'id': room['id'],
+              'name': room['name'],
+              'createdDate': room['createdDate'],
+              'color':
+                  (room['color'] is int) ? Color(room['color']) : room['color'],
+              'isFavorite': room['isFavorite'],
+              'folderIds': List<String>.from(room['folderIds'] ?? []),
+              'fileIds': List<String>.from(room['fileIds'] ?? []),
+            };
+          }).toList();
 
       notifyListeners();
     }
@@ -46,20 +48,22 @@ class RoomProvider extends ChangeNotifier {
     final directory = await getApplicationDocumentsDirectory();
     final file = File('${directory.path}/rooms.json');
 
-    List<Map<String, dynamic>> roomsToSave = _rooms.map((room) {
-      return {
-        'id': room['id'],
-        'name': room['name'],
-        'createdDate': room['createdDate'],
-        'color': (room['color'] is Color)
-            ? (room['color'] as Color).value
-            : room['color'],
-        'isFavorite': room['isFavorite'],
-        'folderIds': room['folderIds'] ?? [],
-        'fileIds': room['fileIds'] ?? [],
-      };
-    }).toList();
-    print("Saveroom $roomsToSave");
+    List<Map<String, dynamic>> roomsToSave =
+        _rooms.map((room) {
+          return {
+            'id': room['id'],
+            'name': room['name'],
+            'createdDate': room['createdDate'],
+            'color':
+                (room['color'] is Color)
+                    // ignore: deprecated_member_use
+                    ? (room['color'] as Color).value
+                    : room['color'],
+            'isFavorite': room['isFavorite'],
+            'folderIds': room['folderIds'] ?? [],
+            'fileIds': room['fileIds'] ?? [],
+          };
+        }).toList();
 
     await file.writeAsString(jsonEncode(roomsToSave));
   }
@@ -80,6 +84,7 @@ class RoomProvider extends ChangeNotifier {
       'id': _uuid.v4(), // Generate unique ID
       'name': name,
       'createdDate': DateTime.now().toIso8601String(),
+      // ignore: deprecated_member_use
       'color': color.value, // Save color as int
       'isFavorite': false,
     };
@@ -130,7 +135,7 @@ class RoomProvider extends ChangeNotifier {
       _saveRooms();
       notifyListeners();
 
-      print("File $fileId added to room $roomId");
+      // print("File $fileId added to room $roomId");
     }
   }
 }
@@ -165,23 +170,27 @@ class FolderProvider extends ChangeNotifier {
       try {
         final data = jsonDecode(fileContent);
 
-        _folders = List<Map<String, dynamic>>.from(data).map((folder) {
-          return {
-            'id': folder['id'],
-            'name': folder['name'],
-            'createdDate': folder['createdDate'],
-            'color': (folder['color'] is int)
-                ? Color(folder['color'])
-                : folder['color'],
-            'isFavorite': folder['isFavorite'],
-            'subfolderIds': List<String>.from(folder['subfolderIds'] ?? []),
-            'fileIds': List<String>.from(folder['fileIds'] ?? []),
-          };
-        }).toList();
+        _folders =
+            List<Map<String, dynamic>>.from(data).map((folder) {
+              return {
+                'id': folder['id'],
+                'name': folder['name'],
+                'createdDate': folder['createdDate'],
+                'color':
+                    (folder['color'] is int)
+                        ? Color(folder['color'])
+                        : folder['color'],
+                'isFavorite': folder['isFavorite'],
+                'subfolderIds': List<String>.from(folder['subfolderIds'] ?? []),
+                'fileIds': List<String>.from(folder['fileIds'] ?? []),
+              };
+            }).toList();
 
         notifyListeners();
       } catch (e) {
-        print("Error decoding JSON: $e");
+        if (kDebugMode) {
+          ("Error decoding JSON: $e");
+        }
       }
     }
   }
@@ -191,19 +200,22 @@ class FolderProvider extends ChangeNotifier {
     final directory = await getApplicationDocumentsDirectory();
     final file = File('${directory.path}/folders.json');
 
-    List<Map<String, dynamic>> foldersToSave = _folders.map((folder) {
-      return {
-        'id': folder['id'],
-        'name': folder['name'],
-        'createdDate': folder['createdDate'],
-        'color': (folder['color'] is Color)
-            ? (folder['color'] as Color).value
-            : folder['color'],
-        'isFavorite': folder['isFavorite'],
-        'subfolderIds': folder['subfolderIds'] ?? [],
-        'fileIds': folder['fileIds'] ?? [],
-      };
-    }).toList();
+    List<Map<String, dynamic>> foldersToSave =
+        _folders.map((folder) {
+          return {
+            'id': folder['id'],
+            'name': folder['name'],
+            'createdDate': folder['createdDate'],
+            'color':
+                (folder['color'] is Color)
+                    // ignore: deprecated_member_use
+                    ? (folder['color'] as Color).value
+                    : folder['color'],
+            'isFavorite': folder['isFavorite'],
+            'subfolderIds': folder['subfolderIds'] ?? [],
+            'fileIds': folder['fileIds'] ?? [],
+          };
+        }).toList();
 
     await file.writeAsString(jsonEncode(foldersToSave));
   }
@@ -225,6 +237,7 @@ class FolderProvider extends ChangeNotifier {
       'id': folderId,
       'name': name,
       'createdDate': DateTime.now().toIso8601String(),
+      // ignore: deprecated_member_use
       'color': color.value,
       'isFavorite': false,
     };
@@ -276,7 +289,7 @@ class FolderProvider extends ChangeNotifier {
       _saveFolders();
       notifyListeners();
 
-      print("File $fileId added to folder $folderId");
+      // print("File $fileId added to folder $folderId");
     }
   }
 }
@@ -311,7 +324,38 @@ class FileProvider extends ChangeNotifier {
       try {
         final data = jsonDecode(fileContent);
 
-        _files = List<Map<String, dynamic>>.from(data).map((file) {
+        _files =
+            List<Map<String, dynamic>>.from(data).map((file) {
+              return {
+                'id': file['id'],
+                'name': file['name'],
+                'createdDate': file['createdDate'],
+                'size': file['size'],
+                'isFavorite': file['isFavorite'],
+                'templateId': file['templateId'],
+                'templateType': file['templateType'],
+                'spacing': file['spacing'],
+                'drawingData': file['drawingData'],
+              };
+            }).toList();
+
+        notifyListeners();
+      } catch (e) {
+        if (kDebugMode) {
+          print("Error decoding JSON: $e");
+        }
+        _files = [];
+      }
+    }
+  }
+
+  // Save files to local storage
+  Future<void> _saveFiles() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/files.json');
+
+    List<Map<String, dynamic>> filesToSave =
+        _files.map((file) {
           return {
             'id': file['id'],
             'name': file['name'],
@@ -324,33 +368,6 @@ class FileProvider extends ChangeNotifier {
             'drawingData': file['drawingData'],
           };
         }).toList();
-
-        notifyListeners();
-      } catch (e) {
-        print("Error decoding JSON: $e");
-        _files = [];
-      }
-    }
-  }
-
-  // Save files to local storage
-  Future<void> _saveFiles() async {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/files.json');
-
-    List<Map<String, dynamic>> filesToSave = _files.map((file) {
-      return {
-        'id': file['id'],
-        'name': file['name'],
-        'createdDate': file['createdDate'],
-        'size': file['size'],
-        'isFavorite': file['isFavorite'],
-        'templateId': file['templateId'],
-        'templateType': file['templateType'],
-        'spacing': file['spacing'],
-        'drawingData': file['drawingData'],
-      };
-    }).toList();
 
     await file.writeAsString(jsonEncode(filesToSave));
   }
@@ -366,10 +383,13 @@ class FileProvider extends ChangeNotifier {
   }
 
   /// Add a new file
-  String addFile(String name, int size, PaperTemplate template,
-      [List<Map<String, dynamic>>? drawingData]) {
+  String addFile(
+    String name,
+    int size,
+    PaperTemplate template, [
+    List<Map<String, dynamic>>? drawingData,
+  ]) {
     final String fileId = _uuid.v4();
-    final String templateId = template.id;
     final newFile = {
       'id': fileId,
       'name': name,
@@ -387,14 +407,16 @@ class FileProvider extends ChangeNotifier {
     _saveFiles();
     notifyListeners();
 
-    print("File created with ID: $fileId");
-    print("File created with Template : $templateId");
+    // print("File created with ID: $fileId");
+    // print("File created with Template : $templateId");
 
     return fileId;
   }
 
   Future<void> updateFileDrawingData(
-      String fileId, List<Map<String, dynamic>> drawingData) async {
+    String fileId,
+    List<Map<String, dynamic>> drawingData,
+  ) async {
     final index = _files.indexWhere((file) => file['id'] == fileId);
     if (index != -1) {
       _files[index]['drawingData'] = drawingData;

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,9 +7,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 class OverlayAuth extends StatefulWidget {
   final VoidCallback onClose;
 
-  const OverlayAuth({Key? key, required this.onClose}) : super(key: key);
+  const OverlayAuth({super.key, required this.onClose});
 
   @override
+  // ignore: library_private_types_in_public_api
   _OverlayAuthState createState() => _OverlayAuthState();
 }
 
@@ -23,13 +25,14 @@ class _OverlayAuthState extends State<OverlayAuth> {
       TextEditingController();
 
   Future<void> authenticate() async {
-    String url = isLogin
-        ? "http://10.0.2.2:8080/api/user/login"
-        : "http://10.0.2.2:8080/api/user/signup";
+    String url =
+        isLogin
+            ? "http://10.0.2.2:8080/api/user/login"
+            : "http://10.0.2.2:8080/api/user/signup";
 
-    print("Sending request to: $url");
-    print(
-        "Email: ${emailController.text}, Password: ${passwordController.text}");
+    // print("Sending request to: $url");
+    // print(
+    //     "Email: ${emailController.text}, Password: ${passwordController.text}");
 
     try {
       var response = await http.post(
@@ -41,8 +44,8 @@ class _OverlayAuthState extends State<OverlayAuth> {
         }),
       );
 
-      print("Response Status: ${response.statusCode}");
-      print("Response Body: ${response.body}");
+      // print("Response Status: ${response.statusCode}");
+      // print("Response Body: ${response.body}");
 
       if (response.statusCode == 200) {
         var data = jsonDecode(response.body);
@@ -60,13 +63,19 @@ class _OverlayAuthState extends State<OverlayAuth> {
             userEmail = data["user"]["email"];
           });
 
-          print("Login successful!");
+          if (kDebugMode) {
+            print("Login successful!");
+          }
         }
       } else {
-        print("Error: ${response.body}");
+        if (kDebugMode) {
+          print("Error: ${response.body}");
+        }
       }
     } catch (e) {
-      print("Exception: $e");
+      if (kDebugMode) {
+        print("Exception: $e");
+      }
     }
   }
 
@@ -96,6 +105,7 @@ class _OverlayAuthState extends State<OverlayAuth> {
         Positioned.fill(
           child: GestureDetector(
             onTap: widget.onClose,
+            // ignore: deprecated_member_use
             child: Container(color: Colors.black.withOpacity(0.5)),
           ),
         ),
@@ -151,11 +161,15 @@ class _OverlayAuthState extends State<OverlayAuth> {
             children: [
               Icon(Icons.account_circle, size: 80, color: Colors.blue),
               SizedBox(height: 10),
-              Text(name,
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(
+                name,
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
               Text(email, style: TextStyle(fontSize: 16)),
-              Text("Last Login: $lastLogin",
-                  style: TextStyle(fontSize: 14, color: Colors.grey)),
+              Text(
+                "Last Login: $lastLogin",
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: logout,
@@ -184,9 +198,10 @@ class _OverlayAuthState extends State<OverlayAuth> {
           child: Stack(
             children: [
               Center(
-                child: Text(isLogin ? 'Login' : 'Signup',
-                    style:
-                        TextStyle(fontSize: 25, fontWeight: FontWeight.bold)),
+                child: Text(
+                  isLogin ? 'Login' : 'Signup',
+                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+                ),
               ),
               Positioned(
                 right: 0,
@@ -215,8 +230,9 @@ class _OverlayAuthState extends State<OverlayAuth> {
                 controller: passwordController,
                 obscureText: true,
                 decoration: InputDecoration(
-                    hintText: 'Enter your password',
-                    prefixIcon: Icon(Icons.lock_outline, color: Colors.black)),
+                  hintText: 'Enter your password',
+                  prefixIcon: Icon(Icons.lock_outline, color: Colors.black),
+                ),
               ),
               if (!isLogin) ...[
                 SizedBox(height: 10),
@@ -224,9 +240,9 @@ class _OverlayAuthState extends State<OverlayAuth> {
                   obscureText: true,
                   controller: confirmPasswordController,
                   decoration: InputDecoration(
-                      hintText: 'Confirm your password',
-                      prefixIcon:
-                          Icon(Icons.lock_outline, color: Colors.black)),
+                    hintText: 'Confirm your password',
+                    prefixIcon: Icon(Icons.lock_outline, color: Colors.black),
+                  ),
                 ),
               ],
               SizedBox(height: 20),
@@ -234,7 +250,7 @@ class _OverlayAuthState extends State<OverlayAuth> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    print("Login button pressed");
+                    // print("Login button pressed");
                     authenticate();
                   },
                   style: ElevatedButton.styleFrom(
