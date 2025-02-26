@@ -19,7 +19,7 @@ class _BottomNavigationMenuState extends State<NavigationMenu> {
     GlobalKey<NavigatorState>(),
   ];
 
-  static List<Widget> _pages = <Widget>[
+  static final List<Widget> _pages = <Widget>[
     MyRoomPage(),
     SharePage(),
     FavoritesPage(),
@@ -39,9 +39,7 @@ class _BottomNavigationMenuState extends State<NavigationMenu> {
     return Navigator(
       key: key,
       onGenerateRoute: (routeSettings) {
-        return MaterialPageRoute(
-          builder: (context) => page,
-        );
+        return MaterialPageRoute(builder: (context) => page);
       },
     );
   }
@@ -61,9 +59,7 @@ class _BottomNavigationMenuState extends State<NavigationMenu> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(color: Colors.grey, width: 1),
-          ),
+          border: Border(top: BorderSide(color: Colors.grey, width: 1)),
         ),
         child: BottomNavigationBar(
           items: <BottomNavigationBarItem>[
@@ -76,13 +72,17 @@ class _BottomNavigationMenuState extends State<NavigationMenu> {
                   children: [
                     Icon(Icons.person),
                     SizedBox(width: 10), // padding between icon and text
-                    Text('My Room',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: _selectedIndex == 0
+                    Text(
+                      'My Room',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color:
+                            _selectedIndex == 0
                                 ? Colors.blue[800]
-                                : Colors.grey))
+                                : Colors.grey,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -97,13 +97,17 @@ class _BottomNavigationMenuState extends State<NavigationMenu> {
                   children: [
                     Icon(Icons.share_rounded),
                     SizedBox(width: 10), // padding between icon and text
-                    Text('Share',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: _selectedIndex == 1
+                    Text(
+                      'Share',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color:
+                            _selectedIndex == 1
                                 ? Colors.blue[800]
-                                : Colors.grey))
+                                : Colors.grey,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -118,13 +122,17 @@ class _BottomNavigationMenuState extends State<NavigationMenu> {
                   children: [
                     Icon(Icons.book_rounded),
                     SizedBox(width: 10), // padding between icon and text
-                    Text('Favorites',
-                        style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: _selectedIndex == 2
+                    Text(
+                      'Favorites',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color:
+                            _selectedIndex == 2
                                 ? Colors.blue[800]
-                                : Colors.grey))
+                                : Colors.grey,
+                      ),
+                    ),
                   ],
                 ),
               ),

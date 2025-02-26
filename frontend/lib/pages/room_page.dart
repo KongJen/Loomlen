@@ -12,13 +12,10 @@ class RoomDetailPage extends StatefulWidget {
   final Map<String, dynamic> room;
   final Function? onRoomUpdated;
 
-  const RoomDetailPage({
-    Key? key,
-    required this.room,
-    this.onRoomUpdated,
-  }) : super(key: key);
+  const RoomDetailPage({super.key, required this.room, this.onRoomUpdated});
 
   @override
+  // ignore: library_private_types_in_public_api
   _RoomDetailPageState createState() => _RoomDetailPageState();
 }
 
@@ -47,7 +44,10 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   }
 
   void showOverlaySelect(
-      String parentId, BuildContext context, Offset position) {
+    String parentId,
+    BuildContext context,
+    Offset position,
+  ) {
     _toggleOverlay(
       OverlaySelect(
         overlayPosition: position,
@@ -118,54 +118,40 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     }
     if (fullPath.length < 5) {
       return Row(
-        children: fullPath.map((folder) {
-          int index = fullPath.indexOf(folder);
-          return Row(
-            children: [
-              if (index == 0)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 5),
-                  child: Icon(
-                    Icons.home_filled,
-                    color: Colors.white,
+        children:
+            fullPath.map((folder) {
+              int index = fullPath.indexOf(folder);
+              return Row(
+                children: [
+                  if (index == 0)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 5),
+                      child: Icon(Icons.home_filled, color: Colors.white),
+                    ),
+                  if (index > 0)
+                    const Icon(Icons.chevron_right, color: Colors.white),
+                  Text(
+                    folder['name'],
+                    style: const TextStyle(color: Colors.white),
                   ),
-                ),
-              if (index > 0)
-                const Icon(Icons.chevron_right, color: Colors.white),
-              Text(
-                folder['name'],
-                style: const TextStyle(color: Colors.white),
-              ),
-            ],
-          );
-        }).toList(),
+                ],
+              );
+            }).toList(),
       );
     } else {
       return Row(
         children: [
           const Padding(
-            padding: const EdgeInsets.only(bottom: 5),
-            child: Icon(
-              Icons.home_filled,
-              color: Colors.white,
-            ),
+            padding: EdgeInsets.only(bottom: 5),
+            child: Icon(Icons.home_filled, color: Colors.white),
           ),
           Text(
             fullPath[0]['name'],
             style: const TextStyle(color: Colors.white),
           ),
-          const Icon(
-            Icons.chevron_right,
-            color: Colors.white,
-          ),
-          Text(
-            '...',
-            style: const TextStyle(color: Colors.white),
-          ),
-          const Icon(
-            Icons.chevron_right,
-            color: Colors.white,
-          ),
+          const Icon(Icons.chevron_right, color: Colors.white),
+          Text('...', style: const TextStyle(color: Colors.white)),
+          const Icon(Icons.chevron_right, color: Colors.white),
           Text(
             fullPath[fullPath.length - 1]['name'],
             style: const TextStyle(color: Colors.white),
@@ -180,37 +166,44 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final folderProvider = Provider.of<FolderProvider>(context);
     final fileProvider = Provider.of<FileProvider>(context);
 
-    print(
-        'Current Folder IDs: ${currentFolder != null ? currentFolder!['subfolderIds'] : currentRoom['folderIds']}');
-    print(
-        'Current File IDs: ${currentFolder != null ? currentFolder!['fileIds'] : currentRoom['fileIds']}');
+    // print(
+    //   'Current Folder IDs: ${currentFolder != null ? currentFolder!['subfolderIds'] : currentRoom['folderIds']}',
+    // );
+    // print(
+    //   'Current File IDs: ${currentFolder != null ? currentFolder!['fileIds'] : currentRoom['fileIds']}',
+    // );
 
-    final List<String> currentFolderIds = currentFolder != null
-        ? (currentFolder!['subfolderIds'] ?? [])
-        : (currentRoom['folderIds'] ?? []);
+    final List<String> currentFolderIds =
+        currentFolder != null
+            ? (currentFolder!['subfolderIds'] ?? [])
+            : (currentRoom['folderIds'] ?? []);
 
-    final folders = folderProvider.folders
-        .where((folder) => currentFolderIds.contains(folder['id']))
-        .toList();
+    final folders =
+        folderProvider.folders
+            .where((folder) => currentFolderIds.contains(folder['id']))
+            .toList();
 
-    final List<String> currentFileIds = currentFolder != null
-        ? (currentFolder!['fileIds'] ?? [])
-        : (currentRoom['fileIds'] ?? []);
+    final List<String> currentFileIds =
+        currentFolder != null
+            ? (currentFolder!['fileIds'] ?? [])
+            : (currentRoom['fileIds'] ?? []);
 
-    final files = fileProvider.files
-        .where((file) => currentFileIds.contains(file['id']))
-        .toList();
+    final files =
+        fileProvider.files
+            .where((file) => currentFileIds.contains(file['id']))
+            .toList();
 
-    print('Filtered Folders: ${folders.length}');
-    print('Filtered Files: ${files.length}');
+    // print('Filtered Folders: ${folders.length}');
+    // print('Filtered Files: ${files.length}');
 
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: currentFolder != null
-              ? navigateBack
-              : () => Navigator.pop(context),
+          onPressed:
+              currentFolder != null
+                  ? navigateBack
+                  : () => Navigator.pop(context),
         ),
         title: buildBreadcrumb(),
         backgroundColor:
@@ -229,8 +222,10 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
               color: Colors.white,
             ),
             onPressed: () {
-              final roomProvider =
-                  Provider.of<RoomProvider>(context, listen: false);
+              final roomProvider = Provider.of<RoomProvider>(
+                context,
+                listen: false,
+              );
               roomProvider.toggleFavorite(currentRoom['name']);
               setState(() {
                 currentRoom['isFavorite'] = !currentRoom['isFavorite'];
@@ -256,14 +251,15 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return GestureDetector(
-                      onTapDown: (TapDownDetails details) => showOverlaySelect(
-                        currentFolder != null
-                            ? currentFolder!['id']
-                            : currentRoom['id'],
-                        context,
-                        details
-                            .globalPosition, // Now it correctly gets the tap position
-                      ),
+                      onTapDown:
+                          (TapDownDetails details) => showOverlaySelect(
+                            currentFolder != null
+                                ? currentFolder!['id']
+                                : currentRoom['id'],
+                            context,
+                            details
+                                .globalPosition, // Now it correctly gets the tap position
+                          ),
                       child: Column(
                         children: [
                           Container(
@@ -278,14 +274,19 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                                 width: 100.0,
                                 height: 100.0,
                                 alignment: Alignment.center,
-                                child: const Icon(Icons.add,
-                                    size: 32, color: Colors.blue),
+                                child: const Icon(
+                                  Icons.add,
+                                  size: 32,
+                                  color: Colors.blue,
+                                ),
                               ),
                             ),
                           ),
                           const SizedBox(height: 16),
-                          const Text("New",
-                              style: TextStyle(color: Colors.blue)),
+                          const Text(
+                            "New",
+                            style: TextStyle(color: Colors.blue),
+                          ),
                         ],
                       ),
                     );
@@ -297,14 +298,17 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                         id: folder['id'],
                         name: folder['name'],
                         createdDate: folder['createdDate'],
-                        color: (folder['color'] is int)
-                            ? Color(folder['color'])
-                            : folder['color'],
+                        color:
+                            (folder['color'] is int)
+                                ? Color(folder['color'])
+                                : folder['color'],
                         isFavorite: folder['isFavorite'],
                         subfolderIds: folder['subfolderIds'] ?? [],
                         fileIds: folder['fileIds'] ?? [],
-                        onToggleFavorite: () =>
-                            folderProvider.toggleFavoriteFolder(folder['id']),
+                        onToggleFavorite:
+                            () => folderProvider.toggleFavoriteFolder(
+                              folder['id'],
+                            ),
                       ),
                     );
                   } else {
@@ -312,20 +316,23 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                     return GestureDetector(
                       onTap: () {
                         Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) => Paper(
-                                      name: file['name'],
-                                      fileId: file['id'],
-                                    )));
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => Paper(
+                                  name: file['name'],
+                                  fileId: file['id'],
+                                ),
+                          ),
+                        );
                       },
                       child: FileItem(
                         id: file['id'],
                         name: file['name'],
                         createdDate: file['createdDate'],
                         isFavorite: file['isFavorite'],
-                        onToggleFavorite: () =>
-                            fileProvider.toggleFavoriteFile(file['id']),
+                        onToggleFavorite:
+                            () => fileProvider.toggleFavoriteFile(file['id']),
                       ),
                     );
                   }

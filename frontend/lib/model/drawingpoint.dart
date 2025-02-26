@@ -26,7 +26,9 @@ class DrawingPoint {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'offsets': offsets.map((offset) => {'x': offset.dx, 'y': offset.dy}).toList(),
+      'offsets':
+          offsets.map((offset) => {'x': offset.dx, 'y': offset.dy}).toList(),
+      // ignore: deprecated_member_use
       'color': color.value,
       'width': width,
     };
@@ -37,12 +39,15 @@ class DrawingPoint {
     List<Offset> offsetsList = [];
 
     // Make sure to properly parse all offsets
-  if (json['offsets'] != null) {
-    final offsetsData = json['offsets'] as List;
-    offsetsList = offsetsData.map<Offset>((point) => 
-      Offset(point['x'].toDouble(), point['y'].toDouble())
-    ).toList();
-  }
+    if (json['offsets'] != null) {
+      final offsetsData = json['offsets'] as List;
+      offsetsList =
+          offsetsData
+              .map<Offset>(
+                (point) => Offset(point['x'].toDouble(), point['y'].toDouble()),
+              )
+              .toList();
+    }
 
     return DrawingPoint(
       id: json['id'],

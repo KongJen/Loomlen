@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 class SharePage extends StatelessWidget {
+  const SharePage({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -10,9 +12,7 @@ class SharePage extends StatelessWidget {
           elevation: 0,
           flexibleSpace: Container(
             decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey, width: 1),
-              ),
+              border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
             ),
             child: Padding(
               padding: EdgeInsets.only(
@@ -39,10 +39,7 @@ class SharePage extends StatelessWidget {
         ),
       ),
       body: Center(
-        child: Text(
-          'Welcome to Share!',
-          style: TextStyle(fontSize: 24),
-        ),
+        child: Text('Welcome to Share!', style: TextStyle(fontSize: 24)),
       ),
     );
   }
