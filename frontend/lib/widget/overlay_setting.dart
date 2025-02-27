@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 class OverlaySettings extends StatefulWidget {
   final VoidCallback onClose;
 
-  const OverlaySettings({Key? key, required this.onClose}) : super(key: key);
+  const OverlaySettings({super.key, required this.onClose});
 
   @override
+  // ignore: library_private_types_in_public_api
   _OverlaySettingsState createState() => _OverlaySettingsState();
 }
 
@@ -18,6 +19,7 @@ class _OverlaySettingsState extends State<OverlaySettings> {
         Positioned.fill(
           child: GestureDetector(
             onTap: widget.onClose,
+            // ignore: deprecated_member_use
             child: Container(color: Colors.black.withOpacity(0.5)),
           ),
         ),
@@ -46,8 +48,9 @@ class _OverlaySettingsState extends State<OverlaySettings> {
                     padding: EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                     decoration: BoxDecoration(
                       color: Colors.grey[200],
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(10)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(10),
+                      ),
                     ),
                     child: Stack(
                       children: [
@@ -55,7 +58,9 @@ class _OverlaySettingsState extends State<OverlaySettings> {
                           child: Text(
                             'Settings',
                             style: TextStyle(
-                                fontSize: 20, fontWeight: FontWeight.bold),
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         Positioned(

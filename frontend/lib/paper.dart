@@ -4,7 +4,7 @@ import 'package:frontend/OBJ/object.dart';
 import 'package:frontend/OBJ/provider.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
-import 'package:frontend/widget/setting_bar.dart';
+import 'package:frontend/widget/tool_bar.dart';
 import 'package:frontend/OBJ/template_config.dart';
 
 enum DrawingMode { pencil, eraser }
