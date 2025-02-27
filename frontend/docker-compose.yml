@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  flutter_dev:
+    build: .
+    container_name: flutter_dev
+    volumes:
+      - .:/app  # Mount the current directory to /app
+      - flutter-pub-cache:/root/.pub-cache  # Use a volume for Flutter pub cache
+    ports:
+      - "5037:5037"  # ADB server port
+      - "5554:5554"  # Emulator port
+      - "5555:5555"  # Emulator port (additional if needed)
+    tty: true
+    stdin_open: true
+    command: tail -f /dev/null
+
+volumes:
+  flutter-pub-cache:
