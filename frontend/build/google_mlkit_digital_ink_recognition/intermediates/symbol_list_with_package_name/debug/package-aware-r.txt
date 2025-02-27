@@ -1,0 +1,1 @@
+com.google_mlkit_digital_ink_recognition
