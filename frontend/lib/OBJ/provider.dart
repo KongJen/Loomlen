@@ -24,10 +24,15 @@ class RoomProvider extends ChangeNotifier {
     final file = File('${directory.path}/rooms.json');
 
     if (await file.exists()) {
-      final data = jsonDecode(await file.readAsString());
+      final jsonString = await file.readAsString();
+      print('Rooms JSON content: $jsonString');
+      final data = jsonDecode(jsonString);
 
       _rooms =
           List<Map<String, dynamic>>.from(data).map((room) {
+            print(
+              'Loaded room with ID: ${room['id']} and folderIds: ${room['folderIds']}',
+            );
             return {
               'id': room['id'],
               'name': room['name'],
@@ -104,10 +109,7 @@ class RoomProvider extends ChangeNotifier {
       if (folders == null || folders is! List<String>) {
         folders = <String>[]; // Initialize an empty list if needed
       }
-
-      // Add the new folder ID to the list
       folders.add(folderId);
-
       // Save the updated rooms and notify listeners
       _rooms[index]['folderIds'] = folders; // Correct the key here
       _saveRooms();

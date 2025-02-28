@@ -32,12 +32,9 @@ class _OverlayCreateRoomState extends State<OverlayCreateRoom> {
 
     final roomProvider = Provider.of<RoomProvider>(context, listen: false);
 
-    roomProvider.addRoom(
-      nameController.text.trim(),
-      selectedColor,
-    ); // ✅ Add room via Provider
+    roomProvider.addRoom(nameController.text.trim(), selectedColor);
 
-    widget.onClose(); // ✅ Close overlay
+    widget.onClose();
   }
 
   @override
