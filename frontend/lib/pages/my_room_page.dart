@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
-import 'components/room.dart';
-import 'sample_data.dart';
-import 'components/overlay_setting.dart';
-import 'components/overlay_auth.dart';
+import 'package:provider/provider.dart';
+import 'package:dotted_border/dotted_border.dart';
+import '../OBJ/object.dart';
+import '../widget/overlay_setting.dart';
+import '../widget/overlay_auth.dart';
+import '../widget/overlay_create_room.dart';
+import '../model/provider.dart';
+import 'room_page.dart';
 
 class MyRoomPage extends StatefulWidget {
+  const MyRoomPage({super.key});
+
   @override
   State<MyRoomPage> createState() => _MyRoomPageState();
 }
@@ -12,28 +18,26 @@ class MyRoomPage extends StatefulWidget {
 class _MyRoomPageState extends State<MyRoomPage> {
   OverlayEntry? _overlayEntry;
 
-  void toggleFavorite(int index) {
-    setState(() {
-      sampleData[index]['isFavorite'] = !sampleData[index]['isFavorite'];
-    });
+  void _toggleOverlay(Widget? overlayWidget) {
+    if (_overlayEntry != null) {
+      _overlayEntry!.remove();
+      _overlayEntry = null;
+    } else if (overlayWidget != null) {
+      OverlayState overlayState = Overlay.of(context);
+      _overlayEntry = OverlayEntry(builder: (context) => overlayWidget);
+      overlayState.insert(_overlayEntry!);
+    }
   }
 
-  void _showOverlay(BuildContext context, Widget overlayWidget) {
-    _removeOverlay(); // Remove existing overlay if open
-
-    OverlayState overlayState = Overlay.of(context)!;
-    _overlayEntry = OverlayEntry(builder: (context) => overlayWidget);
-
-    overlayState.insert(_overlayEntry!);
-  }
-
-  void _removeOverlay() {
-    _overlayEntry?.remove();
-    _overlayEntry = null;
+  void showCreateRoomOverlay() {
+    _toggleOverlay(OverlayCreateRoom(onClose: () => _toggleOverlay(null)));
   }
 
   @override
   Widget build(BuildContext context) {
+    final roomProvider = Provider.of<RoomProvider>(context);
+    final rooms = roomProvider.rooms;
+
     return Scaffold(
       appBar: PreferredSize(
         preferredSize: Size.fromHeight(100.0),
@@ -41,9 +45,7 @@ class _MyRoomPageState extends State<MyRoomPage> {
           elevation: 0,
           flexibleSpace: Container(
             decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey, width: 1),
-              ),
+              border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
             ),
             child: Padding(
               padding: EdgeInsets.only(
@@ -73,23 +75,24 @@ class _MyRoomPageState extends State<MyRoomPage> {
                       children: [
                         IconButton(
                           icon: Icon(Icons.select_all, color: Colors.black),
-                          onPressed: () {
-                            print("Select clicked");
-                          },
+                          onPressed: () {},
                         ),
                         IconButton(
                           icon: Icon(Icons.settings, color: Colors.black),
                           onPressed: () {
-                            _showOverlay(context,
-                                OverlaySettings(onClose: _removeOverlay));
+                            _toggleOverlay(
+                              OverlaySettings(
+                                onClose: () => _toggleOverlay(null),
+                              ),
+                            );
                           },
                         ),
                         IconButton(
                           icon: Icon(Icons.person, color: Colors.black),
                           onPressed: () {
-                            print("Profile clicked");
-                            _showOverlay(
-                                context, OverlayAuth(onClose: _removeOverlay));
+                            _toggleOverlay(
+                              OverlayAuth(onClose: () => _toggleOverlay(null)),
+                            );
                           },
                         ),
                       ],
@@ -114,16 +117,78 @@ class _MyRoomPageState extends State<MyRoomPage> {
                   mainAxisSpacing: 16.0,
                   childAspectRatio: 1,
                 ),
-                itemCount: sampleData.length,
+                itemCount: rooms.length + 1,
                 itemBuilder: (context, index) {
-                  final room = sampleData[index];
-                  return RoomItem(
-                    name: room['name'],
-                    createdDate: room['createdDate'],
-                    color: room['color'],
-                    isFavorite: room['isFavorite'],
-                    onToggleFavorite: () => toggleFavorite(index),
-                  );
+                  if (index == 0) {
+                    return GestureDetector(
+                      onTap: showCreateRoomOverlay,
+                      child: Column(
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.only(top: 50.0),
+                            child: DottedBorder(
+                              borderType: BorderType.RRect,
+                              radius: Radius.circular(8.0),
+                              dashPattern: [8, 4],
+                              color: Colors.blue,
+                              strokeWidth: 2,
+                              child: Container(
+                                width: 100.0,
+                                height: 100.0,
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.add,
+                                  size: 32,
+                                  color: Colors.blue,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          const Text(
+                            "New",
+                            style: TextStyle(color: Colors.blue),
+                          ),
+                        ],
+                      ),
+                    );
+                  } else {
+                    final room = rooms[index - 1];
+                    // print('Room ID: ${room['id']}');
+                    // print('Room Name: ${room['name']}');
+                    // print('Room Color: ${room['color']}');
+                    // print('Room Created Date: ${room['createdDate']}');
+                    // print('Room FolderIds: ${room['folderIds']}');
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => RoomDetailPage(
+                                  room: room,
+                                  onRoomUpdated:
+                                      () => setState(() {}), // Refresh UI
+                                ),
+                          ),
+                        );
+                      },
+                      child: RoomItem(
+                        id: room['id'],
+                        name: room['name'],
+                        createdDate: room['createdDate'],
+                        color:
+                            (room['color'] is int)
+                                ? Color(room['color'])
+                                : room['color'],
+                        isFavorite: room['isFavorite'],
+                        folderIds: room['folderIds'] ?? [],
+                        fileIds: room['fileIds'] ?? [],
+                        onToggleFavorite:
+                            () => roomProvider.toggleFavorite(room['name']),
+                      ),
+                    );
+                  }
                 },
               ),
             ),

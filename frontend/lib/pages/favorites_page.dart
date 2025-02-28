@@ -1,30 +1,50 @@
 import 'package:flutter/material.dart';
-import 'sample_data.dart';
-import 'components/room.dart';
+import 'package:provider/provider.dart';
+import '../OBJ/object.dart';
+import '../model/provider.dart';
+import 'room_page.dart';
 
 class FavoritesPage extends StatefulWidget {
+  const FavoritesPage({super.key});
+
   @override
   State<FavoritesPage> createState() => _FavoritesPageState();
 }
 
-class _FavoritesPageState extends State<FavoritesPage> {
-  void toggleFavorite(String roomName) {
-    setState(() {
-      final roomIndex =
-          sampleData.indexWhere((room) => room['name'] == roomName);
+class _FavoritesPageState extends State<FavoritesPage>
+    with AutomaticKeepAliveClientMixin, RouteAware {
+  RouteObserver<PageRoute>? routeObserver;
 
-      if (roomIndex != -1) {
-        sampleData[roomIndex]['isFavorite'] =
-            !sampleData[roomIndex]['isFavorite'];
-      }
-    });
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver?.unsubscribe(this);
+    routeObserver = RouteObserver<PageRoute>();
+    routeObserver?.subscribe(this, ModalRoute.of(context) as PageRoute);
+  }
+
+  @override
+  void dispose() {
+    routeObserver?.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    setState(() {}); // Refresh page when returning
   }
 
   @override
   Widget build(BuildContext context) {
-    // Filter the data to include only favorite rooms
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
+
     final favoriteRooms =
-        sampleData.where((room) => room['isFavorite'] == true).toList();
+        Provider.of<RoomProvider>(
+          context,
+        ).rooms.where((room) => room['isFavorite']).toList();
 
     return Scaffold(
       appBar: PreferredSize(
@@ -33,9 +53,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
           elevation: 0,
           flexibleSpace: Container(
             decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey, width: 1),
-              ),
+              border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
             ),
             child: Padding(
               padding: EdgeInsets.only(
@@ -51,7 +69,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                     style: TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black, // Add text color
+                      color: Colors.black,
                     ),
                   ),
                 ],
@@ -68,20 +86,48 @@ class _FavoritesPageState extends State<FavoritesPage> {
               child: GridView.builder(
                 padding: const EdgeInsets.all(2.0),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 6, // Number of columns
-                  crossAxisSpacing: 1.0, // Space between columns
-                  mainAxisSpacing: 16.0, // Space between rows
-                  childAspectRatio: 1, // Aspect ratio for each item
+                  crossAxisCount: 6,
+                  crossAxisSpacing: 1.0,
+                  mainAxisSpacing: 16.0,
+                  childAspectRatio: 1,
                 ),
-                itemCount: favoriteRooms.length, // Number of favorite items
+                itemCount: favoriteRooms.length,
                 itemBuilder: (context, index) {
                   final room = favoriteRooms[index];
-                  return RoomItem(
-                    name: room['name'],
-                    createdDate: room['createdDate'],
-                    color: room['color'],
-                    isFavorite: room['isFavorite'],
-                    onToggleFavorite: () => toggleFavorite(room['name']),
+
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder:
+                              (context) => RoomDetailPage(
+                                room: room,
+                                onRoomUpdated: () {
+                                  setState(() {}); // Refresh page after update
+                                },
+                              ),
+                        ),
+                      );
+                    },
+                    child: RoomItem(
+                      id: room['id'],
+                      name: room['name'],
+                      createdDate: room['createdDate'],
+                      color:
+                          (room['color'] is int)
+                              ? Color(room['color'])
+                              : room['color'],
+                      isFavorite: room['isFavorite'],
+                      folderIds: room['folderIds'] ?? [],
+                      fileIds: room['fileIds'] ?? [],
+                      onToggleFavorite: () {
+                        Provider.of<RoomProvider>(
+                          context,
+                          listen: false,
+                        ).toggleFavorite(room['name']);
+                      },
+                    ),
                   );
                 },
               ),
