@@ -5,20 +5,34 @@ class DrawingPoint {
   List<Offset> offsets;
   Color color;
   double width;
+  final bool isEraser;
 
   DrawingPoint({
     this.id = -1,
     this.offsets = const [],
     this.color = Colors.black,
     this.width = 2,
+    this.isEraser = false,
   });
 
-  DrawingPoint copyWith({List<Offset>? offsets}) {
+  // Override the toString method for better logging
+  @override
+  String toString() {
+    return 'DrawingPoint(id: $id, offsets: $offsets, color: $color, width: $width, isEraser: $isEraser)';
+  }
+
+  DrawingPoint copyWith({
+    List<Offset>? offsets,
+    bool? isEraser,
+    Color? color,
+    double? width,
+  }) {
     return DrawingPoint(
       id: id,
-      color: color,
-      width: width,
+      color: color ?? this.color,
+      width: width ?? this.width,
       offsets: offsets ?? this.offsets,
+      isEraser: isEraser ?? this.isEraser,
     );
   }
 
@@ -31,6 +45,7 @@ class DrawingPoint {
       // ignore: deprecated_member_use
       'color': color.value,
       'width': width,
+      'isEraser': isEraser,
     };
   }
 
@@ -54,6 +69,7 @@ class DrawingPoint {
       offsets: offsetsList,
       color: Color(json['color']),
       width: json['width'],
+      isEraser: json['isEraser'] ?? false,
     );
   }
 }

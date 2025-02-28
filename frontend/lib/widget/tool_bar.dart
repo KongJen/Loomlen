@@ -70,44 +70,58 @@ Widget buildEraserSettingsBar({
   required ValueChanged<EraserMode> onModeChanged,
 }) {
   return Container(
-    padding: const EdgeInsets.all(8.0),
-    color: Colors.grey.shade200,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.grey.shade200,
+      border: Border(bottom: BorderSide(color: Colors.grey.shade400)),
+    ),
     child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           children: [
-            const Text('Eraser Size: ', style: TextStyle(fontSize: 16)),
+            const Text('Eraser Width: ', style: TextStyle(fontSize: 14)),
             Expanded(
               child: Slider(
                 value: eraserWidth,
-                min: 5.0,
-                max: 50.0,
-                divisions: 45,
-                label: eraserWidth.round().toString(),
+                min: 5,
+                max: 40,
+                divisions: 7,
+                label: eraserWidth.toInt().toString(),
                 onChanged: onWidthChanged,
               ),
             ),
+            Text('${eraserWidth.toInt()}px', style: TextStyle(fontSize: 14)),
           ],
         ),
+        const SizedBox(height: 8),
         Row(
           children: [
-            const Text('Mode: ', style: TextStyle(fontSize: 16)),
-            const SizedBox(width: 8),
+            const Text('Eraser Mode: ', style: TextStyle(fontSize: 14)),
+            const SizedBox(width: 12),
             ToggleButtons(
-              borderRadius: BorderRadius.circular(8),
+              isSelected: [
+                eraserMode == EraserMode.point,
+                eraserMode == EraserMode.stroke,
+              ],
+              onPressed: (index) {
+                onModeChanged(
+                  index == 0 ? EraserMode.point : EraserMode.stroke,
+                );
+              },
+              borderRadius: BorderRadius.circular(4),
               selectedColor: Colors.white,
               fillColor: Colors.blue,
-              constraints: const BoxConstraints(minHeight: 36, minWidth: 80),
-              isSelected: [
-                eraserMode == EraserMode.stroke,
-                eraserMode == EraserMode.point,
+              children: const [
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('Point'),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('Stroke'),
+                ),
               ],
-              children: const [Text('Stroke'), Text('Point')],
-              onPressed:
-                  (index) => onModeChanged(
-                    index == 0 ? EraserMode.stroke : EraserMode.point,
-                  ),
             ),
           ],
         ),

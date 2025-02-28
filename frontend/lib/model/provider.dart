@@ -25,14 +25,10 @@ class RoomProvider extends ChangeNotifier {
 
     if (await file.exists()) {
       final jsonString = await file.readAsString();
-      print('Rooms JSON content: $jsonString');
       final data = jsonDecode(jsonString);
 
       _rooms =
           List<Map<String, dynamic>>.from(data).map((room) {
-            print(
-              'Loaded room with ID: ${room['id']} and folderIds: ${room['folderIds']}',
-            );
             return {
               'id': room['id'],
               'name': room['name'],
