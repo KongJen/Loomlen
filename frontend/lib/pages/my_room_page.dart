@@ -5,7 +5,7 @@ import '../OBJ/object.dart';
 import '../widget/overlay_setting.dart';
 import '../widget/overlay_auth.dart';
 import '../widget/overlay_create_room.dart';
-import '../OBJ/provider.dart';
+import '../model/provider.dart';
 import 'room_page.dart';
 
 class MyRoomPage extends StatefulWidget {

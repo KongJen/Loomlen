@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../OBJ/object.dart';
-import '../OBJ/provider.dart';
+import '../model/provider.dart';
 import 'room_page.dart';
 
 class FavoritesPage extends StatefulWidget {
@@ -41,10 +41,10 @@ class _FavoritesPageState extends State<FavoritesPage>
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
 
-    final favoriteRooms = Provider.of<RoomProvider>(context)
-        .rooms
-        .where((room) => room['isFavorite'])
-        .toList();
+    final favoriteRooms =
+        Provider.of<RoomProvider>(
+          context,
+        ).rooms.where((room) => room['isFavorite']).toList();
 
     return Scaffold(
       appBar: PreferredSize(
@@ -53,9 +53,7 @@ class _FavoritesPageState extends State<FavoritesPage>
           elevation: 0,
           flexibleSpace: Container(
             decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey, width: 1),
-              ),
+              border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
             ),
             child: Padding(
               padding: EdgeInsets.only(
@@ -102,12 +100,13 @@ class _FavoritesPageState extends State<FavoritesPage>
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => RoomDetailPage(
-                            room: room,
-                            onRoomUpdated: () {
-                              setState(() {}); // Refresh page after update
-                            },
-                          ),
+                          builder:
+                              (context) => RoomDetailPage(
+                                room: room,
+                                onRoomUpdated: () {
+                                  setState(() {}); // Refresh page after update
+                                },
+                              ),
                         ),
                       );
                     },
@@ -115,15 +114,18 @@ class _FavoritesPageState extends State<FavoritesPage>
                       id: room['id'],
                       name: room['name'],
                       createdDate: room['createdDate'],
-                      color: (room['color'] is int)
-                          ? Color(room['color'])
-                          : room['color'],
+                      color:
+                          (room['color'] is int)
+                              ? Color(room['color'])
+                              : room['color'],
                       isFavorite: room['isFavorite'],
                       folderIds: room['folderIds'] ?? [],
                       fileIds: room['fileIds'] ?? [],
                       onToggleFavorite: () {
-                        Provider.of<RoomProvider>(context, listen: false)
-                            .toggleFavorite(room['name']);
+                        Provider.of<RoomProvider>(
+                          context,
+                          listen: false,
+                        ).toggleFavorite(room['name']);
                       },
                     ),
                   );

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../OBJ/provider.dart';
+import '../model/provider.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:provider/provider.dart';
 import '../widget/overlay_menu.dart';

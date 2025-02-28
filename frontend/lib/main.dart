@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend/navigation_menu.dart';
-import 'package:frontend/OBJ/provider.dart';
+import 'package:frontend/model/provider.dart';
 
 void main() {
   runApp(

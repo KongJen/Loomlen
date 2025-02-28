@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/model/drawingpoint.dart';
 import 'package:frontend/OBJ/object.dart';
-import 'package:frontend/OBJ/provider.dart';
+import 'package:frontend/model/provider.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
 import 'package:frontend/widget/tool_bar.dart';
 import 'package:frontend/OBJ/template_config.dart';
+import 'package:frontend/model/tools.dart';
 
 enum DrawingMode { pencil, eraser }
 
@@ -39,8 +40,9 @@ class _PaperState extends State<Paper> {
   EraserMode eraserMode = EraserMode.point;
   Offset? lastErasePosition;
 
-  DateTime _lastUpdate = DateTime.now();
-  static const int _updateIntervalMs = 100;
+  // For eraser state management
+  List<DrawingPoint> currentEraseStrokes = [];
+  bool isErasing = false;
 
   late PaperTemplate selectedTemplate;
 
@@ -162,20 +164,38 @@ class _PaperState extends State<Paper> {
   }
 
   void _undo() {
-    if (drawingPoints.isEmpty) return;
+    if (undoStack.isEmpty) return;
+
     setState(() {
-      final lastStroke = drawingPoints.removeLast();
-      redoStack.add([lastStroke]);
-      _updateStrokeHistory();
+      // Save current state for redo
+      redoStack.add(List<DrawingPoint>.from(drawingPoints));
+
+      // Restore previous state
+      final previousState = undoStack.removeLast();
+      drawingPoints.clear();
+      drawingPoints.addAll(previousState);
+
+      historyDrawingPoints.clear();
+      historyDrawingPoints.addAll(drawingPoints);
+      _hasUnsavedChanges = true;
     });
   }
 
   void _redo() {
     if (redoStack.isEmpty) return;
+
     setState(() {
-      final redoPoints = redoStack.removeLast();
-      drawingPoints.addAll(redoPoints);
-      _updateStrokeHistory();
+      // Save current state for undo
+      undoStack.add(List<DrawingPoint>.from(drawingPoints));
+
+      // Restore redone state
+      final redoState = redoStack.removeLast();
+      drawingPoints.clear();
+      drawingPoints.addAll(redoState);
+
+      historyDrawingPoints.clear();
+      historyDrawingPoints.addAll(drawingPoints);
+      _hasUnsavedChanges = true;
     });
   }
 
@@ -192,146 +212,117 @@ class _PaperState extends State<Paper> {
     );
   }
 
-  void _eraseAtPoint(Offset point) {
-    if (drawingPoints.isEmpty) return;
+  void _startErasing(Offset position) {
+    if (isErasing) return;
 
-    try {
-      if (eraserMode == EraserMode.stroke) {
-        final removedStrokeIds = <int>{};
-        drawingPoints.removeWhere((dp) {
-          for (var i = 0; i < dp.offsets.length - 1; i++) {
-            if (_isPointNearSegment(
-              point,
-              dp.offsets[i],
-              dp.offsets[i + 1],
-              eraserWidth,
-            )) {
-              removedStrokeIds.add(dp.id);
-              return true;
-            }
-          }
-          return dp.offsets.any(
-            (offset) => (offset - point).distance <= eraserWidth,
-          );
-        });
-        strokeHistory.removeWhere(
-          (stroke) =>
-              stroke['type'] == 'drawing' &&
-              removedStrokeIds.contains(stroke['data']['id']),
-        );
-      } else {
-        final newPoints = <DrawingPoint>[];
-        final updatedStrokes = <int, Map<String, dynamic>>{};
-        final removedStrokeIds = <int>{};
+    // Save current state for undo
+    undoStack.add(List<DrawingPoint>.from(drawingPoints));
+    redoStack.clear();
 
-        for (final dp in drawingPoints) {
-          var currentSegment = <Offset>[];
-          var modified = false;
+    isErasing = true;
+    currentEraseStrokes = [];
+  }
 
-          for (var i = 0; i < dp.offsets.length; i++) {
-            final offset = dp.offsets[i];
-            var erase = (offset - point).distance <= eraserWidth;
+  void _eraseIntersectingStrokes(Offset position) {
+    if (!isErasing) {
+      _startErasing(position);
+    }
 
-            if (i > 0 &&
-                !erase &&
-                _isPointNearSegment(
-                  point,
-                  dp.offsets[i - 1],
-                  offset,
-                  eraserWidth,
-                )) {
-              erase = true;
-            }
-            if (i < dp.offsets.length - 1 &&
-                _isPointNearSegment(
-                  point,
-                  offset,
-                  dp.offsets[i + 1],
-                  eraserWidth,
-                )) {
-              erase = true;
-            }
+    // Find all strokes that intersect with the eraser
+    final eraserRadius = eraserWidth / 2;
+    final toRemove = <DrawingPoint>[];
 
-            if (!erase) {
-              currentSegment.add(offset);
-            } else if (currentSegment.isNotEmpty) {
-              final newPoint = dp.copyWith(offsets: List.from(currentSegment));
-              newPoints.add(newPoint);
-              updatedStrokes[newPoint.id] = newPoint.toJson();
-              currentSegment.clear();
-              modified = true;
-            }
-          }
+    for (final point in drawingPoints) {
+      // Skip eraser marks
+      if (point.isEraser) continue;
 
-          if (currentSegment.isNotEmpty) {
-            final newPoint = dp.copyWith(offsets: List.from(currentSegment));
-            newPoints.add(newPoint);
-            updatedStrokes[newPoint.id] = newPoint.toJson();
-          } else if (modified) {
-            removedStrokeIds.add(dp.id);
-          } else {
-            newPoints.add(dp);
-          }
+      // Check if any point in this stroke intersects with our eraser
+      for (final offset in point.offsets) {
+        if ((offset - position).distance <= eraserRadius) {
+          toRemove.add(point);
+          currentEraseStrokes.add(point);
+          break;
         }
-
-        strokeHistory.removeWhere(
-          (stroke) =>
-              stroke['type'] == 'drawing' &&
-              removedStrokeIds.contains(stroke['data']['id']),
-        );
-        for (var i = 0; i < strokeHistory.length; i++) {
-          if (strokeHistory[i]['type'] == 'drawing') {
-            final strokeId = strokeHistory[i]['data']['id'] as int;
-            if (updatedStrokes.containsKey(strokeId)) {
-              strokeHistory[i]['data'] = updatedStrokes[strokeId];
-            }
-          }
-        }
-
-        drawingPoints.clear();
-        drawingPoints.addAll(newPoints);
       }
+    }
 
-      strokeHistory.add({
-        'type': 'eraser',
-        'position': {'x': point.dx, 'y': point.dy},
-        'width': eraserWidth,
-        'mode': eraserMode.name,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
+    if (toRemove.isNotEmpty) {
+      setState(() {
+        drawingPoints.removeWhere((p) => toRemove.contains(p));
+
+        // Add a transparent eraser point to show the path
+        final eraserPoint = DrawingPoint(
+          id: DateTime.now().microsecondsSinceEpoch,
+          offsets: [position],
+          color: Colors.transparent,
+          width: eraserWidth,
+          isEraser: true,
+        );
+        drawingPoints.add(eraserPoint);
+
+        historyDrawingPoints.clear();
+        historyDrawingPoints.addAll(drawingPoints);
+        _hasUnsavedChanges = true;
       });
-
-      historyDrawingPoints.clear();
-      historyDrawingPoints.addAll(drawingPoints);
-    } catch (e, stackTrace) {
-      debugPrint('Erase error: $e\n$stackTrace');
     }
   }
 
-  bool _isPointNearSegment(
-    Offset point,
-    Offset start,
-    Offset end,
-    double threshold,
-  ) {
-    final segmentLength = (end - start).distance;
-    if (segmentLength == 0) return (point - start).distance <= threshold;
+  bool _isErasingSession = false;
+  bool _hasEraserChanges = false;
 
-    final t =
-        ((point.dx - start.dx) * (end.dx - start.dx) +
-            (point.dy - start.dy) * (end.dy - start.dy)) /
-        (segmentLength * segmentLength);
-    final clampedT = t.clamp(0.0, 1.0);
-    final closestPoint = start + (end - start) * clampedT;
+  void _eraseAtPoint(Offset point) {
+    // Start a new eraser session if needed
+    if (!_isErasingSession) {
+      _isErasingSession = true;
+      // Save current state for undo only at the beginning of an eraser session
+      undoStack.add(List<DrawingPoint>.from(drawingPoints));
+      redoStack.clear();
+    }
 
-    return (point - closestPoint).distance <= threshold ||
-        (point - start).distance <= threshold ||
-        (point - end).distance <= threshold;
+    setState(() {
+      // Simple point erasing - creates a single transparent point
+      currentDrawingPoint = DrawingPoint(
+        id: DateTime.now().microsecondsSinceEpoch,
+        offsets: [point],
+        color: Colors.transparent,
+        width: eraserWidth,
+        isEraser: true,
+      );
+      drawingPoints.add(currentDrawingPoint!);
+      lastErasePosition = point;
+
+      // Update the history
+      historyDrawingPoints.clear();
+      historyDrawingPoints.addAll(drawingPoints);
+      _hasUnsavedChanges = true;
+      _hasEraserChanges = true;
+    });
   }
 
-  void _throttledRedraw() {
-    final now = DateTime.now();
-    if (now.difference(_lastUpdate).inMilliseconds >= _updateIntervalMs) {
-      setState(() => _lastUpdate = now);
+  // Modify onPanEnd to end the eraser session
+  void _endEraserSession() {
+    if (_isErasingSession && _hasEraserChanges) {
+      _isErasingSession = false;
+      _hasEraserChanges = false;
+      _updateStrokeHistory();
+    }
+  }
+
+  void _finishErasing() {
+    if (!isErasing) return;
+
+    isErasing = false;
+    currentEraseStrokes = [];
+    _updateStrokeHistory();
+  }
+
+  void _handleErasing(Offset position) {
+    if (!_isWithinCanvas(position)) return;
+
+    if (eraserMode == EraserMode.point) {
+      _eraseAtPoint(position);
+    } else if (eraserMode == EraserMode.stroke) {
+      _eraseIntersectingStrokes(position);
     }
   }
 
@@ -375,7 +366,7 @@ class _PaperState extends State<Paper> {
           ),
           IconButton(
             icon: const Icon(Icons.undo),
-            onPressed: drawingPoints.isEmpty ? null : _undo,
+            onPressed: undoStack.isEmpty ? null : _undo,
             tooltip: 'Undo',
           ),
           IconButton(
@@ -462,25 +453,33 @@ class _PaperState extends State<Paper> {
 
                             try {
                               if (selectedMode == DrawingMode.pencil) {
-                                currentDrawingPoint = DrawingPoint(
-                                  id: DateTime.now().microsecondsSinceEpoch,
-                                  offsets: [localPosition],
-                                  color: selectedColor,
-                                  width: selectedWidth,
+                                // For drawing, save current state for undo
+                                undoStack.add(
+                                  List<DrawingPoint>.from(drawingPoints),
                                 );
-                                drawingPoints.add(currentDrawingPoint!);
-                              } else {
-                                _eraseAtPoint(localPosition);
-                                lastErasePosition = localPosition;
+                                redoStack.clear();
+
+                                setState(() {
+                                  currentDrawingPoint = DrawingPoint(
+                                    id: DateTime.now().microsecondsSinceEpoch,
+                                    offsets: [localPosition],
+                                    color: selectedColor,
+                                    width: selectedWidth,
+                                    isEraser: false,
+                                  );
+                                  drawingPoints.add(currentDrawingPoint!);
+                                  historyDrawingPoints.clear();
+                                  historyDrawingPoints.addAll(drawingPoints);
+                                  _hasUnsavedChanges = true;
+                                });
+                              } else if (selectedMode == DrawingMode.eraser) {
+                                _handleErasing(localPosition);
                               }
-                              historyDrawingPoints.clear();
-                              historyDrawingPoints.addAll(drawingPoints);
-                              _throttledRedraw();
-                              _hasUnsavedChanges = true;
                             } catch (e, stackTrace) {
                               debugPrint('Pan start error: $e\n$stackTrace');
                             }
                           },
+
                           onPanUpdate: (details) {
                             final localPosition = details.localPosition;
                             if (!_isWithinCanvas(localPosition)) return;
@@ -488,47 +487,34 @@ class _PaperState extends State<Paper> {
                             try {
                               if (selectedMode == DrawingMode.pencil &&
                                   currentDrawingPoint != null) {
-                                currentDrawingPoint = currentDrawingPoint!
-                                    .copyWith(
-                                      offsets: List.from(
-                                        currentDrawingPoint!.offsets,
-                                      )..add(localPosition),
-                                    );
-                                drawingPoints.last = currentDrawingPoint!;
-                              } else if (selectedMode == DrawingMode.eraser &&
-                                  lastErasePosition != null) {
-                                final distance =
-                                    (localPosition - lastErasePosition!)
-                                        .distance;
-                                if (distance > eraserWidth) {
-                                  for (var i = 0; i <= 1; i++) {
-                                    final interpolatePoint =
-                                        Offset.lerp(
-                                          lastErasePosition!,
-                                          localPosition,
-                                          i / 1,
-                                        )!;
-                                    if (_isWithinCanvas(interpolatePoint)) {
-                                      _eraseAtPoint(interpolatePoint);
-                                    }
-                                  }
-                                  lastErasePosition = localPosition;
-                                }
+                                setState(() {
+                                  currentDrawingPoint = currentDrawingPoint!
+                                      .copyWith(
+                                        offsets: List.from(
+                                          currentDrawingPoint!.offsets,
+                                        )..add(localPosition),
+                                      );
+                                  drawingPoints.last = currentDrawingPoint!;
+                                  historyDrawingPoints.clear();
+                                  historyDrawingPoints.addAll(drawingPoints);
+                                  _hasUnsavedChanges = true;
+                                });
+                              } else if (selectedMode == DrawingMode.eraser) {
+                                _handleErasing(localPosition);
                               }
-                              historyDrawingPoints.clear();
-                              historyDrawingPoints.addAll(drawingPoints);
-                              _throttledRedraw();
                             } catch (e, stackTrace) {
                               debugPrint('Pan update error: $e\n$stackTrace');
                             }
                           },
+
                           onPanEnd: (_) {
                             try {
                               currentDrawingPoint = null;
-                              lastErasePosition = null;
-                              historyDrawingPoints.clear();
-                              historyDrawingPoints.addAll(drawingPoints);
-                              setState(() {});
+
+                              if (selectedMode == DrawingMode.eraser) {
+                                _finishErasing();
+                                _endEraserSession(); // Add this line
+                              }
                             } catch (e, stackTrace) {
                               debugPrint('Pan end error: $e\n$stackTrace');
                             }
@@ -558,46 +544,4 @@ class _PaperState extends State<Paper> {
     if (_hasUnsavedChanges) _saveDrawing();
     super.dispose();
   }
-}
-
-class DrawingPainter extends CustomPainter {
-  final List<DrawingPoint> drawingPoints;
-
-  const DrawingPainter({required this.drawingPoints});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          ..isAntiAlias = true
-          ..strokeCap = StrokeCap.round;
-
-    for (final point in drawingPoints) {
-      if (point.offsets.isEmpty) continue;
-      paint.color = point.color;
-      paint.strokeWidth = point.width;
-
-      for (var i = 0; i < point.offsets.length - 1; i++) {
-        canvas.drawLine(point.offsets[i], point.offsets[i + 1], paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}
-
-class TemplatePainter extends CustomPainter {
-  final PaperTemplate template;
-
-  const TemplatePainter({required this.template});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    template.paintTemplate(canvas, size);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

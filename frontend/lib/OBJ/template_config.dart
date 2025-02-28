@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:frontend/OBJ/object.dart'; // Import the template.dart file for PaperTemplate and TemplateType
 
 // Constants and configurations for templates
@@ -34,4 +35,19 @@ class TemplateConfig {
 
 extension StringExtension on String {
   String capitalize() => '${this[0].toUpperCase()}${substring(1)}';
+}
+
+class TemplatePainter extends CustomPainter {
+  final PaperTemplate template;
+
+  const TemplatePainter({required this.template});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    template.paintTemplate(canvas, size);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

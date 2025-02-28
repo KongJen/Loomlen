@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../OBJ/provider.dart';
+import '../model/provider.dart';
 
 class OverlayCreateFolder extends StatefulWidget {
   final String parentId;
@@ -45,13 +45,9 @@ class _OverlayCreateFolderState extends State<OverlayCreateFolder> {
       selectedColor,
     );
 
-    print('Generated folder ID: $folderId'); // Check the folderId
-
     if (widget.isInFolder == true) {
-      print('Adding folder to folder');
       folderProvider.addFolderToFolder(widget.parentId, folderId);
     } else {
-      print('Adding folder to room');
       roomProvider.addFolderToRoom(widget.parentId, folderId);
     }
 
