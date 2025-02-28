@@ -40,11 +40,18 @@ class _OverlayCreateFolderState extends State<OverlayCreateFolder> {
     final roomProvider = Provider.of<RoomProvider>(context, listen: false);
     final folderProvider = Provider.of<FolderProvider>(context, listen: false);
 
-    final folderId =
-        folderProvider.addFolder(nameController.text.trim(), selectedColor);
+    final folderId = folderProvider.addFolder(
+      nameController.text.trim(),
+      selectedColor,
+    );
+
+    print('Generated folder ID: $folderId'); // Check the folderId
+
     if (widget.isInFolder == true) {
+      print('Adding folder to folder');
       folderProvider.addFolderToFolder(widget.parentId, folderId);
     } else {
+      print('Adding folder to room');
       roomProvider.addFolderToRoom(widget.parentId, folderId);
     }
 
@@ -88,8 +95,9 @@ class _OverlayCreateFolderState extends State<OverlayCreateFolder> {
                     padding: EdgeInsets.symmetric(vertical: 16),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(10)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(10),
+                      ),
                     ),
                     child: Stack(
                       children: [
@@ -97,7 +105,9 @@ class _OverlayCreateFolderState extends State<OverlayCreateFolder> {
                           child: Text(
                             'Create Folder',
                             style: TextStyle(
-                                fontSize: 25, fontWeight: FontWeight.bold),
+                              fontSize: 25,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                         Positioned(
@@ -120,8 +130,10 @@ class _OverlayCreateFolderState extends State<OverlayCreateFolder> {
                           controller: nameController,
                           decoration: InputDecoration(
                             hintText: 'Enter Folder name',
-                            prefixIcon: Icon(Icons.folder_outlined,
-                                color: Colors.black),
+                            prefixIcon: Icon(
+                              Icons.folder_outlined,
+                              color: Colors.black,
+                            ),
                             border: OutlineInputBorder(),
                           ),
                         ),
@@ -129,7 +141,9 @@ class _OverlayCreateFolderState extends State<OverlayCreateFolder> {
                         Text(
                           'Select Folder Color',
                           style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         SizedBox(height: 8),
                         // Color Picker
@@ -191,8 +205,10 @@ class _OverlayCreateFolderState extends State<OverlayCreateFolder> {
                             ),
                             child: Text(
                               'Create Folder',
-                              style:
-                                  TextStyle(color: Colors.white, fontSize: 16),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
                             ),
                           ),
                         ),

@@ -29,6 +29,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   @override
   void initState() {
     super.initState();
+
     currentRoom = Map<String, dynamic>.from(widget.room);
   }
 
@@ -163,20 +164,20 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final roomProvider = Provider.of<RoomProvider>(context);
     final folderProvider = Provider.of<FolderProvider>(context);
     final fileProvider = Provider.of<FileProvider>(context);
 
-    // print(
-    //   'Current Folder IDs: ${currentFolder != null ? currentFolder!['subfolderIds'] : currentRoom['folderIds']}',
-    // );
-    // print(
-    //   'Current File IDs: ${currentFolder != null ? currentFolder!['fileIds'] : currentRoom['fileIds']}',
-    // );
+    final roomId = currentRoom['id'];
+    final room = roomProvider.rooms.firstWhere(
+      (room) => room['id'] == roomId,
+      orElse: () => <String, dynamic>{},
+    );
 
     final List<String> currentFolderIds =
         currentFolder != null
             ? (currentFolder!['subfolderIds'] ?? [])
-            : (currentRoom['folderIds'] ?? []);
+            : (room['folderIds'] ?? []);
 
     final folders =
         folderProvider.folders
@@ -186,8 +187,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final List<String> currentFileIds =
         currentFolder != null
             ? (currentFolder!['fileIds'] ?? [])
-            : (currentRoom['fileIds'] ?? []);
-
+            : (room['fileIds'] ?? []);
     final files =
         fileProvider.files
             .where((file) => currentFileIds.contains(file['id']))
