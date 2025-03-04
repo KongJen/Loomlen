@@ -10,8 +10,6 @@ import 'package:frontend/model/tools.dart';
 
 enum DrawingMode { pencil, eraser }
 
-enum EraserMode { point, stroke }
-
 class Paper extends StatefulWidget {
   final String name;
   final String? fileId;
@@ -36,18 +34,12 @@ class _PaperState extends State<Paper> {
   double selectedWidth = 2.0;
   DrawingMode selectedMode = DrawingMode.pencil;
 
-  double eraserWidth = 10.0;
-  EraserMode eraserMode = EraserMode.point;
-  Offset? lastErasePosition;
-
-  // For eraser state management
-  List<DrawingPoint> currentEraseStrokes = [];
-  bool isErasing = false;
+  late EraserTool eraserTool; // Add EraserTool instance
 
   late PaperTemplate selectedTemplate;
 
-  static const double a4Width = 210 * 2.83465; // A4 width in points (~595)
-  static const double a4Height = 297 * 2.83465; // A4 height in points (~842)
+  static const double a4Width = 210 * 2.83465;
+  static const double a4Height = 297 * 2.83465;
 
   late final TransformationController _controller;
   final List<Color> availableColors = const [
@@ -63,6 +55,23 @@ class _PaperState extends State<Paper> {
     super.initState();
     _controller = TransformationController();
     selectedTemplate = TemplateConfig.getDefaultTemplate();
+
+    // Initialize EraserTool
+    eraserTool = EraserTool(
+      eraserWidth: 10.0,
+      eraserMode: EraserMode.point,
+      drawingPoints: drawingPoints,
+      undoStack: undoStack,
+      redoStack: redoStack,
+      onStateChanged: () {
+        setState(() {
+          historyDrawingPoints.clear();
+          historyDrawingPoints.addAll(drawingPoints);
+          _hasUnsavedChanges = true;
+        });
+        _updateStrokeHistory();
+      },
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _centerCanvas();
@@ -167,14 +176,10 @@ class _PaperState extends State<Paper> {
     if (undoStack.isEmpty) return;
 
     setState(() {
-      // Save current state for redo
       redoStack.add(List<DrawingPoint>.from(drawingPoints));
-
-      // Restore previous state
       final previousState = undoStack.removeLast();
       drawingPoints.clear();
       drawingPoints.addAll(previousState);
-
       historyDrawingPoints.clear();
       historyDrawingPoints.addAll(drawingPoints);
       _hasUnsavedChanges = true;
@@ -185,14 +190,10 @@ class _PaperState extends State<Paper> {
     if (redoStack.isEmpty) return;
 
     setState(() {
-      // Save current state for undo
       undoStack.add(List<DrawingPoint>.from(drawingPoints));
-
-      // Restore redone state
       final redoState = redoStack.removeLast();
       drawingPoints.clear();
       drawingPoints.addAll(redoState);
-
       historyDrawingPoints.clear();
       historyDrawingPoints.addAll(drawingPoints);
       _hasUnsavedChanges = true;
@@ -212,124 +213,10 @@ class _PaperState extends State<Paper> {
     );
   }
 
-  void _startErasing(Offset position) {
-    if (isErasing) return;
-
-    // Save current state for undo
-    undoStack.add(List<DrawingPoint>.from(drawingPoints));
-    redoStack.clear();
-
-    isErasing = true;
-    currentEraseStrokes = [];
-  }
-
-  void _eraseIntersectingStrokes(Offset position) {
-    if (!isErasing) {
-      _startErasing(position);
-    }
-
-    // Find all strokes that intersect with the eraser
-    final eraserRadius = eraserWidth / 2;
-    final toRemove = <DrawingPoint>[];
-
-    for (final point in drawingPoints) {
-      // Skip eraser marks
-      if (point.isEraser) continue;
-
-      // Check if any point in this stroke intersects with our eraser
-      for (final offset in point.offsets) {
-        if ((offset - position).distance <= eraserRadius) {
-          toRemove.add(point);
-          currentEraseStrokes.add(point);
-          break;
-        }
-      }
-    }
-
-    if (toRemove.isNotEmpty) {
-      setState(() {
-        drawingPoints.removeWhere((p) => toRemove.contains(p));
-
-        // Add a transparent eraser point to show the path
-        final eraserPoint = DrawingPoint(
-          id: DateTime.now().microsecondsSinceEpoch,
-          offsets: [position],
-          color: Colors.transparent,
-          width: eraserWidth,
-          isEraser: true,
-        );
-        drawingPoints.add(eraserPoint);
-
-        historyDrawingPoints.clear();
-        historyDrawingPoints.addAll(drawingPoints);
-        _hasUnsavedChanges = true;
-      });
-    }
-  }
-
-  bool _isErasingSession = false;
-  bool _hasEraserChanges = false;
-
-  void _eraseAtPoint(Offset point) {
-    // Start a new eraser session if needed
-    if (!_isErasingSession) {
-      _isErasingSession = true;
-      // Save current state for undo only at the beginning of an eraser session
-      undoStack.add(List<DrawingPoint>.from(drawingPoints));
-      redoStack.clear();
-    }
-
-    setState(() {
-      // Simple point erasing - creates a single transparent point
-      currentDrawingPoint = DrawingPoint(
-        id: DateTime.now().microsecondsSinceEpoch,
-        offsets: [point],
-        color: Colors.transparent,
-        width: eraserWidth,
-        isEraser: true,
-      );
-      drawingPoints.add(currentDrawingPoint!);
-      lastErasePosition = point;
-
-      // Update the history
-      historyDrawingPoints.clear();
-      historyDrawingPoints.addAll(drawingPoints);
-      _hasUnsavedChanges = true;
-      _hasEraserChanges = true;
-    });
-  }
-
-  // Modify onPanEnd to end the eraser session
-  void _endEraserSession() {
-    if (_isErasingSession && _hasEraserChanges) {
-      _isErasingSession = false;
-      _hasEraserChanges = false;
-      _updateStrokeHistory();
-    }
-  }
-
-  void _finishErasing() {
-    if (!isErasing) return;
-
-    isErasing = false;
-    currentEraseStrokes = [];
-    _updateStrokeHistory();
-  }
-
-  void _handleErasing(Offset position) {
-    if (!_isWithinCanvas(position)) return;
-
-    if (eraserMode == EraserMode.point) {
-      _eraseAtPoint(position);
-    } else if (eraserMode == EraserMode.stroke) {
-      _eraseIntersectingStrokes(position);
-    }
-  }
-
   bool _isWithinCanvas(Offset point) =>
       point.dx >= 0 &&
-      point.dx <= a4Width &&
       point.dy >= 0 &&
+      point.dx <= a4Width &&
       point.dy <= a4Height;
 
   @override
@@ -404,10 +291,12 @@ class _PaperState extends State<Paper> {
             ),
           if (selectedMode == DrawingMode.eraser)
             buildEraserSettingsBar(
-              eraserWidth: eraserWidth,
-              eraserMode: eraserMode,
-              onWidthChanged: (value) => setState(() => eraserWidth = value),
-              onModeChanged: (mode) => setState(() => eraserMode = mode),
+              eraserWidth: eraserTool.eraserWidth,
+              eraserMode: eraserTool.eraserMode,
+              onWidthChanged:
+                  (value) => setState(() => eraserTool.eraserWidth = value),
+              onModeChanged:
+                  (mode) => setState(() => eraserTool.eraserMode = mode),
             ),
           Expanded(
             child: Center(
@@ -453,7 +342,6 @@ class _PaperState extends State<Paper> {
 
                             try {
                               if (selectedMode == DrawingMode.pencil) {
-                                // For drawing, save current state for undo
                                 undoStack.add(
                                   List<DrawingPoint>.from(drawingPoints),
                                 );
@@ -473,13 +361,15 @@ class _PaperState extends State<Paper> {
                                   _hasUnsavedChanges = true;
                                 });
                               } else if (selectedMode == DrawingMode.eraser) {
-                                _handleErasing(localPosition);
+                                eraserTool.handleErasing(
+                                  localPosition,
+                                  _isWithinCanvas(localPosition),
+                                );
                               }
                             } catch (e, stackTrace) {
                               debugPrint('Pan start error: $e\n$stackTrace');
                             }
                           },
-
                           onPanUpdate: (details) {
                             final localPosition = details.localPosition;
                             if (!_isWithinCanvas(localPosition)) return;
@@ -500,20 +390,20 @@ class _PaperState extends State<Paper> {
                                   _hasUnsavedChanges = true;
                                 });
                               } else if (selectedMode == DrawingMode.eraser) {
-                                _handleErasing(localPosition);
+                                eraserTool.handleErasing(
+                                  localPosition,
+                                  _isWithinCanvas(localPosition),
+                                );
                               }
                             } catch (e, stackTrace) {
                               debugPrint('Pan update error: $e\n$stackTrace');
                             }
                           },
-
                           onPanEnd: (_) {
                             try {
                               currentDrawingPoint = null;
-
                               if (selectedMode == DrawingMode.eraser) {
-                                _finishErasing();
-                                _endEraserSession(); // Add this line
+                                eraserTool.finishErasing();
                               }
                             } catch (e, stackTrace) {
                               debugPrint('Pan end error: $e\n$stackTrace');

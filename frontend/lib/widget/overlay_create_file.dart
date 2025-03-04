@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/paper.dart';
 import 'package:provider/provider.dart';
 import '../model/provider.dart';
 import '../OBJ/object.dart';
@@ -72,8 +73,15 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
       } else {
         roomProvider.addFileToRoom(widget.parentId, fileId);
       }
-
       widget.onClose();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) =>
+                  Paper(name: nameController.text.trim(), fileId: fileId),
+        ),
+      );
     } catch (e) {
       if (kDebugMode) {
         print("Error creating file: $e");
