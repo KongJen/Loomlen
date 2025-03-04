@@ -180,6 +180,7 @@ class FileItem extends StatefulWidget {
   final String templateId; // Changed from template string to templateId
   final TemplateType templateType; // Added template type
   final double spacing; // Added spacing
+  final String? pdfBackgroundPath;
 
   const FileItem({
     super.key,
@@ -194,6 +195,7 @@ class FileItem extends StatefulWidget {
     this.recognizedText,
     required this.isFavorite,
     required this.onToggleFavorite,
+    this.pdfBackgroundPath,
   });
 
   @override
@@ -260,10 +262,35 @@ class _FileItemState extends State<FileItem> {
                     borderRadius: BorderRadius.circular(8),
                     child: Stack(
                       children: [
-                        CustomPaint(
-                          painter: TemplateThumbnailPainter(template: template),
-                          size: const Size(80, 60),
-                        ),
+                        // Show either PDF thumbnail or template
+                        widget.pdfBackgroundPath != null
+                            ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.picture_as_pdf,
+                                    size: 60,
+                                    color: Colors.red.shade700,
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    "PDF Document",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                            : CustomPaint(
+                              painter: TemplateThumbnailPainter(
+                                template: template,
+                              ),
+                              size: const Size(80, 60),
+                            ),
+
                         if (widget.recognizedText != null &&
                             widget.recognizedText!.isNotEmpty)
                           Positioned(
@@ -316,9 +343,8 @@ class _FileItemState extends State<FileItem> {
                 ),
               ],
             ),
-            const SizedBox(height: 4), // Reduced vertical spacing
+            const SizedBox(height: 4),
             Flexible(
-              // Added Flexible to allow text to shrink if needed
               child: Text(
                 widget.name,
                 style: const TextStyle(
@@ -332,7 +358,6 @@ class _FileItemState extends State<FileItem> {
             ),
             const SizedBox(height: 4.0),
             Flexible(
-              // Added Flexible to allow text to shrink if needed
               child: Text(
                 widget.createdDate,
                 style: const TextStyle(fontSize: 10, color: Colors.grey),
@@ -347,6 +372,10 @@ class _FileItemState extends State<FileItem> {
   }
 
   String _getTemplateName() {
+    if (widget.pdfBackgroundPath != null) {
+      return 'PDF Background';
+    }
+
     switch (widget.templateType) {
       case TemplateType.plain:
         return 'Plain Paper';

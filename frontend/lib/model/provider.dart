@@ -386,6 +386,7 @@ class FileProvider extends ChangeNotifier {
     int size,
     PaperTemplate template, [
     List<Map<String, dynamic>>? drawingData,
+    String? pdfBackgroundPath,
   ]) {
     final String fileId = _uuid.v4();
     final newFile = {
@@ -399,6 +400,7 @@ class FileProvider extends ChangeNotifier {
       'templateType': template.templateType.toString(),
       'spacing': template.spacing,
       'drawingData': drawingData ?? [],
+      'pdfBackgroundPath': pdfBackgroundPath,
     };
 
     _files.add(newFile);
@@ -409,6 +411,15 @@ class FileProvider extends ChangeNotifier {
     // print("File created with Template : $templateId");
 
     return fileId;
+  }
+
+  void updateFileWithPdfBackground(String fileId, String pdfPath) {
+    final index = _files.indexWhere((file) => file['id'] == fileId);
+    if (index != -1) {
+      _files[index]['pdfBackgroundPath'] = pdfPath;
+      notifyListeners();
+      _saveFiles();
+    }
   }
 
   Future<void> updateFileDrawingData(
