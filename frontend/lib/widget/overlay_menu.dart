@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 class OverlaySelect extends StatelessWidget {
   final VoidCallback onCreateFolder;
   final VoidCallback onCreateFile;
+  final VoidCallback onImportPDF;
   final VoidCallback onClose;
   final Offset overlayPosition; // Position where clicked
 
@@ -10,6 +11,7 @@ class OverlaySelect extends StatelessWidget {
     super.key,
     required this.onCreateFolder,
     required this.onCreateFile,
+    required this.onImportPDF,
     required this.onClose,
     required this.overlayPosition,
   });
@@ -74,6 +76,24 @@ class OverlaySelect extends StatelessWidget {
                       child: Center(
                         child: Text(
                           'Create File',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  Divider(height: 1, thickness: 1, color: Colors.grey[300]),
+
+                  InkWell(
+                    onTap: onImportPDF,
+                    child: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Center(
+                        child: Text(
+                          'Import File',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,

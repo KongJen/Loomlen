@@ -178,7 +178,6 @@ class FolderProvider extends ChangeNotifier {
                     (folder['color'] is int)
                         ? Color(folder['color'])
                         : folder['color'],
-                'isFavorite': folder['isFavorite'],
                 'subfolderIds': List<String>.from(folder['subfolderIds'] ?? []),
                 'fileIds': List<String>.from(folder['fileIds'] ?? []),
               };
@@ -209,23 +208,12 @@ class FolderProvider extends ChangeNotifier {
                     // ignore: deprecated_member_use
                     ? (folder['color'] as Color).value
                     : folder['color'],
-            'isFavorite': folder['isFavorite'],
             'subfolderIds': folder['subfolderIds'] ?? [],
             'fileIds': folder['fileIds'] ?? [],
           };
         }).toList();
 
     await file.writeAsString(jsonEncode(foldersToSave));
-  }
-
-  /// Toggle favorite status of a folder
-  void toggleFavoriteFolder(String folderId) {
-    final index = _folders.indexWhere((folder) => folder['id'] == folderId);
-    if (index != -1) {
-      _folders[index]['isFavorite'] = !_folders[index]['isFavorite'];
-      _saveFolders();
-      notifyListeners();
-    }
   }
 
   /// Add a new folder
@@ -237,7 +225,6 @@ class FolderProvider extends ChangeNotifier {
       'createdDate': DateTime.now().toIso8601String(),
       // ignore: deprecated_member_use
       'color': color.value,
-      'isFavorite': false,
     };
 
     _folders.add(newFolder);
@@ -328,12 +315,7 @@ class FileProvider extends ChangeNotifier {
                 'id': file['id'],
                 'name': file['name'],
                 'createdDate': file['createdDate'],
-                'size': file['size'],
-                'isFavorite': file['isFavorite'],
-                'templateId': file['templateId'],
-                'templateType': file['templateType'],
-                'spacing': file['spacing'],
-                'drawingData': file['drawingData'],
+                'pageIds': List<String>.from(file['pageIds'] ?? []),
               };
             }).toList();
 
@@ -358,67 +340,52 @@ class FileProvider extends ChangeNotifier {
             'id': file['id'],
             'name': file['name'],
             'createdDate': file['createdDate'],
-            'size': file['size'],
-            'isFavorite': file['isFavorite'],
-            'templateId': file['templateId'],
-            'templateType': file['templateType'],
-            'spacing': file['spacing'],
-            'drawingData': file['drawingData'],
+            'pageIds': List<String>.from(file['pageIds'] ?? []),
           };
         }).toList();
 
     await file.writeAsString(jsonEncode(filesToSave));
   }
 
-  /// Toggle favorite status of a file
-  void toggleFavoriteFile(String fileId) {
-    final index = _files.indexWhere((file) => file['id'] == fileId);
-    if (index != -1) {
-      _files[index]['isFavorite'] = !_files[index]['isFavorite'];
-      _saveFiles();
-      notifyListeners();
-    }
-  }
-
   /// Add a new file
   String addFile(
-    String name,
-    int size,
-    PaperTemplate template, [
+    String name, [
     List<Map<String, dynamic>>? drawingData,
-    String? pdfBackgroundPath,
+    List<Map<String, dynamic>>? pageIds,
   ]) {
     final String fileId = _uuid.v4();
     final newFile = {
       'id': fileId,
       'name': name,
       'createdDate': DateTime.now().toIso8601String(),
-      'size': size,
-      'isFavorite': false,
-      'fileIds': <String>[],
-      'templateId': template.id,
-      'templateType': template.templateType.toString(),
-      'spacing': template.spacing,
       'drawingData': drawingData ?? [],
-      'pdfBackgroundPath': pdfBackgroundPath,
     };
 
     _files.add(newFile);
     _saveFiles();
     notifyListeners();
 
-    // print("File created with ID: $fileId");
-    // print("File created with Template : $templateId");
-
     return fileId;
   }
 
-  void updateFileWithPdfBackground(String fileId, String pdfPath) {
+  void addPaperPageToFile(String fileId, String pageId) {
     final index = _files.indexWhere((file) => file['id'] == fileId);
     if (index != -1) {
-      _files[index]['pdfBackgroundPath'] = pdfPath;
-      notifyListeners();
+      // Ensure 'folderIds' is a List<String> before adding the new folder
+      var pages = _files[index]['pageIds'];
+
+      // If folders is not already a List<String>, initialize it
+      if (pages == null || pages is! List<String>) {
+        pages = <String>[]; // Initialize an empty list if needed
+      }
+
+      // Add the new folder ID to the list
+      pages.add(pageId);
+
+      // Save the updated rooms and notify listeners
+      _files[index]['pageIds'] = pages; // Correct the key here
       _saveFiles();
+      notifyListeners();
     }
   }
 
@@ -438,6 +405,123 @@ class FileProvider extends ChangeNotifier {
     final index = _files.indexWhere((file) => file['id'] == fileId);
     if (index != -1) {
       return _files[index];
+    }
+    return null;
+  }
+}
+
+class PaperProvider extends ChangeNotifier {
+  List<Map<String, dynamic>> _papers = [];
+  final Uuid _uuid = Uuid();
+
+  List<Map<String, dynamic>> get papers => _papers;
+
+  PaperProvider() {
+    _loadPapers();
+  }
+
+  Future<void> _loadPapers() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final paper = File('${directory.path}/papers.json');
+
+    if (await paper.exists()) {
+      final paperContent = await paper.readAsString();
+
+      // Check if paper content is empty
+      if (paperContent.isEmpty) {
+        // Handle the case when the paper is empty
+        _papers = [];
+        notifyListeners();
+        return;
+      }
+
+      try {
+        final data = jsonDecode(paperContent);
+
+        _papers =
+            List<Map<String, dynamic>>.from(data).map((paper) {
+              return {
+                'id': paper['id'],
+                'pdfPath': paper['pdfPath'],
+                'recognizedText': paper['recognizedText'],
+                'templateId': paper['templateId'],
+                'templateType': paper['templateType'],
+                'PageNumber': paper['PageNumber'],
+              };
+            }).toList();
+
+        notifyListeners();
+      } catch (e) {
+        if (kDebugMode) {
+          print("Error decoding JSON: $e");
+        }
+        _papers = [];
+      }
+    }
+  }
+
+  // Save papers to local storage
+  Future<void> _savePapers() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final paper = File('${directory.path}/papers.json');
+
+    List<Map<String, dynamic>> papersToSave =
+        _papers.map((paper) {
+          return {
+            'id': paper['id'],
+            'pdfPath': paper['pdfPath'],
+            'recognizedText': paper['recognizedText'],
+            'templateId': paper['templateId'],
+            'templateType': paper['templateType'],
+            'PageNumber': paper['PageNumber'],
+          };
+        }).toList();
+
+    await paper.writeAsString(jsonEncode(papersToSave));
+  }
+
+  /// Add a new file
+  String addPaper(
+    PaperTemplate template,
+    int pageNumber, [
+    List<Map<String, dynamic>>? drawingData,
+    String? pdfPath,
+    String? recognizedText,
+  ]) {
+    final String paperId = _uuid.v4();
+    final newPaper = {
+      'id': paperId,
+      'templateId': template.id,
+      'templateType': template.templateType.toString(),
+      'drawingData': drawingData ?? [],
+      'PageNumber': pageNumber,
+      'pdfPath': pdfPath,
+      'recognizedText': recognizedText,
+    };
+
+    _papers.add(newPaper);
+    _savePapers();
+    notifyListeners();
+
+    return paperId;
+  }
+
+  Future<void> updatePaperDrawingData(
+    String paperId,
+    List<Map<String, dynamic>> drawingData,
+  ) async {
+    final index = _papers.indexWhere((paper) => paper['id'] == paperId);
+    if (index != -1) {
+      _papers[index]['drawingData'] = drawingData;
+      _savePapers();
+      notifyListeners();
+    }
+  }
+
+  Map<String, dynamic>? getPaperById(String paperId) {
+    final index = _papers.indexWhere((paper) => paper['id'] == paperId);
+    if (index != -1) {
+      return _papers[index];
     }
     return null;
   }

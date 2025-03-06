@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:frontend/paper.dart';
+import 'package:frontend/model/provider.dart';
+import 'package:frontend/paper_page.dart';
 import 'package:provider/provider.dart';
-import '../model/provider.dart';
 import '../OBJ/object.dart';
 
 class OverlayCreateFile extends StatefulWidget {
@@ -60,13 +60,13 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
         listen: false,
       );
       final fileProvider = Provider.of<FileProvider>(context, listen: false);
+      final paperProvider = Provider.of<PaperProvider>(context, listen: false);
 
-      final fileId = fileProvider.addFile(
-        nameController.text.trim(),
-        20,
-        selectedTemplate,
-      );
+      final paperId = paperProvider.addPaper(selectedTemplate, 0);
+
+      final fileId = fileProvider.addFile(nameController.text.trim());
       // print("Created file with ID: $fileId");
+      fileProvider.addPaperPageToFile(fileId, paperId);
 
       if (widget.isInFolder == true) {
         folderProvider.addFileToFolder(widget.parentId, fileId);
@@ -78,8 +78,11 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
         context,
         MaterialPageRoute(
           builder:
-              (context) =>
-                  Paper(name: nameController.text.trim(), fileId: fileId),
+              (context) => PaperPage(
+                name: nameController.text.trim(),
+                fileId: fileId,
+                onFileUpdated: () => setState(() {}),
+              ),
         ),
       );
     } catch (e) {

@@ -6,7 +6,7 @@ import '../widget/overlay_menu.dart';
 import '../widget/overlay_create_folder.dart';
 import '../OBJ/object.dart';
 import '../widget/overlay_create_file.dart';
-import '../paper.dart';
+import '../paper_page.dart';
 
 class RoomDetailPage extends StatefulWidget {
   final Map<String, dynamic> room;
@@ -60,8 +60,12 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           _toggleOverlay(null);
           showCreateFileOverlay(parentId);
         },
+        onImportPDF: () {
+          _toggleOverlay(null);
+        },
         onClose: () {
           _toggleOverlay(null);
+          showImportPDF(parentId);
         },
       ),
     );
@@ -86,6 +90,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
       ),
     );
   }
+
+  void showImportPDF(String parentId) {}
 
   void navigateToFolder(Map<String, dynamic> folder) {
     setState(() {
@@ -302,26 +308,26 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                             (folder['color'] is int)
                                 ? Color(folder['color'])
                                 : folder['color'],
-                        isFavorite: folder['isFavorite'],
+
                         subfolderIds: folder['subfolderIds'] ?? [],
                         fileIds: folder['fileIds'] ?? [],
-                        onToggleFavorite:
-                            () => folderProvider.toggleFavoriteFolder(
-                              folder['id'],
-                            ),
                       ),
                     );
                   } else {
                     final file = files[index - folders.length - 1];
+                    debugPrint(
+                      "File '${file['name']}' has page IDs: ${file['pageIds']}",
+                    );
                     return GestureDetector(
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder:
-                                (context) => Paper(
+                                (context) => PaperPage(
                                   name: file['name'],
                                   fileId: file['id'],
+                                  onFileUpdated: () => setState(() {}),
                                 ),
                           ),
                         );
@@ -330,9 +336,6 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                         id: file['id'],
                         name: file['name'],
                         createdDate: file['createdDate'],
-                        isFavorite: file['isFavorite'],
-                        onToggleFavorite:
-                            () => fileProvider.toggleFavoriteFile(file['id']),
                       ),
                     );
                   }
