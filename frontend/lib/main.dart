@@ -10,6 +10,7 @@ void main() {
         ChangeNotifierProvider(create: (context) => FolderProvider()),
         ChangeNotifierProvider(create: (context) => RoomProvider()),
         ChangeNotifierProvider(create: (context) => FileProvider()),
+        ChangeNotifierProvider(create: (context) => PaperProvider()),
       ],
       child: MyApp(),
     ),
