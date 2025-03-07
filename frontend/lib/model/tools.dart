@@ -148,9 +148,7 @@ class EraserTool {
     onStateChanged();
   }
 
-  void handleErasing(Offset position, bool isWithinCanvas) {
-    if (!isWithinCanvas) return;
-
+  void handleErasing(Offset position) {
     if (eraserMode == EraserMode.point) {
       eraseAtPoint(position);
     } else if (eraserMode == EraserMode.stroke) {

@@ -447,6 +447,8 @@ class PaperProvider extends ChangeNotifier {
                 'templateId': paper['templateId'],
                 'templateType': paper['templateType'],
                 'PageNumber': paper['PageNumber'],
+                'width': paper['width'],
+                'height': paper['height'],
               };
             }).toList();
 
@@ -474,6 +476,8 @@ class PaperProvider extends ChangeNotifier {
             'templateId': paper['templateId'],
             'templateType': paper['templateType'],
             'PageNumber': paper['PageNumber'],
+            'width': paper['width'],
+            'height': paper['height'],
           };
         }).toList();
 
@@ -483,11 +487,12 @@ class PaperProvider extends ChangeNotifier {
   /// Add a new file
   String addPaper(
     PaperTemplate template,
-    int pageNumber, [
+    int pageNumber,
     List<Map<String, dynamic>>? drawingData,
     String? pdfPath,
-    String? recognizedText,
-  ]) {
+    double? width, // Add width parameter
+    double? height, // Add height parameter
+  ) {
     final String paperId = _uuid.v4();
     final newPaper = {
       'id': paperId,
@@ -496,7 +501,8 @@ class PaperProvider extends ChangeNotifier {
       'drawingData': drawingData ?? [],
       'PageNumber': pageNumber,
       'pdfPath': pdfPath,
-      'recognizedText': recognizedText,
+      'width': width ?? 595.0,
+      'height': height ?? 842.0,
     };
 
     _papers.add(newPaper);
