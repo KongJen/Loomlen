@@ -242,6 +242,8 @@ class PaperItem extends StatefulWidget {
   final TemplateType templateType; // Added template type
   // ignore: non_constant_identifier_names
   final int PageNumber;
+  final double? widht;
+  final double? height;
 
   const PaperItem({
     super.key,
@@ -252,6 +254,8 @@ class PaperItem extends StatefulWidget {
     this.templateType = TemplateType.plain,
     // ignore: non_constant_identifier_names
     required this.PageNumber,
+    this.height,
+    this.widht,
   });
 
   @override

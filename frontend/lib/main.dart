@@ -18,6 +18,9 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
+  static final GlobalKey<BottomNavigationMenuState> navMenuKey =
+      GlobalKey<BottomNavigationMenuState>();
+
   const MyApp({super.key});
 
   @override
@@ -28,7 +31,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const NavigationMenu(),
+      home: NavigationMenu(key: navMenuKey),
     );
   }
 }

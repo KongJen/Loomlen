@@ -62,7 +62,14 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
       final fileProvider = Provider.of<FileProvider>(context, listen: false);
       final paperProvider = Provider.of<PaperProvider>(context, listen: false);
 
-      final paperId = paperProvider.addPaper(selectedTemplate, 0);
+      final paperId = paperProvider.addPaper(
+        selectedTemplate,
+        1, // Start with page number 1
+        null, // No initial drawing data
+        null, // No PDF path since it's not imported
+        595.0, // Default A4 width in points
+        842.0, // Default A4 height in points
+      );
 
       final fileId = fileProvider.addFile(nameController.text.trim());
       // print("Created file with ID: $fileId");

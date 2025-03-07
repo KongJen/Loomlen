@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend/model/drawingpoint.dart';
 import 'package:frontend/OBJ/object.dart';
@@ -29,35 +30,21 @@ class PaperPage extends StatefulWidget {
 }
 
 class _PaperPageState extends State<PaperPage> {
-  // Drawing and interaction variables
   final List<DrawingPoint> drawingPoints = [];
   final List<DrawingPoint> historyDrawingPoints = [];
   DrawingPoint? currentDrawingPoint;
-
   bool _hasUnsavedChanges = false;
   final List<Map<String, dynamic>> strokeHistory = [];
   Map<String, List<DrawingPoint>> pageDrawingPoints = {};
   List<Map<String, List<DrawingPoint>>> undoStack = [];
   List<Map<String, List<DrawingPoint>>> redoStack = [];
-
-  // Drawing settings
   Color selectedColor = Colors.black;
   double selectedWidth = 2.0;
   DrawingMode selectedMode = DrawingMode.pencil;
-
-  // Page and drawing tools
   late EraserTool eraserTool;
   List<String> pageIds = [];
-
-  // Canvas dimensions
-  static const double a4Width = 210 * 2.83465;
-  static const double a4Height = 297 * 2.83465;
-
-  // Controllers
-  late final TransformationController _controller;
+  final TransformationController _controller = TransformationController();
   final ScrollController _scrollController = ScrollController();
-
-  // Color palette
   final List<Color> availableColors = const [
     Colors.black,
     Colors.red,
@@ -65,18 +52,12 @@ class _PaperPageState extends State<PaperPage> {
     Colors.green,
     Colors.yellow,
   ];
-
-  // Add a map to store templates for each paper
   Map<String, PaperTemplate> paperTemplates = {};
 
   @override
   void initState() {
     super.initState();
-    _controller = TransformationController();
-
     pageIds = widget.initialPageIds ?? [];
-
-    // Initialize EraserTool (we'll pass the paperId dynamically later)
     eraserTool = EraserTool(
       eraserWidth: 10.0,
       eraserMode: EraserMode.point,
@@ -93,25 +74,54 @@ class _PaperPageState extends State<PaperPage> {
         });
         _updateStrokeHistory();
       },
-      currentPaperId: '', // We'll set this dynamically in ListView.builder
+      currentPaperId: '',
     );
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _centerCanvas();
       if (widget.fileId != null) {
         _loadDrawingFromPaper();
       }
-
       if (pageIds.isEmpty && widget.fileId != null) {
         _addNewPaperPage();
       }
     });
+    _centerContent();
   }
 
-  // Load templates for all papers
+  void _centerContent() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || pageIds.isEmpty) return;
+
+      final fileProvider = Provider.of<FileProvider>(context, listen: false);
+      final paperProvider = Provider.of<PaperProvider>(context, listen: false);
+      final file = fileProvider.files.firstWhere(
+        (file) => file['id'] == widget.fileId,
+        orElse: () => <String, dynamic>{},
+      );
+      final currentPaperIds =
+          (file['pageIds'] as List<dynamic>?)?.cast<String>() ?? [];
+      if (currentPaperIds.isEmpty) return;
+
+      final firstPaper = paperProvider.getPaperById(currentPaperIds.first);
+      final double paperWidth = firstPaper?['width'] as double? ?? 595.0;
+      final double paperHeight = firstPaper?['height'] as double? ?? 842.0;
+
+      final double totalHeight = currentPaperIds.length * (paperHeight + 16.0);
+      final screenSize = MediaQuery.of(context).size;
+      final double screenWidth = screenSize.width;
+      final double screenHeight = screenSize.height;
+
+      final double xOffset = (screenWidth - paperWidth) / 2;
+      final double yOffset =
+          (screenHeight - totalHeight) / 2 > 0
+              ? (screenHeight - totalHeight) / 2
+              : 0;
+
+      _controller.value = Matrix4.identity()..translate(xOffset, yOffset);
+    });
+  }
+
   void _loadTemplatesForPapers(List<Map<String, dynamic>> papers) {
     final Map<String, PaperTemplate> tempTemplates = {};
-
     for (final paper in papers) {
       final String paperId = paper['id'];
       final String templateId = paper['templateId'] ?? 'plain';
@@ -122,7 +132,6 @@ class _PaperPageState extends State<PaperPage> {
         String s when s.contains('dotted') => TemplateType.dotted,
         _ => TemplateType.plain,
       };
-
       tempTemplates[paperId] = PaperTemplate(
         id: templateId,
         name: '${templateType.name.capitalize()} Paper',
@@ -130,8 +139,6 @@ class _PaperPageState extends State<PaperPage> {
         spacing: paper['spacing']?.toDouble() ?? 30.0,
       );
     }
-
-    // If pageIds exist but no papers are found, use default templates
     for (final pageId in pageIds) {
       if (!tempTemplates.containsKey(pageId)) {
         tempTemplates[pageId] = PaperTemplate(
@@ -142,38 +149,29 @@ class _PaperPageState extends State<PaperPage> {
         );
       }
     }
-
-    debugPrint('Loaded paperTemplates: $tempTemplates');
-
     setState(() {
       paperTemplates = tempTemplates;
     });
   }
 
-  // Updated _addNewPaperPage to ensure templates are set correctly
   void _addNewPaperPage() {
     final fileProvider = context.read<FileProvider>();
     final paperProvider = context.read<PaperProvider>();
-
-    // Determine the template to use for the new page
     PaperTemplate newPageTemplate;
     int newPageNumber = 1;
 
     if (pageIds.isNotEmpty) {
       final lastPaperId = pageIds.last;
       final lastPaperData = paperProvider.getPaperById(lastPaperId);
-      newPageNumber = (lastPaperData?['PageNumber'] ?? 0) + 1;
-
-      if (paperTemplates.containsKey(lastPaperId)) {
-        newPageTemplate = paperTemplates[lastPaperId]!;
-      } else {
-        newPageTemplate = PaperTemplate(
-          id: 'plain',
-          name: 'Plain Paper',
-          templateType: TemplateType.plain,
-          spacing: 30.0,
-        );
-      }
+      newPageNumber = (lastPaperData?['PageNumber'] as int? ?? 0) + 1;
+      newPageTemplate =
+          paperTemplates[lastPaperId] ??
+          PaperTemplate(
+            id: 'plain',
+            name: 'Plain Paper',
+            templateType: TemplateType.plain,
+            spacing: 30.0,
+          );
     } else {
       newPageTemplate = PaperTemplate(
         id: 'plain',
@@ -183,23 +181,19 @@ class _PaperPageState extends State<PaperPage> {
       );
     }
 
-    // Add the new paper using the paper provider
     final String newPaperId = paperProvider.addPaper(
       newPageTemplate,
       newPageNumber,
+      null,
+      null,
+      595.0,
+      842.0,
     );
 
-    // Add the new paper page to the file
     if (widget.fileId != null) {
       fileProvider.addPaperPageToFile(widget.fileId!, newPaperId);
     }
 
-    // Update the pageIds and paperTemplates
-    setState(() {
-      paperTemplates[newPaperId] = newPageTemplate;
-    });
-
-    // Scroll to the bottom after adding a new page
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
@@ -211,7 +205,6 @@ class _PaperPageState extends State<PaperPage> {
 
   void _loadDrawingFromPaper() {
     final paperProvider = context.read<PaperProvider>();
-
     pageDrawingPoints.clear();
     strokeHistory.clear();
     undoStack.clear();
@@ -223,19 +216,14 @@ class _PaperPageState extends State<PaperPage> {
       if (paperData?['drawingData'] != null) {
         try {
           final List<dynamic> loadedStrokes = paperData!['drawingData'];
-          final List<Map<String, dynamic>> pageStrokeHistory = [];
-
           for (final stroke in loadedStrokes) {
             if (stroke['type'] == 'drawing') {
               final point = DrawingPoint.fromJson(stroke['data']);
               if (point.offsets.isNotEmpty) {
                 pointsForPage.add(point);
-                pageStrokeHistory.add(stroke);
               }
             }
           }
-
-          strokeHistory.addAll(pageStrokeHistory);
         } catch (e, stackTrace) {
           debugPrint(
             'Error loading drawing data for page $pageId: $e\n$stackTrace',
@@ -255,7 +243,6 @@ class _PaperPageState extends State<PaperPage> {
 
   Future<void> _saveDrawing() async {
     final paperProvider = context.read<PaperProvider>();
-
     for (final pageId in pageIds) {
       final pointsForPage = pageDrawingPoints[pageId] ?? [];
       final cleanHistory =
@@ -268,10 +255,8 @@ class _PaperPageState extends State<PaperPage> {
                 },
               )
               .toList();
-
       await paperProvider.updatePaperDrawingData(pageId, cleanHistory);
     }
-
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Drawing saved successfully')),
@@ -280,17 +265,8 @@ class _PaperPageState extends State<PaperPage> {
     _hasUnsavedChanges = false;
   }
 
-  // Center canvas
-  void _centerCanvas() {
-    final screenWidth = MediaQuery.sizeOf(context).width;
-    final initialX = (screenWidth - a4Width) / 2;
-    const initialY = 20.0;
-    _controller.value = Matrix4.identity()..translate(initialX, initialY);
-  }
-
   void _undo() {
     if (undoStack.isEmpty) return;
-
     setState(() {
       redoStack.add(
         pageDrawingPoints.map(
@@ -310,7 +286,6 @@ class _PaperPageState extends State<PaperPage> {
 
   void _redo() {
     if (redoStack.isEmpty) return;
-
     setState(() {
       undoStack.add(
         pageDrawingPoints.map(
@@ -328,7 +303,6 @@ class _PaperPageState extends State<PaperPage> {
     });
   }
 
-  // Update stroke history
   void _updateStrokeHistory() {
     strokeHistory.clear();
     strokeHistory.addAll(
@@ -341,13 +315,6 @@ class _PaperPageState extends State<PaperPage> {
       ),
     );
   }
-
-  // Check if point is within canvas
-  bool _isWithinCanvas(Offset point) =>
-      point.dx >= 0 &&
-      point.dy >= 0 &&
-      point.dx <= a4Width &&
-      point.dy <= a4Height;
 
   @override
   Widget build(BuildContext context) {
@@ -367,18 +334,21 @@ class _PaperPageState extends State<PaperPage> {
             .where((paper) => currentPaperIds.contains(paper['id']))
             .toList();
 
-    debugPrint('Current papers: $papers');
-    debugPrint('Current paperIds from file: $currentPaperIds');
-
-    // Sync pageIds with currentPaperIds and load templates
     if (currentPaperIds.isNotEmpty && pageIds.isEmpty) {
       setState(() {
         pageIds = currentPaperIds;
       });
     }
 
-    // Load templates after papers are computed
     _loadTemplatesForPapers(papers);
+
+    // Calculate total height of all papers
+    double totalHeight = 0;
+    for (var paperId in currentPaperIds) {
+      final paperData = paperProvider.getPaperById(paperId);
+      final double paperHeight = paperData?['height'] as double? ?? 842.0;
+      totalHeight += paperHeight + 16.0; // Add padding (8.0 top + 8.0 bottom)
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -450,214 +420,271 @@ class _PaperPageState extends State<PaperPage> {
                   (mode) => setState(() => eraserTool.eraserMode = mode),
             ),
           Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final screenSize = MediaQuery.of(context).size;
-                return InteractiveViewer(
-                  transformationController: _controller,
-                  minScale: 1.0,
-                  maxScale: 2.0,
-                  boundaryMargin: EdgeInsets.symmetric(
-                    horizontal: max((screenSize.width - a4Width) / 2, 0),
-                    vertical: max((screenSize.height - a4Height) / 2, 20),
-                  ),
-                  constrained: false,
-                  child: SingleChildScrollView(
-                    controller: _scrollController,
-                    child: Column(
-                      children:
-                          currentPaperIds.map((paperId) {
-                            final template =
-                                paperTemplates[paperId] ??
-                                PaperTemplate(
-                                  id: 'plain',
-                                  name: 'Plain Paper',
-                                  templateType: TemplateType.plain,
+            child: Scrollbar(
+              controller: _scrollController,
+              thumbVisibility: true,
+              thickness: 8.0,
+              radius: const Radius.circular(4.0),
+              interactive: true,
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: SizedBox(
+                  height: totalHeight, // Set a finite height
+                  child: InteractiveViewer(
+                    transformationController: _controller,
+                    minScale: 1.0,
+                    maxScale: 2.0,
+                    boundaryMargin: EdgeInsets.symmetric(
+                      horizontal: max(
+                        (MediaQuery.of(context).size.width -
+                                (papers.isNotEmpty
+                                    ? papers.first['width'] as double? ?? 595.0
+                                    : 595.0)) /
+                            2,
+                        0,
+                      ),
+                      vertical: 20, // Simplified vertical margin
+                    ),
+                    constrained: false,
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width,
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children:
+                              currentPaperIds.map((paperId) {
+                                final template =
+                                    paperTemplates[paperId] ??
+                                    PaperTemplate(
+                                      id: 'plain',
+                                      name: 'Plain Paper',
+                                      templateType: TemplateType.plain,
+                                    );
+                                final paperData = paperProvider.getPaperById(
+                                  paperId,
                                 );
+                                final double paperWidth =
+                                    paperData?['width'] as double? ?? 595.0;
+                                final double paperHeight =
+                                    paperData?['height'] as double? ?? 842.0;
 
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 8.0,
-                              ),
-                              child: Center(
-                                child: Container(
-                                  width: a4Width,
-                                  height: a4Height,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.grey.shade300,
-                                        offset: const Offset(0, 3),
-                                        blurRadius: 5,
-                                        spreadRadius: 2,
-                                      ),
-                                    ],
-                                    border: Border.all(
-                                      color: Colors.grey.shade400,
-                                      width: 1.5,
-                                    ),
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8.0,
                                   ),
-                                  child: Stack(
-                                    clipBehavior: Clip.hardEdge,
-                                    children: [
-                                      CustomPaint(
-                                        painter: TemplatePainter(
-                                          template: template,
+                                  child: Container(
+                                    width: paperWidth,
+                                    height: paperHeight,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.grey.shade300,
+                                          offset: const Offset(0, 3),
+                                          blurRadius: 5,
+                                          spreadRadius: 2,
                                         ),
-                                        size: Size(a4Width, a4Height),
+                                      ],
+                                      border: Border.all(
+                                        color: Colors.grey.shade400,
+                                        width: 1.5,
                                       ),
-                                      GestureDetector(
-                                        onPanStart: (details) {
-                                          final localPosition =
-                                              details.localPosition;
-                                          if (!_isWithinCanvas(localPosition)) {
-                                            return;
-                                          }
-
-                                          try {
-                                            if (selectedMode ==
-                                                DrawingMode.pencil) {
-                                              undoStack.add(
-                                                pageDrawingPoints.map(
-                                                  (key, value) => MapEntry(
-                                                    key,
-                                                    List<DrawingPoint>.from(
-                                                      value,
-                                                    ),
-                                                  ),
+                                    ),
+                                    child: Stack(
+                                      clipBehavior: Clip.hardEdge,
+                                      children: [
+                                        CustomPaint(
+                                          painter: TemplatePainter(
+                                            template: template,
+                                          ),
+                                          size: Size(paperWidth, paperHeight),
+                                        ),
+                                        if (paperData != null &&
+                                            paperData['pdfPath'] != null)
+                                          Image.file(
+                                            File(paperData['pdfPath']),
+                                            width: paperWidth,
+                                            height: paperHeight,
+                                            fit: BoxFit.contain,
+                                            errorBuilder: (
+                                              context,
+                                              error,
+                                              stackTrace,
+                                            ) {
+                                              debugPrint(
+                                                'Error loading image for $paperId: $error',
+                                              );
+                                              return const Center(
+                                                child: Text(
+                                                  'Failed to load image',
                                                 ),
                                               );
-                                              redoStack.clear();
-
-                                              setState(() {
-                                                currentDrawingPoint = DrawingPoint(
-                                                  id:
-                                                      DateTime.now()
-                                                          .microsecondsSinceEpoch,
-                                                  offsets: [localPosition],
-                                                  color: selectedColor,
-                                                  width: selectedWidth,
-                                                  isEraser: false,
-                                                );
-                                                pageDrawingPoints[paperId] ??=
-                                                    [];
-                                                pageDrawingPoints[paperId]!.add(
-                                                  currentDrawingPoint!,
-                                                );
-                                                historyDrawingPoints.clear();
-                                                historyDrawingPoints.addAll(
-                                                  pageDrawingPoints.values
-                                                      .expand(
-                                                        (points) => points,
-                                                      ),
-                                                );
-                                                _hasUnsavedChanges = true;
-                                              });
-                                            } else if (selectedMode ==
-                                                DrawingMode.eraser) {
-                                              // Update eraserTool with the current paperId
-                                              eraserTool = EraserTool(
-                                                eraserWidth:
-                                                    eraserTool.eraserWidth,
-                                                eraserMode:
-                                                    eraserTool.eraserMode,
-                                                pageDrawingPoints:
-                                                    pageDrawingPoints,
-                                                undoStack: undoStack,
-                                                redoStack: redoStack,
-                                                onStateChanged:
-                                                    eraserTool.onStateChanged,
-                                                currentPaperId: paperId,
-                                              );
-                                              eraserTool.handleErasing(
-                                                localPosition,
-                                                _isWithinCanvas(localPosition),
-                                              );
-                                            }
-                                          } catch (e, stackTrace) {
-                                            debugPrint(
-                                              'Pan start error: $e\n$stackTrace',
-                                            );
-                                          }
-                                        },
-                                        onPanUpdate: (details) {
-                                          final localPosition =
-                                              details.localPosition;
-                                          if (!_isWithinCanvas(localPosition)) {
-                                            return;
-                                          }
-
-                                          try {
-                                            if (selectedMode ==
-                                                    DrawingMode.pencil &&
-                                                currentDrawingPoint != null) {
-                                              setState(() {
-                                                currentDrawingPoint =
-                                                    currentDrawingPoint!
-                                                        .copyWith(
-                                                          offsets: List.from(
-                                                            currentDrawingPoint!
-                                                                .offsets,
-                                                          )..add(localPosition),
-                                                        );
-                                                pageDrawingPoints[paperId]!
-                                                        .last =
-                                                    currentDrawingPoint!;
-                                                historyDrawingPoints.clear();
-                                                historyDrawingPoints.addAll(
-                                                  pageDrawingPoints.values
-                                                      .expand(
-                                                        (points) => points,
-                                                      ),
-                                                );
-                                                _hasUnsavedChanges = true;
-                                              });
-                                            } else if (selectedMode ==
-                                                DrawingMode.eraser) {
-                                              eraserTool.handleErasing(
-                                                localPosition,
-                                                _isWithinCanvas(localPosition),
-                                              );
-                                            }
-                                          } catch (e, stackTrace) {
-                                            debugPrint(
-                                              'Pan update error: $e\n$stackTrace',
-                                            );
-                                          }
-                                        },
-                                        onPanEnd: (_) {
-                                          try {
-                                            currentDrawingPoint = null;
-                                            if (selectedMode ==
-                                                DrawingMode.eraser) {
-                                              eraserTool.finishErasing();
-                                            }
-                                          } catch (e, stackTrace) {
-                                            debugPrint(
-                                              'Pan end error: $e\n$stackTrace',
-                                            );
-                                          }
-                                        },
-                                        child: CustomPaint(
-                                          painter: DrawingPainter(
-                                            drawingPoints:
-                                                pageDrawingPoints[paperId] ??
-                                                [],
+                                            },
                                           ),
-                                          size: Size(a4Width, a4Height),
+                                        GestureDetector(
+                                          onPanStart: (details) {
+                                            final localPosition =
+                                                details.localPosition;
+                                            if (!_isWithinCanvas(
+                                              localPosition,
+                                              paperWidth,
+                                              paperHeight,
+                                            ))
+                                              return;
+
+                                            try {
+                                              if (selectedMode ==
+                                                  DrawingMode.pencil) {
+                                                undoStack.add(
+                                                  pageDrawingPoints.map(
+                                                    (key, value) => MapEntry(
+                                                      key,
+                                                      List<DrawingPoint>.from(
+                                                        value,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                                redoStack.clear();
+
+                                                setState(() {
+                                                  currentDrawingPoint =
+                                                      DrawingPoint(
+                                                        id:
+                                                            DateTime.now()
+                                                                .microsecondsSinceEpoch,
+                                                        offsets: [
+                                                          localPosition,
+                                                        ],
+                                                        color: selectedColor,
+                                                        width: selectedWidth,
+                                                        isEraser: false,
+                                                      );
+                                                  pageDrawingPoints[paperId] ??=
+                                                      [];
+                                                  pageDrawingPoints[paperId]!
+                                                      .add(
+                                                        currentDrawingPoint!,
+                                                      );
+                                                  historyDrawingPoints.clear();
+                                                  historyDrawingPoints.addAll(
+                                                    pageDrawingPoints.values
+                                                        .expand(
+                                                          (points) => points,
+                                                        ),
+                                                  );
+                                                  _hasUnsavedChanges = true;
+                                                });
+                                              } else if (selectedMode ==
+                                                  DrawingMode.eraser) {
+                                                eraserTool = EraserTool(
+                                                  eraserWidth:
+                                                      eraserTool.eraserWidth,
+                                                  eraserMode:
+                                                      eraserTool.eraserMode,
+                                                  pageDrawingPoints:
+                                                      pageDrawingPoints,
+                                                  undoStack: undoStack,
+                                                  redoStack: redoStack,
+                                                  onStateChanged:
+                                                      eraserTool.onStateChanged,
+                                                  currentPaperId: paperId,
+                                                );
+                                                eraserTool.handleErasing(
+                                                  localPosition,
+                                                );
+                                              }
+                                            } catch (e, stackTrace) {
+                                              debugPrint(
+                                                'Pan start error: $e\n$stackTrace',
+                                              );
+                                            }
+                                          },
+                                          onPanUpdate: (details) {
+                                            final localPosition =
+                                                details.localPosition;
+                                            if (!_isWithinCanvas(
+                                              localPosition,
+                                              paperWidth,
+                                              paperHeight,
+                                            ))
+                                              return;
+
+                                            try {
+                                              if (selectedMode ==
+                                                      DrawingMode.pencil &&
+                                                  currentDrawingPoint != null) {
+                                                setState(() {
+                                                  currentDrawingPoint =
+                                                      currentDrawingPoint!
+                                                          .copyWith(
+                                                            offsets: List.from(
+                                                              currentDrawingPoint!
+                                                                  .offsets,
+                                                            )..add(
+                                                              localPosition,
+                                                            ),
+                                                          );
+                                                  pageDrawingPoints[paperId]!
+                                                          .last =
+                                                      currentDrawingPoint!;
+                                                  historyDrawingPoints.clear();
+                                                  historyDrawingPoints.addAll(
+                                                    pageDrawingPoints.values
+                                                        .expand(
+                                                          (points) => points,
+                                                        ),
+                                                  );
+                                                  _hasUnsavedChanges = true;
+                                                });
+                                              } else if (selectedMode ==
+                                                  DrawingMode.eraser) {
+                                                eraserTool.handleErasing(
+                                                  localPosition,
+                                                );
+                                              }
+                                            } catch (e, stackTrace) {
+                                              debugPrint(
+                                                'Pan update error: $e\n$stackTrace',
+                                              );
+                                            }
+                                          },
+                                          onPanEnd: (_) {
+                                            try {
+                                              currentDrawingPoint = null;
+                                              if (selectedMode ==
+                                                  DrawingMode.eraser) {
+                                                eraserTool.finishErasing();
+                                              }
+                                            } catch (e, stackTrace) {
+                                              debugPrint(
+                                                'Pan end error: $e\n$stackTrace',
+                                              );
+                                            }
+                                          },
+                                          child: CustomPaint(
+                                            painter: DrawingPainter(
+                                              drawingPoints:
+                                                  pageDrawingPoints[paperId] ??
+                                                  [],
+                                            ),
+                                            size: Size(paperWidth, paperHeight),
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
+                                );
+                              }).toList(),
+                        ),
+                      ),
                     ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
           ),
         ],
@@ -665,9 +692,17 @@ class _PaperPageState extends State<PaperPage> {
     );
   }
 
+  bool _isWithinCanvas(Offset position, double width, double height) {
+    return position.dx >= 0 &&
+        position.dx <= width &&
+        position.dy >= 0 &&
+        position.dy <= height;
+  }
+
   @override
   void dispose() {
     _controller.dispose();
+    _scrollController.dispose();
     if (_hasUnsavedChanges) _saveDrawing();
     super.dispose();
   }
