@@ -1,3 +1,5 @@
+// ignore_for_file: curly_braces_in_flow_control_structures
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend/model/drawingpoint.dart';
@@ -53,6 +55,7 @@ class _PaperPageState extends State<PaperPage> {
     Colors.yellow,
   ];
   Map<String, PaperTemplate> paperTemplates = {};
+  bool _isDrawing = false;
 
   @override
   void initState() {
@@ -428,9 +431,12 @@ class _PaperPageState extends State<PaperPage> {
               interactive: true,
               child: SingleChildScrollView(
                 controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
+                physics:
+                    _isDrawing
+                        ? const NeverScrollableScrollPhysics()
+                        : const AlwaysScrollableScrollPhysics(),
                 child: SizedBox(
-                  height: totalHeight, // Set a finite height
+                  height: totalHeight,
                   child: InteractiveViewer(
                     transformationController: _controller,
                     minScale: 1.0,
@@ -444,9 +450,12 @@ class _PaperPageState extends State<PaperPage> {
                             2,
                         0,
                       ),
-                      vertical: 20, // Simplified vertical margin
+                      vertical: 20,
                     ),
                     constrained: false,
+                    panEnabled:
+                        false, // Disable panning to avoid conflicts with drawing
+                    scaleEnabled: true,
                     child: Center(
                       child: ConstrainedBox(
                         constraints: BoxConstraints(
@@ -524,8 +533,8 @@ class _PaperPageState extends State<PaperPage> {
                                               );
                                             },
                                           ),
-                                        GestureDetector(
-                                          onPanStart: (details) {
+                                        Listener(
+                                          onPointerDown: (details) {
                                             final localPosition =
                                                 details.localPosition;
                                             if (!_isWithinCanvas(
@@ -535,75 +544,70 @@ class _PaperPageState extends State<PaperPage> {
                                             ))
                                               return;
 
-                                            try {
-                                              if (selectedMode ==
-                                                  DrawingMode.pencil) {
-                                                undoStack.add(
-                                                  pageDrawingPoints.map(
-                                                    (key, value) => MapEntry(
-                                                      key,
-                                                      List<DrawingPoint>.from(
-                                                        value,
-                                                      ),
+                                            setState(() {
+                                              _isDrawing =
+                                                  true; // Disable scrolling when drawing starts
+                                            });
+
+                                            if (selectedMode ==
+                                                DrawingMode.pencil) {
+                                              undoStack.add(
+                                                pageDrawingPoints.map(
+                                                  (key, value) => MapEntry(
+                                                    key,
+                                                    List<DrawingPoint>.from(
+                                                      value,
                                                     ),
                                                   ),
-                                                );
-                                                redoStack.clear();
+                                                ),
+                                              );
+                                              redoStack.clear();
 
-                                                setState(() {
-                                                  currentDrawingPoint =
-                                                      DrawingPoint(
-                                                        id:
-                                                            DateTime.now()
-                                                                .microsecondsSinceEpoch,
-                                                        offsets: [
-                                                          localPosition,
-                                                        ],
-                                                        color: selectedColor,
-                                                        width: selectedWidth,
-                                                        isEraser: false,
-                                                      );
-                                                  pageDrawingPoints[paperId] ??=
-                                                      [];
-                                                  pageDrawingPoints[paperId]!
-                                                      .add(
-                                                        currentDrawingPoint!,
-                                                      );
-                                                  historyDrawingPoints.clear();
-                                                  historyDrawingPoints.addAll(
-                                                    pageDrawingPoints.values
-                                                        .expand(
-                                                          (points) => points,
-                                                        ),
-                                                  );
-                                                  _hasUnsavedChanges = true;
-                                                });
-                                              } else if (selectedMode ==
-                                                  DrawingMode.eraser) {
-                                                eraserTool = EraserTool(
-                                                  eraserWidth:
-                                                      eraserTool.eraserWidth,
-                                                  eraserMode:
-                                                      eraserTool.eraserMode,
-                                                  pageDrawingPoints:
-                                                      pageDrawingPoints,
-                                                  undoStack: undoStack,
-                                                  redoStack: redoStack,
-                                                  onStateChanged:
-                                                      eraserTool.onStateChanged,
-                                                  currentPaperId: paperId,
+                                              setState(() {
+                                                currentDrawingPoint = DrawingPoint(
+                                                  id:
+                                                      DateTime.now()
+                                                          .microsecondsSinceEpoch,
+                                                  offsets: [localPosition],
+                                                  color: selectedColor,
+                                                  width: selectedWidth,
+                                                  isEraser: false,
                                                 );
-                                                eraserTool.handleErasing(
-                                                  localPosition,
+                                                pageDrawingPoints[paperId] ??=
+                                                    [];
+                                                pageDrawingPoints[paperId]!.add(
+                                                  currentDrawingPoint!,
                                                 );
-                                              }
-                                            } catch (e, stackTrace) {
-                                              debugPrint(
-                                                'Pan start error: $e\n$stackTrace',
+                                                historyDrawingPoints.clear();
+                                                historyDrawingPoints.addAll(
+                                                  pageDrawingPoints.values
+                                                      .expand(
+                                                        (points) => points,
+                                                      ),
+                                                );
+                                                _hasUnsavedChanges = true;
+                                              });
+                                            } else if (selectedMode ==
+                                                DrawingMode.eraser) {
+                                              eraserTool = EraserTool(
+                                                eraserWidth:
+                                                    eraserTool.eraserWidth,
+                                                eraserMode:
+                                                    eraserTool.eraserMode,
+                                                pageDrawingPoints:
+                                                    pageDrawingPoints,
+                                                undoStack: undoStack,
+                                                redoStack: redoStack,
+                                                onStateChanged:
+                                                    eraserTool.onStateChanged,
+                                                currentPaperId: paperId,
+                                              );
+                                              eraserTool.handleErasing(
+                                                localPosition,
                                               );
                                             }
                                           },
-                                          onPanUpdate: (details) {
+                                          onPointerMove: (details) {
                                             final localPosition =
                                                 details.localPosition;
                                             if (!_isWithinCanvas(
@@ -613,56 +617,46 @@ class _PaperPageState extends State<PaperPage> {
                                             ))
                                               return;
 
-                                            try {
-                                              if (selectedMode ==
-                                                      DrawingMode.pencil &&
-                                                  currentDrawingPoint != null) {
-                                                setState(() {
-                                                  currentDrawingPoint =
-                                                      currentDrawingPoint!
-                                                          .copyWith(
-                                                            offsets: List.from(
-                                                              currentDrawingPoint!
-                                                                  .offsets,
-                                                            )..add(
-                                                              localPosition,
-                                                            ),
-                                                          );
-                                                  pageDrawingPoints[paperId]!
-                                                          .last =
-                                                      currentDrawingPoint!;
-                                                  historyDrawingPoints.clear();
-                                                  historyDrawingPoints.addAll(
-                                                    pageDrawingPoints.values
-                                                        .expand(
-                                                          (points) => points,
-                                                        ),
-                                                  );
-                                                  _hasUnsavedChanges = true;
-                                                });
-                                              } else if (selectedMode ==
-                                                  DrawingMode.eraser) {
-                                                eraserTool.handleErasing(
-                                                  localPosition,
+                                            if (selectedMode ==
+                                                    DrawingMode.pencil &&
+                                                currentDrawingPoint != null) {
+                                              setState(() {
+                                                currentDrawingPoint =
+                                                    currentDrawingPoint!
+                                                        .copyWith(
+                                                          offsets: List.from(
+                                                            currentDrawingPoint!
+                                                                .offsets,
+                                                          )..add(localPosition),
+                                                        );
+                                                pageDrawingPoints[paperId]!
+                                                        .last =
+                                                    currentDrawingPoint!;
+                                                historyDrawingPoints.clear();
+                                                historyDrawingPoints.addAll(
+                                                  pageDrawingPoints.values
+                                                      .expand(
+                                                        (points) => points,
+                                                      ),
                                                 );
-                                              }
-                                            } catch (e, stackTrace) {
-                                              debugPrint(
-                                                'Pan update error: $e\n$stackTrace',
+                                                _hasUnsavedChanges = true;
+                                              });
+                                            } else if (selectedMode ==
+                                                DrawingMode.eraser) {
+                                              eraserTool.handleErasing(
+                                                localPosition,
                                               );
                                             }
                                           },
-                                          onPanEnd: (_) {
-                                            try {
-                                              currentDrawingPoint = null;
-                                              if (selectedMode ==
-                                                  DrawingMode.eraser) {
-                                                eraserTool.finishErasing();
-                                              }
-                                            } catch (e, stackTrace) {
-                                              debugPrint(
-                                                'Pan end error: $e\n$stackTrace',
-                                              );
+                                          onPointerUp: (_) {
+                                            setState(() {
+                                              _isDrawing =
+                                                  false; // Re-enable scrolling when drawing ends
+                                            });
+                                            currentDrawingPoint = null;
+                                            if (selectedMode ==
+                                                DrawingMode.eraser) {
+                                              eraserTool.finishErasing();
                                             }
                                           },
                                           child: CustomPaint(
