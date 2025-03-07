@@ -4,6 +4,7 @@ import 'package:frontend/model/provider.dart';
 import 'package:frontend/paper_page.dart';
 import 'package:provider/provider.dart';
 import '../OBJ/object.dart';
+import '../main.dart';
 
 class OverlayCreateFile extends StatefulWidget {
   final String parentId;
@@ -80,7 +81,8 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
       } else {
         roomProvider.addFileToRoom(widget.parentId, fileId);
       }
-      widget.onClose();
+
+      MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(false);
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -91,7 +93,10 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
                 onFileUpdated: () => setState(() {}),
               ),
         ),
-      );
+      ).then((_) {
+        MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(true);
+      });
+      widget.onClose();
     } catch (e) {
       if (kDebugMode) {
         print("Error creating file: $e");
