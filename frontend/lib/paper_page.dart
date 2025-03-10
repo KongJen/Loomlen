@@ -15,6 +15,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:screenshot/screenshot.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:frontend/widget/export_dialog.dart';
+import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'dart:typed_data';
 
 enum DrawingMode { pencil, eraser }
@@ -706,55 +707,34 @@ class _PaperPageState extends State<PaperPage> {
         position.dy <= height;
   }
 
-  // Implementation of the exportToPdf method
+  /// Add this method to your _PaperPageState class
   Future<void> exportToPdf() async {
     // Show loading indicator
     final scaffoldMessenger = ScaffoldMessenger.of(context);
+    scaffoldMessenger.showSnackBar(
+      const SnackBar(content: Text('Generating PDF...')),
+    );
 
     try {
-      // Show export dialog first
-      final result = await showDialog<Map<String, dynamic>>(
-        context: context,
-        builder:
-            (context) => PdfExportDialog(
-              filename: widget.name,
-              hasMultiplePages: pageIds.length > 1,
-            ),
-      );
-
-      if (result == null) return; // User cancelled
-
-      scaffoldMessenger.showSnackBar(
-        const SnackBar(content: Text('Generating PDF...')),
-      );
-
       // Save any unsaved changes first
       if (_hasUnsavedChanges) await _saveDrawing();
 
-      // Extract export options
-      final String filename = result['filename'];
-      final bool includePdfBackgrounds = result['includePdfBackgrounds'];
-      final List<String> pagesToExport =
-          result['includeAllPages']
-              ? pageIds
-              : (result['selectedPageIndices'] as List<int>)
-                  .map((index) => pageIds[index < pageIds.length ? index : 0])
-                  .toList();
-      final double quality = result['quality'];
-
       // Create PDF document
       final pdf = pw.Document();
+      final screenshotController = ScreenshotController();
+
+      // Determine if we need to handle multiple pages
       final paperProvider = Provider.of<PaperProvider>(context, listen: false);
 
-      // Process each selected page
-      for (final paperId in pagesToExport) {
+      // Process each page
+      for (final paperId in pageIds) {
         final paperData = paperProvider.getPaperById(paperId);
         if (paperData == null) continue;
 
         final double paperWidth = paperData['width'] as double? ?? 595.0;
         final double paperHeight = paperData['height'] as double? ?? 842.0;
 
-        // Get template for this page
+        // Create a repaint boundary with just this page
         final template =
             paperTemplates[paperId] ??
             PaperTemplate(
@@ -764,46 +744,40 @@ class _PaperPageState extends State<PaperPage> {
             );
 
         // Create a widget for this specific page
-        final pageWidget = RepaintBoundary(
-          child: Container(
-            width: paperWidth,
-            height: paperHeight,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: Colors.grey.shade400, width: 1.5),
-            ),
-            child: Stack(
-              children: [
-                // Background template
-                CustomPaint(
-                  painter: TemplatePainter(template: template),
-                  size: Size(paperWidth, paperHeight),
+        final pageWidget = Container(
+          width: paperWidth,
+          height: paperHeight,
+          child: Stack(
+            children: [
+              // Background template
+              CustomPaint(
+                painter: TemplatePainter(template: template),
+                size: Size(paperWidth, paperHeight),
+              ),
+              // PDF image if exists
+              if (paperData['pdfPath'] != null)
+                Image.file(
+                  File(paperData['pdfPath']),
+                  width: paperWidth,
+                  height: paperHeight,
+                  fit: BoxFit.contain,
                 ),
-                // PDF image if exists and should be included
-                if (paperData['pdfPath'] != null && includePdfBackgrounds)
-                  Image.file(
-                    File(paperData['pdfPath']),
-                    width: paperWidth,
-                    height: paperHeight,
-                    fit: BoxFit.contain,
-                  ),
-                // Drawings
-                CustomPaint(
-                  painter: DrawingPainter(
-                    drawingPoints: pageDrawingPoints[paperId] ?? [],
-                  ),
-                  size: Size(paperWidth, paperHeight),
+              // Drawings
+              CustomPaint(
+                painter: DrawingPainter(
+                  drawingPoints: pageDrawingPoints[paperId] ?? [],
                 ),
-              ],
-            ),
+                size: Size(paperWidth, paperHeight),
+              ),
+            ],
           ),
         );
 
         // Capture screenshot of this page
-        final Uint8List imageBytes = await _screenshotcontroller
+        final Uint8List imageBytes = await screenshotController
             .captureFromWidget(
               pageWidget,
-              pixelRatio: quality,
+              pixelRatio: 3.0, // Higher for better quality
               context: context,
             );
 
@@ -825,29 +799,27 @@ class _PaperPageState extends State<PaperPage> {
       final pdfBytes = await pdf.save();
 
       // Save the PDF file
-      final String sanitizedFilename = filename.replaceAll(
-        RegExp(r'[\\/:*?"<>|]'),
-        '_',
-      );
-      final String fullFilename = "$sanitizedFilename.pdf";
+      final String fileName =
+          "${widget.name.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf";
 
       if (Platform.isAndroid || Platform.isIOS) {
-        // Import flutter_file_dialog for mobile platforms
-        // final params = SaveFileDialogParams(data: pdfBytes, fileName: fullFilename);
-        // final filePath = await FlutterFileDialog.saveFile(params: params);
+        // Mobile
+        final params = SaveFileDialogParams(data: pdfBytes, fileName: fileName);
+        final filePath = await FlutterFileDialog.saveFile(params: params);
 
-        // For simplicity in this example, save to app documents directory
-        final directory = await getApplicationDocumentsDirectory();
-        final file = File('${directory.path}/$fullFilename');
-        await file.writeAsBytes(pdfBytes);
-
-        scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('PDF saved to: ${file.path}')),
-        );
+        if (filePath != null) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text('PDF saved to: $filePath')),
+          );
+        } else {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(content: Text('PDF export cancelled')),
+          );
+        }
       } else {
-        // Desktop platform
+        // Desktop
         final directory = await getApplicationDocumentsDirectory();
-        final file = File('${directory.path}/$fullFilename');
+        final file = File('${directory.path}/$fileName');
         await file.writeAsBytes(pdfBytes);
 
         scaffoldMessenger.showSnackBar(
