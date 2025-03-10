@@ -353,6 +353,7 @@ class _PaperPageState extends State<PaperPage> {
     }
 
     _loadTemplatesForPapers(papers);
+    _centerContent();
 
     // Calculate total height of all papers
     double totalHeight = 0;
