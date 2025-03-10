@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:pdf_render/pdf_render.dart';
@@ -21,6 +23,7 @@ class RoomDetailPage extends StatefulWidget {
   const RoomDetailPage({super.key, required this.room, this.onRoomUpdated});
 
   @override
+  // ignore: library_private_types_in_public_api
   _RoomDetailPageState createState() => _RoomDetailPageState();
 }
 
@@ -131,13 +134,13 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           debugPrint('Page $i size: ${pdfWidth}x$pdfHeight');
 
           PdfPageImage? pageImage = await page.render(
-            width: page.width.toInt(),
-            height: page.height.toInt(),
+            fullWidth: page.width,
+            fullHeight: page.height,
           );
 
           // Convert raw pixels to PNG format
           final image = img.Image.fromBytes(
-            width: pageImage!.width,
+            width: pageImage.width,
             height: pageImage.height,
             bytes: pageImage.pixels.buffer,
             order: img.ChannelOrder.rgba,
