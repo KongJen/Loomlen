@@ -33,10 +33,11 @@ dependencies:
     sdk: flutter
   http: ^1.3.0
   pdf: ^3.11.3 # For PDF manipulation
-  pdf_render: ^1.0.0 # For rendering PDF pages as images
+  pdf_render: ^1.4.12 # For rendering PDF pages as images
   image: ^4.2.0 # For image manipulation if needed
   file_picker: ^9.0.2
   flutter_pdfview: ^1.2.7
+  flutter_file_dialog: ^3.0.2
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
