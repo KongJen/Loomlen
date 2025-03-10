@@ -17,6 +17,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:frontend/widget/export_dialog.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'dart:typed_data';
+import 'dart:math' as math;
 
 enum DrawingMode { pencil, eraser }
 
@@ -779,6 +780,7 @@ class _PaperPageState extends State<PaperPage> {
             .captureFromWidget(
               pageWidget,
               pixelRatio: 3.0, // Higher for better quality
+              targetSize: Size(paperWidth.toDouble(), paperHeight.toDouble()),
               context: context,
             );
 
@@ -790,12 +792,22 @@ class _PaperPageState extends State<PaperPage> {
           pw.Page(
             pageFormat: PdfPageFormat(paperWidth, paperHeight),
             build: (pw.Context context) {
-              return pw.Center(child: pw.Image(image, fit: pw.BoxFit.contain));
+              return pw.Center(
+                child: pw.Transform(
+                  alignment: pw.Alignment.center,
+                  transform: Matrix4.rotationZ(-math.pi)
+                    ..rotateY(-math.pi), // Rotate 180 degrees
+                  child: pw.SizedBox(
+                    width: paperWidth,
+                    height: paperHeight,
+                    child: pw.Image(image, fit: pw.BoxFit.contain),
+                  ),
+                ),
+              );
             },
           ),
         );
       }
-
       // Get bytes of the PDF
       final pdfBytes = await pdf.save();
 
