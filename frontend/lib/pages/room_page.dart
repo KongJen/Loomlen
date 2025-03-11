@@ -15,6 +15,7 @@ import '../widget/overlay_create_file.dart';
 import '../paper_page.dart';
 import 'package:path_provider/path_provider.dart';
 import '../main.dart';
+import '../widget/overlay_loading.dart';
 
 class RoomDetailPage extends StatefulWidget {
   final Map<String, dynamic> room;
@@ -127,6 +128,14 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
         List<String> paperIds = [];
         debugPrint('Created file ID: $fileId');
 
+        final loadingOverlay = LoadingOverlay(
+          context: context,
+          message: 'Preparing to import PDF',
+          subMessage: 'Please wait while we process your file',
+        );
+
+        loadingOverlay.show();
+
         for (int i = 1; i <= pageCount; i++) {
           PdfPage page = await pdfDoc.getPage(i);
           double pdfWidth = page.width; // Get PDF page width in points
@@ -134,8 +143,9 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           debugPrint('Page $i size: ${pdfWidth}x$pdfHeight');
 
           PdfPageImage? pageImage = await page.render(
-            fullWidth: page.width,
-            fullHeight: page.height,
+            // Increase the resolution by applying a scale factor
+            width: (page.width * 2).toInt(), // Double the resolution
+            height: (page.height * 2).toInt(), // Double the resolution
           );
 
           // Convert raw pixels to PNG format
@@ -145,7 +155,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
             bytes: pageImage.pixels.buffer,
             order: img.ChannelOrder.rgba,
           );
-          final pngBytes = img.encodePng(image);
+          final pngBytes = img.encodePng(image, level: 6);
 
           // Save the PNG to a file
           final directory = await getApplicationDocumentsDirectory();
@@ -177,6 +187,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
           pageImage.dispose();
         }
+
+        loadingOverlay.hide();
 
         pdfDoc.dispose();
 

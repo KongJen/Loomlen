@@ -1,10 +1,11 @@
-// ignore_for_file: curly_braces_in_flow_control_structures
+// ignore_for_file: curly_braces_in_flow_control_structures, use_build_context_synchronously
 
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend/model/drawingpoint.dart';
 import 'package:frontend/OBJ/object.dart';
 import 'package:frontend/model/provider.dart';
+import 'package:frontend/widget/overlay_loading.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
 import 'package:frontend/widget/tool_bar.dart';
@@ -762,9 +763,18 @@ class _PaperPageState extends State<PaperPage> {
       // Create PDF document
       final pdf = pw.Document();
       final screenshotController = ScreenshotController();
+      int count = 0;
 
       // Determine if we need to handle multiple pages
       final paperProvider = Provider.of<PaperProvider>(context, listen: false);
+
+      final loadingOverlay = LoadingOverlay(
+        context: context,
+        message: 'Preparing to export PDF',
+        subMessage: 'Please wait while we export your file',
+      );
+
+      loadingOverlay.show();
 
       // Determine which pages to process
       List<String> pagesToProcess = [];
@@ -797,7 +807,7 @@ class _PaperPageState extends State<PaperPage> {
             );
 
         // Create a widget for this specific page
-        final pageWidget = Container(
+        final pageWidget = SizedBox(
           width: paperWidth,
           height: paperHeight,
           child: Stack(
@@ -844,10 +854,8 @@ class _PaperPageState extends State<PaperPage> {
             pageFormat: PdfPageFormat(paperWidth, paperHeight),
             build: (pw.Context context) {
               return pw.Center(
-                child: pw.Transform(
+                child: pw.Align(
                   alignment: pw.Alignment.center,
-                  transform: Matrix4.rotationZ(-math.pi)
-                    ..rotateY(-math.pi), // Rotate 180 degrees
                   child: pw.SizedBox(
                     width: paperWidth,
                     height: paperHeight,
@@ -858,9 +866,13 @@ class _PaperPageState extends State<PaperPage> {
             },
           ),
         );
+        count++;
+        print("Page: $count");
       }
       // Get bytes of the PDF
       final pdfBytes = await pdf.save();
+
+      loadingOverlay.hide();
 
       // Save the PDF file
       if (Platform.isAndroid || Platform.isIOS) {
