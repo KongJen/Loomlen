@@ -874,31 +874,40 @@ class _PaperPageState extends State<PaperPage> {
 
       loadingOverlay.hide();
 
-      // Save the PDF file
-      if (Platform.isAndroid || Platform.isIOS) {
-        // Mobile
-        final params = SaveFileDialogParams(data: pdfBytes, fileName: fileName);
-        final filePath = await FlutterFileDialog.saveFile(params: params);
+      // Save the PDF file based on platform
+      String filePath;
 
-        if (filePath != null) {
-          scaffoldMessenger.showSnackBar(
-            SnackBar(content: Text('PDF saved to: $filePath')),
-          );
-        } else {
-          scaffoldMessenger.showSnackBar(
-            const SnackBar(content: Text('PDF export cancelled')),
-          );
+      if (Platform.isAndroid) {
+        // For Android: Save to Downloads folder
+        final directory = await getExternalStorageDirectory();
+        final downloadsDir = Directory('${directory?.path ?? ''}/Download');
+
+        // Create Downloads directory if it doesn't exist
+        if (!await downloadsDir.exists()) {
+          await downloadsDir.create(recursive: true);
         }
+
+        final file = File('${downloadsDir.path}/$fileName');
+        await file.writeAsBytes(pdfBytes);
+        filePath = file.path;
+      } else if (Platform.isIOS) {
+        // For iOS: Save to Documents directory
+        final directory = await getApplicationDocumentsDirectory();
+        final file = File('${directory.path}/$fileName');
+        await file.writeAsBytes(pdfBytes);
+        filePath = file.path;
       } else {
         // Desktop
         final directory = await getApplicationDocumentsDirectory();
         final file = File('${directory.path}/$fileName');
         await file.writeAsBytes(pdfBytes);
-
-        scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('PDF saved to: ${file.path}')),
-        );
+        filePath = file.path;
       }
+
+      // Show success message
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('PDF saved to: $filePath')),
+      );
     } catch (e, stackTrace) {
       debugPrint('Error exporting PDF: $e\n$stackTrace');
       scaffoldMessenger.showSnackBar(
