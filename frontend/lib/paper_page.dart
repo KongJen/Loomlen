@@ -789,85 +789,100 @@ class _PaperPageState extends State<PaperPage> {
         }
       }
 
-      // Process each selected page
-      for (final paperId in pagesToProcess) {
-        final paperData = paperProvider.getPaperById(paperId);
-        if (paperData == null) continue;
-
-        final double paperWidth = paperData['width'] as double? ?? 595.0;
-        final double paperHeight = paperData['height'] as double? ?? 842.0;
-
-        // Create a repaint boundary with just this page
-        final template =
-            paperTemplates[paperId] ??
-            PaperTemplate(
-              id: 'plain',
-              name: 'Plain Paper',
-              templateType: TemplateType.plain,
-            );
-
-        // Create a widget for this specific page
-        final pageWidget = SizedBox(
-          width: paperWidth,
-          height: paperHeight,
-          child: Stack(
-            children: [
-              // Background template
-              CustomPaint(
-                painter: TemplatePainter(template: template),
-                size: Size(paperWidth, paperHeight),
-              ),
-              // PDF image if exists and should be included
-              if (includePdfBackgrounds && paperData['pdfPath'] != null)
-                Image.file(
-                  File(paperData['pdfPath']),
-                  width: paperWidth,
-                  height: paperHeight,
-                  fit: BoxFit.contain,
-                ),
-              // Drawings
-              CustomPaint(
-                painter: DrawingPainter(
-                  drawingPoints: pageDrawingPoints[paperId] ?? [],
-                ),
-                size: Size(paperWidth, paperHeight),
-              ),
-            ],
-          ),
+      // Process pages in batches of 10
+      final int batchSize = 10;
+      for (int i = 0; i < pagesToProcess.length; i += batchSize) {
+        loadingOverlay.updateMessage(
+          'Processing pages ${i + 1} to ${math.min(i + batchSize, pagesToProcess.length)} of ${pagesToProcess.length}',
         );
 
-        // Capture screenshot of this page with the selected quality
-        final Uint8List imageBytes = await screenshotController
-            .captureFromWidget(
-              pageWidget,
-              pixelRatio: quality, // Use the quality from dialog
-              targetSize: Size(paperWidth.toDouble(), paperHeight.toDouble()),
-              context: context,
-            );
+        final batch = pagesToProcess.sublist(
+          i,
+          math.min(i + batchSize, pagesToProcess.length),
+        );
 
-        // Add the captured image to the PDF
-        final image = pw.MemoryImage(imageBytes);
+        // Process each selected page
+        for (final paperId in batch) {
+          final paperData = paperProvider.getPaperById(paperId);
+          if (paperData == null) continue;
 
-        // Add page to PDF with the correct dimensions
-        pdf.addPage(
-          pw.Page(
-            pageFormat: PdfPageFormat(paperWidth, paperHeight),
-            build: (pw.Context context) {
-              return pw.Center(
-                child: pw.Align(
-                  alignment: pw.Alignment.center,
-                  child: pw.SizedBox(
+          final double paperWidth = paperData['width'] as double? ?? 595.0;
+          final double paperHeight = paperData['height'] as double? ?? 842.0;
+
+          // Create a repaint boundary with just this page
+          final template =
+              paperTemplates[paperId] ??
+              PaperTemplate(
+                id: 'plain',
+                name: 'Plain Paper',
+                templateType: TemplateType.plain,
+              );
+
+          // Create a widget for this specific page
+          final pageWidget = SizedBox(
+            width: paperWidth,
+            height: paperHeight,
+            child: Stack(
+              children: [
+                // Background template
+                CustomPaint(
+                  painter: TemplatePainter(template: template),
+                  size: Size(paperWidth, paperHeight),
+                ),
+                // PDF image if exists and should be included
+                if (includePdfBackgrounds && paperData['pdfPath'] != null)
+                  Image.file(
+                    File(paperData['pdfPath']),
                     width: paperWidth,
                     height: paperHeight,
-                    child: pw.Image(image, fit: pw.BoxFit.contain),
+                    fit: BoxFit.contain,
                   ),
+                // Drawings
+                CustomPaint(
+                  painter: DrawingPainter(
+                    drawingPoints: pageDrawingPoints[paperId] ?? [],
+                  ),
+                  size: Size(paperWidth, paperHeight),
                 ),
+              ],
+            ),
+          );
+
+          // Capture screenshot of this page with the selected quality
+          final Uint8List imageBytes = await screenshotController
+              .captureFromWidget(
+                pageWidget,
+                pixelRatio: quality, // Use the quality from dialog
+                targetSize: Size(paperWidth.toDouble(), paperHeight.toDouble()),
+                context: context,
               );
-            },
-          ),
-        );
-        count++;
-        print("Page: $count");
+
+          // Add the captured image to the PDF
+          final image = pw.MemoryImage(imageBytes);
+
+          // Add page to PDF with the correct dimensions
+          pdf.addPage(
+            pw.Page(
+              pageFormat: PdfPageFormat(paperWidth, paperHeight),
+              build: (pw.Context context) {
+                return pw.Center(
+                  child: pw.Align(
+                    alignment: pw.Alignment.center,
+                    child: pw.SizedBox(
+                      width: paperWidth,
+                      height: paperHeight,
+                      child: pw.Image(image, fit: pw.BoxFit.contain),
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+          count++;
+          print("Page: $count");
+        }
+
+        await Future.delayed(Duration(milliseconds: 200));
       }
       // Get bytes of the PDF
       final pdfBytes = await pdf.save();
