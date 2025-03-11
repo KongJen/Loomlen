@@ -874,40 +874,74 @@ class _PaperPageState extends State<PaperPage> {
 
       loadingOverlay.hide();
 
-      // Save the PDF file based on platform
-      String filePath;
+      String? filePath;
 
       if (Platform.isAndroid) {
-        // For Android: Save to Downloads folder
+        // For Android
         final directory = await getExternalStorageDirectory();
-        final downloadsDir = Directory('${directory?.path ?? ''}/Download');
+        if (directory != null) {
+          String downloadPath = "";
+          List<String> paths = directory.path.split("/");
+          for (int i = 1; i < paths.length; i++) {
+            String folder = paths[i];
+            if (folder != "Android") {
+              downloadPath += "/$folder";
+            } else {
+              break;
+            }
+          }
+          downloadPath += "/Download";
 
-        // Create Downloads directory if it doesn't exist
-        if (!await downloadsDir.exists()) {
-          await downloadsDir.create(recursive: true);
+          final downloadsDir = Directory(downloadPath);
+
+          // Create Downloads directory if it doesn't exist
+          if (!await downloadsDir.exists()) {
+            await downloadsDir.create(recursive: true);
+          }
+
+          final file = File('${downloadsDir.path}/$fileName');
+          await file.writeAsBytes(pdfBytes);
+          filePath = file.path;
         }
-
-        final file = File('${downloadsDir.path}/$fileName');
-        await file.writeAsBytes(pdfBytes);
-        filePath = file.path;
       } else if (Platform.isIOS) {
-        // For iOS: Save to Documents directory
+        // For iOS:
         final directory = await getApplicationDocumentsDirectory();
         final file = File('${directory.path}/$fileName');
         await file.writeAsBytes(pdfBytes);
         filePath = file.path;
       } else {
         // Desktop
-        final directory = await getApplicationDocumentsDirectory();
-        final file = File('${directory.path}/$fileName');
-        await file.writeAsBytes(pdfBytes);
-        filePath = file.path;
+        final directory =
+            await getDownloadsDirectory(); // Gets the Downloads folder on desktop
+        if (directory != null) {
+          final file = File('${directory.path}/$fileName');
+          await file.writeAsBytes(pdfBytes);
+          filePath = file.path;
+        } else {
+          // Fallback to application documents directory
+          final docDir = await getApplicationDocumentsDirectory();
+          final file = File('${docDir.path}/$fileName');
+          await file.writeAsBytes(pdfBytes);
+          filePath = file.path;
+        }
       }
 
       // Show success message
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text('PDF saved to: $filePath')),
-      );
+      if (filePath != null) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('PDF saved to: $filePath'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      } else {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text('PDF saved successfully'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
     } catch (e, stackTrace) {
       debugPrint('Error exporting PDF: $e\n$stackTrace');
       scaffoldMessenger.showSnackBar(
