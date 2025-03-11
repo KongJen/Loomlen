@@ -15,22 +15,38 @@ class PdfExportDialog extends StatefulWidget {
 }
 
 class _PdfExportDialogState extends State<PdfExportDialog> {
-  String _filename = '';
+  late String _filename;
   bool _includePdfBackgrounds = true;
   bool _includeAllPages = true;
   List<int> _selectedPageIndices = [];
   double _quality = 3.0; // Default quality
+  bool _showFilenameError = false;
 
   @override
   void initState() {
     super.initState();
-    _filename = widget.filename;
+    // Remove .pdf extension if it exists for cleaner display
+    _filename =
+        widget.filename.toLowerCase().endsWith('.pdf')
+            ? widget.filename.substring(0, widget.filename.length - 4)
+            : widget.filename;
+
     if (widget.hasMultiplePages) {
       _selectedPageIndices = List.generate(
         10,
         (index) => index,
       ); // Default all pages selected
     }
+  }
+
+  bool _validateFilename() {
+    if (_filename.trim().isEmpty) {
+      setState(() {
+        _showFilenameError = true;
+      });
+      return false;
+    }
+    return true;
   }
 
   @override
@@ -43,14 +59,27 @@ class _PdfExportDialogState extends State<PdfExportDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextFormField(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Filename',
-                hintText: 'Enter filename without extension',
+                hintText: 'Enter filename',
+                errorText:
+                    _showFilenameError ? 'Please enter a valid filename' : null,
+                suffixText: '.pdf', // Show .pdf extension as suffix
               ),
               initialValue: _filename,
               onChanged: (value) {
-                setState(() => _filename = value);
+                setState(() {
+                  _filename = value;
+                  if (value.trim().isNotEmpty) {
+                    _showFilenameError = false;
+                  }
+                });
               },
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Extension .pdf will be added automatically',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
             const SizedBox(height: 16),
 
@@ -114,13 +143,15 @@ class _PdfExportDialogState extends State<PdfExportDialog> {
         ),
         ElevatedButton(
           onPressed: () {
-            Navigator.of(context).pop({
-              'filename': _filename,
-              'includePdfBackgrounds': _includePdfBackgrounds,
-              'includeAllPages': _includeAllPages,
-              'selectedPageIndices': _selectedPageIndices,
-              'quality': _quality,
-            });
+            if (_validateFilename()) {
+              Navigator.of(context).pop({
+                'filename': _filename,
+                'includePdfBackgrounds': _includePdfBackgrounds,
+                'includeAllPages': _includeAllPages,
+                'selectedPageIndices': _selectedPageIndices,
+                'quality': _quality,
+              });
+            }
           },
           child: const Text('Export'),
         ),

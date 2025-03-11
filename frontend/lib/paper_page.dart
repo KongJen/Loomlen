@@ -709,17 +709,55 @@ class _PaperPageState extends State<PaperPage> {
         position.dy <= height;
   }
 
-  /// Add this method to your _PaperPageState class
   Future<void> exportToPdf() async {
     // Show loading indicator
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    scaffoldMessenger.showSnackBar(
-      const SnackBar(content: Text('Generating PDF...')),
-    );
 
     try {
       // Save any unsaved changes first
       if (_hasUnsavedChanges) await _saveDrawing();
+
+      // Prepare initial values for the dialog
+      final initialFileName = widget.name.replaceAll(' ', '_');
+      final hasMultiplePages = pageIds.length > 1;
+
+      // Show dialog to get export options from user
+      final Map<String, dynamic>? exportOptions =
+          await showDialog<Map<String, dynamic>>(
+            context: context,
+            builder: (BuildContext context) {
+              return PdfExportDialog(
+                filename: initialFileName,
+                hasMultiplePages: hasMultiplePages,
+              );
+            },
+          );
+
+      // If user cancelled the dialog, return
+      if (exportOptions == null) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('PDF export cancelled')),
+        );
+        return;
+      }
+
+      // Extract options from dialog result
+      String fileName = exportOptions['filename'] as String;
+      final bool includePdfBackgrounds =
+          exportOptions['includePdfBackgrounds'] as bool;
+      final bool includeAllPages = exportOptions['includeAllPages'] as bool;
+      final List<int> selectedPageIndices =
+          exportOptions['selectedPageIndices'] as List<int>;
+      final double quality = exportOptions['quality'] as double;
+
+      // Ensure filename has .pdf extension
+      if (!fileName.toLowerCase().endsWith('.pdf')) {
+        fileName = '$fileName.pdf';
+      }
+
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('Generating PDF...')),
+      );
 
       // Create PDF document
       final pdf = pw.Document();
@@ -728,8 +766,21 @@ class _PaperPageState extends State<PaperPage> {
       // Determine if we need to handle multiple pages
       final paperProvider = Provider.of<PaperProvider>(context, listen: false);
 
-      // Process each page
-      for (final paperId in pageIds) {
+      // Determine which pages to process
+      List<String> pagesToProcess = [];
+      if (!hasMultiplePages || includeAllPages) {
+        pagesToProcess = List.from(pageIds);
+      } else {
+        // Only include selected pages
+        for (int index in selectedPageIndices) {
+          if (index < pageIds.length) {
+            pagesToProcess.add(pageIds[index]);
+          }
+        }
+      }
+
+      // Process each selected page
+      for (final paperId in pagesToProcess) {
         final paperData = paperProvider.getPaperById(paperId);
         if (paperData == null) continue;
 
@@ -756,8 +807,8 @@ class _PaperPageState extends State<PaperPage> {
                 painter: TemplatePainter(template: template),
                 size: Size(paperWidth, paperHeight),
               ),
-              // PDF image if exists
-              if (paperData['pdfPath'] != null)
+              // PDF image if exists and should be included
+              if (includePdfBackgrounds && paperData['pdfPath'] != null)
                 Image.file(
                   File(paperData['pdfPath']),
                   width: paperWidth,
@@ -775,11 +826,11 @@ class _PaperPageState extends State<PaperPage> {
           ),
         );
 
-        // Capture screenshot of this page
+        // Capture screenshot of this page with the selected quality
         final Uint8List imageBytes = await screenshotController
             .captureFromWidget(
               pageWidget,
-              pixelRatio: 3.0, // Higher for better quality
+              pixelRatio: quality, // Use the quality from dialog
               targetSize: Size(paperWidth.toDouble(), paperHeight.toDouble()),
               context: context,
             );
@@ -812,9 +863,6 @@ class _PaperPageState extends State<PaperPage> {
       final pdfBytes = await pdf.save();
 
       // Save the PDF file
-      final String fileName =
-          "${widget.name.replaceAll(' ', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf";
-
       if (Platform.isAndroid || Platform.isIOS) {
         // Mobile
         final params = SaveFileDialogParams(data: pdfBytes, fileName: fileName);
