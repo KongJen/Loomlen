@@ -19,7 +19,6 @@ class _PdfExportDialogState extends State<PdfExportDialog> {
   bool _includePdfBackgrounds = true;
   bool _includeAllPages = true;
   List<int> _selectedPageIndices = [];
-  double _quality = 3.0; // Default quality
   bool _showFilenameError = false;
 
   @override
@@ -113,26 +112,6 @@ class _PdfExportDialogState extends State<PdfExportDialog> {
                 ),
               ],
             ],
-
-            const Padding(
-              padding: EdgeInsets.only(top: 8.0, bottom: 4.0),
-              child: Text('Export Quality:'),
-            ),
-            Slider(
-              value: _quality,
-              min: 1.0,
-              max: 5.0,
-              divisions: 4,
-              label:
-                  _quality == 1.0
-                      ? 'Low'
-                      : _quality == 3.0
-                      ? 'Medium'
-                      : 'High',
-              onChanged: (value) {
-                setState(() => _quality = value);
-              },
-            ),
           ],
         ),
       ),
@@ -149,7 +128,6 @@ class _PdfExportDialogState extends State<PdfExportDialog> {
                 'includePdfBackgrounds': _includePdfBackgrounds,
                 'includeAllPages': _includeAllPages,
                 'selectedPageIndices': _selectedPageIndices,
-                'quality': _quality,
               });
             }
           },
