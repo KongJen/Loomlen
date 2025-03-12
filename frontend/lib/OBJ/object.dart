@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/model/provider.dart';
+import 'package:frontend/widget/overlay_option.dart';
+import 'package:frontend/widget/delete_dialog.dart';
+import 'package:frontend/widget/rename_dialog.dart';
 import 'dart:ui' as ui;
+
+import 'package:provider/provider.dart';
 
 /*--------------RoomItem--------------------*/
 class RoomItem extends StatefulWidget {
@@ -65,13 +71,33 @@ class _RoomItemState extends State<RoomItem> {
               ),
             ],
           ),
-          Text(
-            widget.name,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-              color: Colors.blueAccent,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(width: 25),
+              Text(
+                widget.name,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.blueAccent,
+                ),
+              ),
+              SizedBox(width: 5),
+              Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: InkWell(
+                  onTap: () {
+                    _showOptionsOverlay(context);
+                  },
+                  child: Icon(
+                    Icons.keyboard_control_key,
+                    size: 15,
+                    color: Colors.blueAccent,
+                  ),
+                ),
+              ),
+            ],
           ),
           SizedBox(height: 2.0),
           Text(
@@ -80,6 +106,77 @@ class _RoomItemState extends State<RoomItem> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showOptionsOverlay(BuildContext context) async {
+    // Get the position of the icon
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final Offset position = renderBox.localToGlobal(Offset.zero);
+
+    await showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            OverlayOptions(
+              position: position,
+              itemName: widget.name,
+              onRename: () {
+                _showRenameDialog(context);
+              },
+              onDelete: () {
+                _showDeleteConfirmationDialog(context);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRenameDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return RenameDialog(
+          currentName: widget.name,
+          itemType: 'Room',
+          onRename: (newName) {
+            final roomProvider = Provider.of<RoomProvider>(
+              context,
+              listen: false,
+            );
+            roomProvider.renameRoom(widget.id, newName);
+          },
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return DeleteConfirmationDialog(
+          itemType: 'Room',
+          itemName: widget.name,
+          onConfirm: () {
+            final roomProvider = Provider.of<RoomProvider>(
+              context,
+              listen: false,
+            );
+            roomProvider.deleteRoom(widget.id);
+          },
+        );
+      },
     );
   }
 }
@@ -119,13 +216,32 @@ class _FolderItemState extends State<FolderItem> {
           Stack(
             children: [Icon(Icons.folder_open, size: 170, color: widget.color)],
           ),
-          Text(
-            widget.name,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-              color: Colors.blueAccent,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                widget.name,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.blueAccent,
+                ),
+              ),
+              SizedBox(width: 5),
+              Padding(
+                padding: EdgeInsets.only(top: 4),
+                child: InkWell(
+                  onTap: () {
+                    _showOptionsOverlay(context);
+                  },
+                  child: Icon(
+                    Icons.keyboard_control_key,
+                    size: 15,
+                    color: Colors.blueAccent,
+                  ),
+                ),
+              ),
+            ],
           ),
           SizedBox(height: 2.0),
           Text(
@@ -134,6 +250,79 @@ class _FolderItemState extends State<FolderItem> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showOptionsOverlay(BuildContext context) async {
+    // Get the position of the icon
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final Offset position = renderBox.localToGlobal(Offset.zero);
+
+    await showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            OverlayOptions(
+              position: position,
+              itemName: widget.name,
+              onRename: () {
+                _showRenameDialog(context);
+              },
+              onDelete: () {
+                _showDeleteConfirmationDialog(context);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRenameDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return RenameDialog(
+          currentName: widget.name,
+          itemType: 'Folder',
+          onRename: (newName) {
+            // Add folder rename function to your provider
+            final folderProvider = Provider.of<FolderProvider>(
+              context,
+              listen: false,
+            );
+            // Implement renameFolder in your FolderProvider
+            // folderProvider.renameFolder(widget.id, newName);
+          },
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return DeleteConfirmationDialog(
+          itemType: 'Folder',
+          itemName: widget.name,
+          onConfirm: () {
+            final folderProvider = Provider.of<FolderProvider>(
+              context,
+              listen: false,
+            );
+            folderProvider.deleteFolder(widget.id);
+          },
+        );
+      },
     );
   }
 }
@@ -166,7 +355,6 @@ class _FileItemState extends State<FileItem> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      // Added a SizedBox to constrain the overall size
       width: 100,
       height: 10,
       child: Padding(
@@ -184,7 +372,6 @@ class _FileItemState extends State<FileItem> {
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        // ignore: deprecated_member_use
                         color: Colors.grey.withOpacity(0.3),
                         spreadRadius: 1,
                         blurRadius: 3,
@@ -204,17 +391,36 @@ class _FileItemState extends State<FileItem> {
               ],
             ),
             const SizedBox(height: 4),
-            Flexible(
-              child: Text(
-                widget.name,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.blueAccent,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: Text(
+                    widget.name,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.blueAccent,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
                 ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
+                const SizedBox(width: 5),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: InkWell(
+                    onTap: () {
+                      _showOptionsOverlay(context);
+                    },
+                    child: const Icon(
+                      Icons.keyboard_control_key,
+                      size: 15,
+                      color: Colors.blueAccent,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 4.0),
             Flexible(
@@ -228,6 +434,77 @@ class _FileItemState extends State<FileItem> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showOptionsOverlay(BuildContext context) async {
+    // Get the position of the icon
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final Offset position = renderBox.localToGlobal(Offset.zero);
+
+    await showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            OverlayOptions(
+              position: position,
+              itemName: widget.name,
+              onRename: () {
+                _showRenameDialog(context);
+              },
+              onDelete: () {
+                _showDeleteConfirmationDialog(context);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRenameDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return RenameDialog(
+          currentName: widget.name,
+          itemType: 'File',
+          onRename: (newName) {
+            final fileProvider = Provider.of<FileProvider>(
+              context,
+              listen: false,
+            );
+            // fileProvider.renameFile(widget.id, newName);
+          },
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return DeleteConfirmationDialog(
+          itemType: 'File',
+          itemName: widget.name,
+          onConfirm: () {
+            final fileProvider = Provider.of<FileProvider>(
+              context,
+              listen: false,
+            );
+            fileProvider.deleteFile(widget.id);
+          },
+        );
+      },
     );
   }
 }

@@ -136,6 +136,48 @@ class RoomProvider extends ChangeNotifier {
       // print("File $fileId added to room $roomId");
     }
   }
+
+  Future<void> deleteRoom(String roomId) async {
+    // Find the room to delete
+    final roomIndex = _rooms.indexWhere((room) => room['id'] == roomId);
+    if (roomIndex == -1) return; // Room not found
+
+    final room = _rooms[roomIndex];
+
+    // Get folderIds and fileIds from the room
+    final List<String> folderIds = List<String>.from(room['folderIds'] ?? []);
+    final List<String> fileIds = List<String>.from(room['fileIds'] ?? []);
+
+    // Delete all folders in this room (which will also delete subfolders and files)
+    final folderProvider = FolderProvider();
+    await folderProvider._loadFolders(); // Load latest data
+
+    for (String folderId in folderIds) {
+      await folderProvider.deleteFolder(folderId);
+    }
+
+    // Delete all files directly in this room
+    final fileProvider = FileProvider();
+    await fileProvider._loadFiles(); // Load latest data
+
+    for (String fileId in fileIds) {
+      await fileProvider.deleteFile(fileId);
+    }
+
+    // Remove the room
+    _rooms.removeAt(roomIndex);
+    await _saveRooms();
+    notifyListeners();
+  }
+
+  void renameRoom(String roomId, String newName) {
+    final index = _rooms.indexWhere((room) => room['id'] == roomId);
+    if (index != -1) {
+      _rooms[index]['name'] = newName;
+      _saveRooms();
+      notifyListeners();
+    }
+  }
 }
 
 //------------------------ Folder Provider ------------------------
@@ -277,6 +319,40 @@ class FolderProvider extends ChangeNotifier {
       // print("File $fileId added to folder $folderId");
     }
   }
+
+  Future<void> deleteFolder(String folderId) async {
+    // Find the folder to delete
+    final folderIndex = _folders.indexWhere(
+      (folder) => folder['id'] == folderId,
+    );
+    if (folderIndex == -1) return; // Folder not found
+
+    final folder = _folders[folderIndex];
+
+    // Get subfolderIds and fileIds from the folder
+    final List<String> subfolderIds = List<String>.from(
+      folder['subfolderIds'] ?? [],
+    );
+    final List<String> fileIds = List<String>.from(folder['fileIds'] ?? []);
+
+    // Recursively delete all subfolders
+    for (String subfolderId in subfolderIds) {
+      await deleteFolder(subfolderId);
+    }
+
+    // Delete all files in this folder
+    final fileProvider = FileProvider();
+    await fileProvider._loadFiles(); // Load latest data
+
+    for (String fileId in fileIds) {
+      await fileProvider.deleteFile(fileId);
+    }
+
+    // Remove the folder
+    _folders.removeAt(folderIndex);
+    await _saveFolders();
+    notifyListeners();
+  }
 }
 
 //------------------------ File Provider ----------------------------
@@ -408,6 +484,30 @@ class FileProvider extends ChangeNotifier {
     }
     return null;
   }
+
+  Future<void> deleteFile(String fileId) async {
+    // Find the file to delete
+    final fileIndex = _files.indexWhere((file) => file['id'] == fileId);
+    if (fileIndex == -1) return; // File not found
+
+    final file = _files[fileIndex];
+
+    // Get pageIds from the file
+    final List<String> pageIds = List<String>.from(file['pageIds'] ?? []);
+
+    // Delete all pages associated with this file
+    final paperProvider = PaperProvider();
+    await paperProvider._loadPapers(); // Load latest data
+
+    for (String pageId in pageIds) {
+      await paperProvider.deletePaper(pageId);
+    }
+
+    // Remove the file
+    _files.removeAt(fileIndex);
+    await _saveFiles();
+    notifyListeners();
+  }
 }
 
 class PaperProvider extends ChangeNotifier {
@@ -530,5 +630,33 @@ class PaperProvider extends ChangeNotifier {
       return _papers[index];
     }
     return null;
+  }
+
+  Future<void> deletePaper(String paperId) async {
+    // Find the paper to delete
+    final paperIndex = _papers.indexWhere((paper) => paper['id'] == paperId);
+    if (paperIndex == -1) return; // Paper not found
+
+    final paper = _papers[paperIndex];
+
+    // Check if there's a PDF path that needs to be deleted
+    final String? pdfPath = paper['pdfPath'];
+    if (pdfPath != null && pdfPath.isNotEmpty) {
+      try {
+        final file = File(pdfPath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print("Error deleting PDF file: $e");
+        }
+      }
+    }
+
+    // Remove the paper
+    _papers.removeAt(paperIndex);
+    await _savePapers();
+    notifyListeners();
   }
 }
