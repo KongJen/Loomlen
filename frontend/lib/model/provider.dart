@@ -353,6 +353,15 @@ class FolderProvider extends ChangeNotifier {
     await _saveFolders();
     notifyListeners();
   }
+
+  void renameFolder(String folderId, String newName) {
+    final index = _folders.indexWhere((folder) => folder['id'] == folderId);
+    if (index != -1) {
+      _folders[index]['name'] = newName;
+      _saveFolders();
+      notifyListeners();
+    }
+  }
 }
 
 //------------------------ File Provider ----------------------------
@@ -508,7 +517,18 @@ class FileProvider extends ChangeNotifier {
     await _saveFiles();
     notifyListeners();
   }
+
+  void renameFile(String fileId, String newName) {
+    final index = _files.indexWhere((file) => file['id'] == fileId);
+    if (index != -1) {
+      _files[index]['name'] = newName;
+      _saveFiles();
+      notifyListeners();
+    }
+  }
 }
+
+//------------------------ Paper Provider ----------------------------//
 
 class PaperProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _papers = [];

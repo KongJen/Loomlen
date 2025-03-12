@@ -19,8 +19,8 @@ class OverlayOptions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      left: position.dx - 100, // Adjust position as needed
-      top: position.dy + 20,
+      left: position.dx + 150, // Adjust position as needed
+      top: position.dy + 30,
       child: Material(
         color: Colors.transparent,
         child: Container(
