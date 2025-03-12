@@ -300,7 +300,7 @@ class _FolderItemState extends State<FolderItem> {
               listen: false,
             );
             // Implement renameFolder in your FolderProvider
-            // folderProvider.renameFolder(widget.id, newName);
+            folderProvider.renameFolder(widget.id, newName);
           },
         );
       },
@@ -482,7 +482,7 @@ class _FileItemState extends State<FileItem> {
               context,
               listen: false,
             );
-            // fileProvider.renameFile(widget.id, newName);
+            fileProvider.renameFile(widget.id, newName);
           },
         );
       },
