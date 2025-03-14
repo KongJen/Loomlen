@@ -6,11 +6,11 @@ class DeleteConfirmationDialog extends StatelessWidget {
   final VoidCallback onConfirm;
 
   const DeleteConfirmationDialog({
-    Key? key,
+    super.key,
     required this.itemType,
     required this.itemName,
     required this.onConfirm,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

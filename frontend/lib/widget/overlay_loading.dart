@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class LoadingOverlay {
-  BuildContext _context;
+  final BuildContext _context;
   bool _isShowing = false;
   BuildContext? _dialogContext;
   String _message;
@@ -25,6 +25,7 @@ class LoadingOverlay {
       barrierDismissible: false,
       builder: (BuildContext context) {
         _dialogContext = context;
+        // ignore: deprecated_member_use
         return WillPopScope(
           onWillPop:
               () async => false, // Prevent back button from closing dialog
