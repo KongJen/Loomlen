@@ -1,8 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/model/provider.dart';
+import 'package:frontend/paper_page.dart';
 import 'package:provider/provider.dart';
-import '../model/provider.dart';
 import '../OBJ/object.dart';
+import '../main.dart';
 
 class OverlayCreateFile extends StatefulWidget {
   final String parentId;
@@ -59,13 +61,20 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
         listen: false,
       );
       final fileProvider = Provider.of<FileProvider>(context, listen: false);
+      final paperProvider = Provider.of<PaperProvider>(context, listen: false);
 
-      final fileId = fileProvider.addFile(
-        nameController.text.trim(),
-        20,
+      final paperId = paperProvider.addPaper(
         selectedTemplate,
+        1, // Start with page number 1
+        null, // No initial drawing data
+        null, // No PDF path since it's not imported
+        595.0, // Default A4 width in points
+        842.0, // Default A4 height in points
       );
+
+      final fileId = fileProvider.addFile(nameController.text.trim());
       // print("Created file with ID: $fileId");
+      fileProvider.addPaperPageToFile(fileId, paperId);
 
       if (widget.isInFolder == true) {
         folderProvider.addFileToFolder(widget.parentId, fileId);
@@ -73,6 +82,20 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
         roomProvider.addFileToRoom(widget.parentId, fileId);
       }
 
+      MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(false);
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (context) => PaperPage(
+                name: nameController.text.trim(),
+                fileId: fileId,
+                onFileUpdated: () => setState(() {}),
+              ),
+        ),
+      ).then((_) {
+        MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(true);
+      });
       widget.onClose();
     } catch (e) {
       if (kDebugMode) {

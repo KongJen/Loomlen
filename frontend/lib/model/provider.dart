@@ -136,6 +136,48 @@ class RoomProvider extends ChangeNotifier {
       // print("File $fileId added to room $roomId");
     }
   }
+
+  Future<void> deleteRoom(String roomId) async {
+    // Find the room to delete
+    final roomIndex = _rooms.indexWhere((room) => room['id'] == roomId);
+    if (roomIndex == -1) return; // Room not found
+
+    final room = _rooms[roomIndex];
+
+    // Get folderIds and fileIds from the room
+    final List<String> folderIds = List<String>.from(room['folderIds'] ?? []);
+    final List<String> fileIds = List<String>.from(room['fileIds'] ?? []);
+
+    // Delete all folders in this room (which will also delete subfolders and files)
+    final folderProvider = FolderProvider();
+    await folderProvider._loadFolders(); // Load latest data
+
+    for (String folderId in folderIds) {
+      await folderProvider.deleteFolder(folderId);
+    }
+
+    // Delete all files directly in this room
+    final fileProvider = FileProvider();
+    await fileProvider._loadFiles(); // Load latest data
+
+    for (String fileId in fileIds) {
+      await fileProvider.deleteFile(fileId);
+    }
+
+    // Remove the room
+    _rooms.removeAt(roomIndex);
+    await _saveRooms();
+    notifyListeners();
+  }
+
+  void renameRoom(String roomId, String newName) {
+    final index = _rooms.indexWhere((room) => room['id'] == roomId);
+    if (index != -1) {
+      _rooms[index]['name'] = newName;
+      _saveRooms();
+      notifyListeners();
+    }
+  }
 }
 
 //------------------------ Folder Provider ------------------------
@@ -178,7 +220,6 @@ class FolderProvider extends ChangeNotifier {
                     (folder['color'] is int)
                         ? Color(folder['color'])
                         : folder['color'],
-                'isFavorite': folder['isFavorite'],
                 'subfolderIds': List<String>.from(folder['subfolderIds'] ?? []),
                 'fileIds': List<String>.from(folder['fileIds'] ?? []),
               };
@@ -209,23 +250,12 @@ class FolderProvider extends ChangeNotifier {
                     // ignore: deprecated_member_use
                     ? (folder['color'] as Color).value
                     : folder['color'],
-            'isFavorite': folder['isFavorite'],
             'subfolderIds': folder['subfolderIds'] ?? [],
             'fileIds': folder['fileIds'] ?? [],
           };
         }).toList();
 
     await file.writeAsString(jsonEncode(foldersToSave));
-  }
-
-  /// Toggle favorite status of a folder
-  void toggleFavoriteFolder(String folderId) {
-    final index = _folders.indexWhere((folder) => folder['id'] == folderId);
-    if (index != -1) {
-      _folders[index]['isFavorite'] = !_folders[index]['isFavorite'];
-      _saveFolders();
-      notifyListeners();
-    }
   }
 
   /// Add a new folder
@@ -237,7 +267,6 @@ class FolderProvider extends ChangeNotifier {
       'createdDate': DateTime.now().toIso8601String(),
       // ignore: deprecated_member_use
       'color': color.value,
-      'isFavorite': false,
     };
 
     _folders.add(newFolder);
@@ -290,6 +319,49 @@ class FolderProvider extends ChangeNotifier {
       // print("File $fileId added to folder $folderId");
     }
   }
+
+  Future<void> deleteFolder(String folderId) async {
+    // Find the folder to delete
+    final folderIndex = _folders.indexWhere(
+      (folder) => folder['id'] == folderId,
+    );
+    if (folderIndex == -1) return; // Folder not found
+
+    final folder = _folders[folderIndex];
+
+    // Get subfolderIds and fileIds from the folder
+    final List<String> subfolderIds = List<String>.from(
+      folder['subfolderIds'] ?? [],
+    );
+    final List<String> fileIds = List<String>.from(folder['fileIds'] ?? []);
+
+    // Recursively delete all subfolders
+    for (String subfolderId in subfolderIds) {
+      await deleteFolder(subfolderId);
+    }
+
+    // Delete all files in this folder
+    final fileProvider = FileProvider();
+    await fileProvider._loadFiles(); // Load latest data
+
+    for (String fileId in fileIds) {
+      await fileProvider.deleteFile(fileId);
+    }
+
+    // Remove the folder
+    _folders.removeAt(folderIndex);
+    await _saveFolders();
+    notifyListeners();
+  }
+
+  void renameFolder(String folderId, String newName) {
+    final index = _folders.indexWhere((folder) => folder['id'] == folderId);
+    if (index != -1) {
+      _folders[index]['name'] = newName;
+      _saveFolders();
+      notifyListeners();
+    }
+  }
 }
 
 //------------------------ File Provider ----------------------------
@@ -328,12 +400,7 @@ class FileProvider extends ChangeNotifier {
                 'id': file['id'],
                 'name': file['name'],
                 'createdDate': file['createdDate'],
-                'size': file['size'],
-                'isFavorite': file['isFavorite'],
-                'templateId': file['templateId'],
-                'templateType': file['templateType'],
-                'spacing': file['spacing'],
-                'drawingData': file['drawingData'],
+                'pageIds': List<String>.from(file['pageIds'] ?? []),
               };
             }).toList();
 
@@ -358,46 +425,24 @@ class FileProvider extends ChangeNotifier {
             'id': file['id'],
             'name': file['name'],
             'createdDate': file['createdDate'],
-            'size': file['size'],
-            'isFavorite': file['isFavorite'],
-            'templateId': file['templateId'],
-            'templateType': file['templateType'],
-            'spacing': file['spacing'],
-            'drawingData': file['drawingData'],
+            'pageIds': List<String>.from(file['pageIds'] ?? []),
           };
         }).toList();
 
     await file.writeAsString(jsonEncode(filesToSave));
   }
 
-  /// Toggle favorite status of a file
-  void toggleFavoriteFile(String fileId) {
-    final index = _files.indexWhere((file) => file['id'] == fileId);
-    if (index != -1) {
-      _files[index]['isFavorite'] = !_files[index]['isFavorite'];
-      _saveFiles();
-      notifyListeners();
-    }
-  }
-
   /// Add a new file
   String addFile(
-    String name,
-    int size,
-    PaperTemplate template, [
+    String name, [
     List<Map<String, dynamic>>? drawingData,
+    List<Map<String, dynamic>>? pageIds,
   ]) {
     final String fileId = _uuid.v4();
     final newFile = {
       'id': fileId,
       'name': name,
       'createdDate': DateTime.now().toIso8601String(),
-      'size': size,
-      'isFavorite': false,
-      'fileIds': <String>[],
-      'templateId': template.id,
-      'templateType': template.templateType.toString(),
-      'spacing': template.spacing,
       'drawingData': drawingData ?? [],
     };
 
@@ -405,10 +450,28 @@ class FileProvider extends ChangeNotifier {
     _saveFiles();
     notifyListeners();
 
-    // print("File created with ID: $fileId");
-    // print("File created with Template : $templateId");
-
     return fileId;
+  }
+
+  void addPaperPageToFile(String fileId, String pageId) {
+    final index = _files.indexWhere((file) => file['id'] == fileId);
+    if (index != -1) {
+      // Ensure 'folderIds' is a List<String> before adding the new folder
+      var pages = _files[index]['pageIds'];
+
+      // If folders is not already a List<String>, initialize it
+      if (pages == null || pages is! List<String>) {
+        pages = <String>[]; // Initialize an empty list if needed
+      }
+
+      // Add the new folder ID to the list
+      pages.add(pageId);
+
+      // Save the updated rooms and notify listeners
+      _files[index]['pageIds'] = pages; // Correct the key here
+      _saveFiles();
+      notifyListeners();
+    }
   }
 
   Future<void> updateFileDrawingData(
@@ -429,5 +492,191 @@ class FileProvider extends ChangeNotifier {
       return _files[index];
     }
     return null;
+  }
+
+  Future<void> deleteFile(String fileId) async {
+    // Find the file to delete
+    final fileIndex = _files.indexWhere((file) => file['id'] == fileId);
+    if (fileIndex == -1) return; // File not found
+
+    final file = _files[fileIndex];
+
+    // Get pageIds from the file
+    final List<String> pageIds = List<String>.from(file['pageIds'] ?? []);
+
+    // Delete all pages associated with this file
+    final paperProvider = PaperProvider();
+    await paperProvider._loadPapers(); // Load latest data
+
+    for (String pageId in pageIds) {
+      await paperProvider.deletePaper(pageId);
+    }
+
+    // Remove the file
+    _files.removeAt(fileIndex);
+    await _saveFiles();
+    notifyListeners();
+  }
+
+  void renameFile(String fileId, String newName) {
+    final index = _files.indexWhere((file) => file['id'] == fileId);
+    if (index != -1) {
+      _files[index]['name'] = newName;
+      _saveFiles();
+      notifyListeners();
+    }
+  }
+}
+
+//------------------------ Paper Provider ----------------------------//
+
+class PaperProvider extends ChangeNotifier {
+  List<Map<String, dynamic>> _papers = [];
+  final Uuid _uuid = Uuid();
+
+  List<Map<String, dynamic>> get papers => _papers;
+
+  PaperProvider() {
+    _loadPapers();
+  }
+
+  Future<void> _loadPapers() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final paper = File('${directory.path}/papers.json');
+
+    if (await paper.exists()) {
+      final paperContent = await paper.readAsString();
+
+      // Check if paper content is empty
+      if (paperContent.isEmpty) {
+        // Handle the case when the paper is empty
+        _papers = [];
+        notifyListeners();
+        return;
+      }
+
+      try {
+        final data = jsonDecode(paperContent);
+
+        _papers =
+            List<Map<String, dynamic>>.from(data).map((paper) {
+              return {
+                'id': paper['id'],
+                'pdfPath': paper['pdfPath'],
+                'recognizedText': paper['recognizedText'],
+                'templateId': paper['templateId'],
+                'templateType': paper['templateType'],
+                'PageNumber': paper['PageNumber'],
+                'width': paper['width'],
+                'height': paper['height'],
+              };
+            }).toList();
+
+        notifyListeners();
+      } catch (e) {
+        if (kDebugMode) {
+          print("Error decoding JSON: $e");
+        }
+        _papers = [];
+      }
+    }
+  }
+
+  // Save papers to local storage
+  Future<void> _savePapers() async {
+    final directory = await getApplicationDocumentsDirectory();
+    final paper = File('${directory.path}/papers.json');
+
+    List<Map<String, dynamic>> papersToSave =
+        _papers.map((paper) {
+          return {
+            'id': paper['id'],
+            'pdfPath': paper['pdfPath'],
+            'recognizedText': paper['recognizedText'],
+            'templateId': paper['templateId'],
+            'templateType': paper['templateType'],
+            'PageNumber': paper['PageNumber'],
+            'width': paper['width'],
+            'height': paper['height'],
+          };
+        }).toList();
+
+    await paper.writeAsString(jsonEncode(papersToSave));
+  }
+
+  /// Add a new file
+  String addPaper(
+    PaperTemplate template,
+    int pageNumber,
+    List<Map<String, dynamic>>? drawingData,
+    String? pdfPath,
+    double? width, // Add width parameter
+    double? height, // Add height parameter
+  ) {
+    final String paperId = _uuid.v4();
+    final newPaper = {
+      'id': paperId,
+      'templateId': template.id,
+      'templateType': template.templateType.toString(),
+      'drawingData': drawingData ?? [],
+      'PageNumber': pageNumber,
+      'pdfPath': pdfPath,
+      'width': width ?? 595.0,
+      'height': height ?? 842.0,
+    };
+
+    _papers.add(newPaper);
+    _savePapers();
+    notifyListeners();
+
+    return paperId;
+  }
+
+  Future<void> updatePaperDrawingData(
+    String paperId,
+    List<Map<String, dynamic>> drawingData,
+  ) async {
+    final index = _papers.indexWhere((paper) => paper['id'] == paperId);
+    if (index != -1) {
+      _papers[index]['drawingData'] = drawingData;
+      _savePapers();
+      notifyListeners();
+    }
+  }
+
+  Map<String, dynamic>? getPaperById(String paperId) {
+    final index = _papers.indexWhere((paper) => paper['id'] == paperId);
+    if (index != -1) {
+      return _papers[index];
+    }
+    return null;
+  }
+
+  Future<void> deletePaper(String paperId) async {
+    // Find the paper to delete
+    final paperIndex = _papers.indexWhere((paper) => paper['id'] == paperId);
+    if (paperIndex == -1) return; // Paper not found
+
+    final paper = _papers[paperIndex];
+
+    // Check if there's a PDF path that needs to be deleted
+    final String? pdfPath = paper['pdfPath'];
+    if (pdfPath != null && pdfPath.isNotEmpty) {
+      try {
+        final file = File(pdfPath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print("Error deleting PDF file: $e");
+        }
+      }
+    }
+
+    // Remove the paper
+    _papers.removeAt(paperIndex);
+    await _savePapers();
+    notifyListeners();
   }
 }

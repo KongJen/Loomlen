@@ -33,35 +33,49 @@ class _MyRoomPageState extends State<MyRoomPage> {
     _toggleOverlay(OverlayCreateRoom(onClose: () => _toggleOverlay(null)));
   }
 
+  // Get the appropriate number of grid columns based on screen width
+  int _getCrossAxisCount(double width) {
+    if (width < 600) return 2;
+    if (width < 900) return 3;
+    if (width < 1200) return 4;
+    if (width < 1500) return 5;
+    return 6;
+  }
+
   @override
   Widget build(BuildContext context) {
     final roomProvider = Provider.of<RoomProvider>(context);
     final rooms = roomProvider.rooms;
+    final screenSize = MediaQuery.of(context).size;
+    final crossAxisCount = _getCrossAxisCount(screenSize.width);
+
+    // Calculate consistent sizes for all items
+    final itemSize = screenSize.width < 600 ? 120.0 : 170.0;
 
     return Scaffold(
       appBar: PreferredSize(
-        preferredSize: Size.fromHeight(100.0),
+        preferredSize: Size.fromHeight(screenSize.height * 0.12),
         child: AppBar(
           elevation: 0,
           flexibleSpace: Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
             ),
             child: Padding(
               padding: EdgeInsets.only(
                 top: MediaQuery.of(context).padding.top,
-                left: 60,
+                left: screenSize.width * 0.05,
                 right: 16,
               ),
               child: Stack(
                 children: [
                   Positioned(
-                    top: 35,
+                    top: screenSize.height * 0.04,
                     left: 0,
                     child: Text(
                       'My Room',
                       style: TextStyle(
-                        fontSize: 40,
+                        fontSize: screenSize.width < 600 ? 30 : 40,
                         fontWeight: FontWeight.bold,
                         color: Colors.black,
                       ),
@@ -74,11 +88,14 @@ class _MyRoomPageState extends State<MyRoomPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          icon: Icon(Icons.select_all, color: Colors.black),
+                          icon: const Icon(
+                            Icons.select_all,
+                            color: Colors.black,
+                          ),
                           onPressed: () {},
                         ),
                         IconButton(
-                          icon: Icon(Icons.settings, color: Colors.black),
+                          icon: const Icon(Icons.settings, color: Colors.black),
                           onPressed: () {
                             _toggleOverlay(
                               OverlaySettings(
@@ -88,7 +105,7 @@ class _MyRoomPageState extends State<MyRoomPage> {
                           },
                         ),
                         IconButton(
-                          icon: Icon(Icons.person, color: Colors.black),
+                          icon: const Icon(Icons.person, color: Colors.black),
                           onPressed: () {
                             _toggleOverlay(
                               OverlayAuth(onClose: () => _toggleOverlay(null)),
@@ -105,60 +122,66 @@ class _MyRoomPageState extends State<MyRoomPage> {
         ),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: EdgeInsets.all(screenSize.width / 10000),
         child: Column(
           children: [
             Expanded(
               child: GridView.builder(
-                padding: const EdgeInsets.all(2.0),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 6,
-                  crossAxisSpacing: 1.0,
+                padding: EdgeInsets.all(screenSize.width / 10000),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 10.0,
                   mainAxisSpacing: 16.0,
-                  childAspectRatio: 1,
+                  childAspectRatio: 0.8,
                 ),
                 itemCount: rooms.length + 1,
                 itemBuilder: (context, index) {
                   if (index == 0) {
+                    // Create Room button - with consistent height and alignment
                     return GestureDetector(
                       onTap: showCreateRoomOverlay,
                       child: Column(
+                        mainAxisAlignment:
+                            MainAxisAlignment.center, // Center vertically
                         children: [
-                          Container(
-                            margin: const EdgeInsets.only(top: 50.0),
-                            child: DottedBorder(
-                              borderType: BorderType.RRect,
-                              radius: Radius.circular(8.0),
-                              dashPattern: [8, 4],
-                              color: Colors.blue,
-                              strokeWidth: 2,
-                              child: Container(
-                                width: 100.0,
-                                height: 100.0,
-                                alignment: Alignment.center,
-                                child: const Icon(
-                                  Icons.add,
-                                  size: 32,
-                                  color: Colors.blue,
+                          SizedBox(
+                            height: itemSize, // Match the height of room icons
+                            child: Center(
+                              child: DottedBorder(
+                                borderType: BorderType.RRect,
+                                radius: const Radius.circular(8.0),
+                                dashPattern: const [8, 4],
+                                color: Colors.blue,
+                                strokeWidth: 2,
+                                child: Container(
+                                  width: itemSize * 0.65,
+                                  height: itemSize * 0.65,
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    Icons.add,
+                                    size: itemSize * 0.2,
+                                    color: Colors.blue,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 4),
                           const Text(
                             "New",
-                            style: TextStyle(color: Colors.blue),
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
+                          const SizedBox(
+                            height: 12,
+                          ), // Match spacing of room items
                         ],
                       ),
                     );
                   } else {
                     final room = rooms[index - 1];
-                    // print('Room ID: ${room['id']}');
-                    // print('Room Name: ${room['name']}');
-                    // print('Room Color: ${room['color']}');
-                    // print('Room Created Date: ${room['createdDate']}');
-                    // print('Room FolderIds: ${room['folderIds']}');
                     return GestureDetector(
                       onTap: () {
                         Navigator.push(
@@ -167,8 +190,7 @@ class _MyRoomPageState extends State<MyRoomPage> {
                             builder:
                                 (context) => RoomDetailPage(
                                   room: room,
-                                  onRoomUpdated:
-                                      () => setState(() {}), // Refresh UI
+                                  onRoomUpdated: () => setState(() {}),
                                 ),
                           ),
                         );
