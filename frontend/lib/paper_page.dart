@@ -1,6 +1,7 @@
 // ignore_for_file: curly_braces_in_flow_control_structures, use_build_context_synchronously
 
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/model/drawingpoint.dart';
 import 'package:frontend/OBJ/object.dart';
@@ -16,9 +17,6 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:screenshot/screenshot.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:frontend/widget/export_dialog.dart';
-import 'package:flutter_file_dialog/flutter_file_dialog.dart';
-import 'dart:typed_data';
-import 'dart:math' as math;
 
 enum DrawingMode { pencil, eraser }
 
@@ -65,8 +63,6 @@ class _PaperPageState extends State<PaperPage> {
   ];
   Map<String, PaperTemplate> paperTemplates = {};
   bool _isDrawing = false;
-
-  final ScreenshotController _screenshotcontroller = ScreenshotController();
 
   @override
   void initState() {
@@ -867,7 +863,9 @@ class _PaperPageState extends State<PaperPage> {
           ),
         );
         count++;
-        print("Page: $count");
+        if (kDebugMode) {
+          print("Page: $count");
+        }
       }
 
       // Get bytes of the PDF

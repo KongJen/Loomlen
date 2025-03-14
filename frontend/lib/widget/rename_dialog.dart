@@ -6,11 +6,11 @@ class RenameDialog extends StatefulWidget {
   final Function(String) onRename;
 
   const RenameDialog({
-    Key? key,
+    super.key,
     required this.currentName,
     required this.itemType,
     required this.onRename,
-  }) : super(key: key);
+  });
 
   @override
   State<RenameDialog> createState() => _RenameDialogState();

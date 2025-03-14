@@ -5,10 +5,10 @@ class PdfExportDialog extends StatefulWidget {
   final bool hasMultiplePages;
 
   const PdfExportDialog({
-    Key? key,
+    super.key,
     required this.filename,
     this.hasMultiplePages = false,
-  }) : super(key: key);
+  });
 
   @override
   State<PdfExportDialog> createState() => _PdfExportDialogState();

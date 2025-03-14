@@ -8,13 +8,13 @@ class OverlayOptions extends StatelessWidget {
   final List<Widget>? additionalOptions;
 
   const OverlayOptions({
-    Key? key,
+    super.key,
     required this.position,
     required this.itemName,
     required this.onRename,
     required this.onDelete,
     this.additionalOptions,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +30,7 @@ class OverlayOptions extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             boxShadow: [
               BoxShadow(
+                // ignore: deprecated_member_use
                 color: Colors.black.withOpacity(0.2),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
