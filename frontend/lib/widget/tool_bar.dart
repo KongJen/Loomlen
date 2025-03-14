@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/paper.dart'; // Import for EraserMode enum
+import 'package:frontend/model/tools.dart';
 
 // Builds the pencil settings bar widget
 Widget buildPencilSettingsBar({

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/OBJ/object.dart'; // Import the template.dart file for PaperTemplate and TemplateType
+import 'package:frontend/OBJ/object.dart';
 
 // Constants and configurations for templates
 class TemplateConfig {

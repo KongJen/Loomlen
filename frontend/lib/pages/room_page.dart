@@ -1,4 +1,10 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:pdf_render/pdf_render.dart';
+import 'dart:io';
+import 'package:image/image.dart' as img;
 import '../model/provider.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:provider/provider.dart';
@@ -6,7 +12,10 @@ import '../widget/overlay_menu.dart';
 import '../widget/overlay_create_folder.dart';
 import '../OBJ/object.dart';
 import '../widget/overlay_create_file.dart';
-import '../paper.dart';
+import '../paper_page.dart';
+import 'package:path_provider/path_provider.dart';
+import '../main.dart';
+import '../widget/overlay_loading.dart';
 
 class RoomDetailPage extends StatefulWidget {
   final Map<String, dynamic> room;
@@ -29,7 +38,6 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   @override
   void initState() {
     super.initState();
-
     currentRoom = Map<String, dynamic>.from(widget.room);
   }
 
@@ -60,9 +68,11 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           _toggleOverlay(null);
           showCreateFileOverlay(parentId);
         },
-        onClose: () {
+        onImportPDF: () {
           _toggleOverlay(null);
+          showImportPDF(parentId);
         },
+        onClose: () => _toggleOverlay(null),
       ),
     );
   }
@@ -85,6 +95,137 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
         onClose: () => _toggleOverlay(null),
       ),
     );
+  }
+
+  Future<void> showImportPDF(String parentId) async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        String pdfPath = result.files.single.path!;
+        String pdfName = result.files.single.name;
+        debugPrint('Selected PDF: $pdfPath');
+
+        PdfDocument pdfDoc = await PdfDocument.openFile(pdfPath);
+        int pageCount = pdfDoc.pageCount;
+        debugPrint('PDF has $pageCount pages');
+
+        final fileProvider = Provider.of<FileProvider>(context, listen: false);
+        final paperProvider = Provider.of<PaperProvider>(
+          context,
+          listen: false,
+        );
+        final roomProvider = Provider.of<RoomProvider>(context, listen: false);
+        final folderProvider = Provider.of<FolderProvider>(
+          context,
+          listen: false,
+        );
+
+        String fileId = fileProvider.addFile(pdfName);
+        List<String> paperIds = [];
+        debugPrint('Created file ID: $fileId');
+
+        final loadingOverlay = LoadingOverlay(
+          context: context,
+          message: 'Preparing to import PDF',
+          subMessage: 'Please wait while we process your file',
+        );
+
+        loadingOverlay.show();
+
+        for (int i = 1; i <= pageCount; i++) {
+          PdfPage page = await pdfDoc.getPage(i);
+          double pdfWidth = page.width; // Get PDF page width in points
+          double pdfHeight = page.height; // Get PDF page height in points
+          debugPrint('Page $i size: ${pdfWidth}x$pdfHeight');
+
+          PdfPageImage? pageImage = await page.render(
+            // Increase the resolution by applying a scale factor
+            width: (page.width * 2).toInt(), // Double the resolution
+            height: (page.height * 2).toInt(), // Double the resolution
+          );
+
+          // Convert raw pixels to PNG format
+          final image = img.Image.fromBytes(
+            width: pageImage.width,
+            height: pageImage.height,
+            bytes: pageImage.pixels.buffer,
+            order: img.ChannelOrder.rgba,
+          );
+          final pngBytes = img.encodePng(image, level: 6);
+
+          // Save the PNG to a file
+          final directory = await getApplicationDocumentsDirectory();
+          String imagePath = '${directory.path}/${pdfName}_page_$i.png';
+          File imageFile = File(imagePath);
+          await imageFile.writeAsBytes(pngBytes);
+          debugPrint('Saved PNG for page $i at: $imagePath');
+          debugPrint('Image exists: ${await imageFile.exists()}');
+
+          // Pass the PDF size to addPaper
+          String paperId = paperProvider.addPaper(
+            PaperTemplate(
+              id: 'plain',
+              name: 'Plain Paper',
+              templateType: TemplateType.plain,
+              spacing: 30.0,
+            ),
+            i,
+            null,
+            imagePath,
+            pdfWidth,
+            pdfHeight,
+          );
+
+          debugPrint('Created paper ID: $paperId for page $i');
+
+          paperIds.add(paperId);
+          fileProvider.addPaperPageToFile(fileId, paperId);
+
+          pageImage.dispose();
+        }
+
+        loadingOverlay.hide();
+
+        pdfDoc.dispose();
+
+        if (currentFolder != null) {
+          folderProvider.addFileToFolder(currentFolder!['id'], fileId);
+        } else {
+          roomProvider.addFileToRoom(parentId, fileId);
+        }
+
+        setState(() {});
+        debugPrint('Paper IDs for file $fileId: $paperIds');
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF "$pdfName" imported as $pageCount pages'),
+          ),
+        );
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => PaperPage(
+                  name: pdfName,
+                  fileId: fileId,
+                  initialPageIds: paperIds,
+                  onFileUpdated: () => setState(() {}),
+                ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error importing PDF: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error importing PDF: $e')));
+    }
   }
 
   void navigateToFolder(Map<String, dynamic> folder) {
@@ -113,7 +254,6 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     if (navigationStack.isNotEmpty) {
       fullPath.addAll(navigationStack);
     }
-
     if (currentFolder != null) {
       fullPath.add(currentFolder!);
     }
@@ -126,7 +266,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                 children: [
                   if (index == 0)
                     const Padding(
-                      padding: EdgeInsets.only(bottom: 5),
+                      padding: EdgeInsets.only(left: 5),
                       child: Icon(Icons.home_filled, color: Colors.white),
                     ),
                   if (index > 0)
@@ -143,7 +283,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
       return Row(
         children: [
           const Padding(
-            padding: EdgeInsets.only(bottom: 5),
+            padding: EdgeInsets.only(left: 5),
             child: Icon(Icons.home_filled, color: Colors.white),
           ),
           Text(
@@ -162,11 +302,21 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     }
   }
 
+  int _getCrossAxisCount(double width) {
+    if (width < 600) return 2;
+    if (width < 900) return 3;
+    if (width < 1200) return 4;
+    if (width < 1500) return 5;
+    return 6;
+  }
+
   @override
   Widget build(BuildContext context) {
     final roomProvider = Provider.of<RoomProvider>(context);
     final folderProvider = Provider.of<FolderProvider>(context);
     final fileProvider = Provider.of<FileProvider>(context);
+    final screenSize = MediaQuery.of(context).size;
+    final crossAxisCount = _getCrossAxisCount(screenSize.width);
 
     final roomId = currentRoom['id'];
     final room = roomProvider.rooms.firstWhere(
@@ -193,8 +343,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
             .where((file) => currentFileIds.contains(file['id']))
             .toList();
 
-    // print('Filtered Folders: ${folders.length}');
-    // print('Filtered Files: ${files.length}');
+    final itemSize = screenSize.width < 600 ? 120.0 : 170.0;
 
     return Scaffold(
       appBar: AppBar(
@@ -222,10 +371,6 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
               color: Colors.white,
             ),
             onPressed: () {
-              final roomProvider = Provider.of<RoomProvider>(
-                context,
-                listen: false,
-              );
               roomProvider.toggleFavorite(currentRoom['name']);
               setState(() {
                 currentRoom['isFavorite'] = !currentRoom['isFavorite'];
@@ -235,17 +380,17 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: EdgeInsets.all(screenSize.width / 10000),
         child: Column(
           children: [
             Expanded(
               child: GridView.builder(
-                padding: const EdgeInsets.all(2.0),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 6,
-                  crossAxisSpacing: 1.0,
+                padding: EdgeInsets.all(screenSize.width / 10000),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 10.0,
                   mainAxisSpacing: 16.0,
-                  childAspectRatio: 1,
+                  childAspectRatio: 0.8,
                 ),
                 itemCount: folders.length + files.length + 1,
                 itemBuilder: (context, index) {
@@ -257,36 +402,44 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                                 ? currentFolder!['id']
                                 : currentRoom['id'],
                             context,
-                            details
-                                .globalPosition, // Now it correctly gets the tap position
+                            details.globalPosition,
                           ),
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Container(
-                            margin: const EdgeInsets.only(top: 50.0),
-                            child: DottedBorder(
-                              borderType: BorderType.RRect,
-                              radius: const Radius.circular(8.0),
-                              dashPattern: const [8, 4],
-                              color: Colors.blue,
-                              strokeWidth: 2,
-                              child: Container(
-                                width: 100.0,
-                                height: 100.0,
-                                alignment: Alignment.center,
-                                child: const Icon(
-                                  Icons.add,
-                                  size: 32,
-                                  color: Colors.blue,
+                          SizedBox(
+                            height: itemSize, // Match the height of room icons
+                            child: Center(
+                              child: DottedBorder(
+                                borderType: BorderType.RRect,
+                                radius: const Radius.circular(8.0),
+                                dashPattern: const [8, 4],
+                                color: Colors.blue,
+                                strokeWidth: 2,
+                                child: Container(
+                                  width: itemSize * 0.65,
+                                  height: itemSize * 0.65,
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    Icons.add,
+                                    size: itemSize * 0.2,
+                                    color: Colors.blue,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 4),
                           const Text(
                             "New",
-                            style: TextStyle(color: Colors.blue),
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
+                          const SizedBox(
+                            height: 12,
+                          ), // Match spacing of room items
                         ],
                       ),
                     );
@@ -302,37 +455,35 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                             (folder['color'] is int)
                                 ? Color(folder['color'])
                                 : folder['color'],
-                        isFavorite: folder['isFavorite'],
                         subfolderIds: folder['subfolderIds'] ?? [],
                         fileIds: folder['fileIds'] ?? [],
-                        onToggleFavorite:
-                            () => folderProvider.toggleFavoriteFolder(
-                              folder['id'],
-                            ),
                       ),
                     );
                   } else {
                     final file = files[index - folders.length - 1];
                     return GestureDetector(
                       onTap: () {
+                        MyApp.navMenuKey.currentState
+                            ?.toggleBottomNavVisibility(false);
                         Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder:
-                                (context) => Paper(
+                                (context) => PaperPage(
                                   name: file['name'],
                                   fileId: file['id'],
+                                  onFileUpdated: () => setState(() {}),
                                 ),
                           ),
-                        );
+                        ).then((_) {
+                          MyApp.navMenuKey.currentState
+                              ?.toggleBottomNavVisibility(true);
+                        });
                       },
                       child: FileItem(
                         id: file['id'],
                         name: file['name'],
                         createdDate: file['createdDate'],
-                        isFavorite: file['isFavorite'],
-                        onToggleFavorite:
-                            () => fileProvider.toggleFavoriteFile(file['id']),
                       ),
                     );
                   }

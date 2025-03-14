@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/model/provider.dart';
+import 'package:frontend/widget/overlay_option.dart';
+import 'package:frontend/widget/delete_dialog.dart';
+import 'package:frontend/widget/rename_dialog.dart';
 import 'dart:ui' as ui;
+
+import 'package:provider/provider.dart';
 
 /*--------------RoomItem--------------------*/
 class RoomItem extends StatefulWidget {
@@ -31,67 +37,169 @@ class RoomItem extends StatefulWidget {
 class _RoomItemState extends State<RoomItem> {
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final iconSize = screenWidth < 600 ? 120.0 : 170.0;
+    final starIconSize = iconSize * 0.3;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Stack(
-            children: [
-              Icon(Icons.home_filled, size: 170, color: widget.color),
-              Positioned(
-                right: 15,
-                top: 15,
-                child: IconButton(
-                  icon: Icon(
-                    Icons.star_rate_rounded,
-                    size: 50,
-                    color:
-                        widget.isFavorite
-                            ? Colors
-                                .red // Show red if favorite
-                            : const Color.fromARGB(255, 212, 212, 212),
-                    shadows: [
-                      BoxShadow(
-                        color: Colors.black,
-                        blurRadius: 2,
-                        offset: Offset(-0.5, 0.5),
+          SizedBox(
+            height: iconSize,
+            child: Center(
+              // Center the icon
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(Icons.home_filled, size: iconSize, color: widget.color),
+                  Positioned(
+                    right: iconSize * 0.09,
+                    top: iconSize * 0.09,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.star_rate_rounded,
+                        size: starIconSize,
+                        color:
+                            widget.isFavorite
+                                ? Colors.red
+                                : const Color.fromARGB(255, 212, 212, 212),
+                        shadows: const [
+                          BoxShadow(
+                            color: Colors.black,
+                            blurRadius: 2,
+                            offset: Offset(-0.5, 0.5),
+                          ),
+                        ],
                       ),
-                    ],
+                      onPressed: widget.onToggleFavorite,
+                    ),
                   ),
-                  onPressed:
-                      widget.onToggleFavorite, // Trigger the toggle callback
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(width: screenWidth < 600 ? 12 : 22),
+              Flexible(
+                child: Text(
+                  widget.name,
+                  style: TextStyle(
+                    fontSize: screenWidth < 600 ? 12 : 15,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.blueAccent,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 5),
+              InkWell(
+                onTap: () {
+                  _showOptionsOverlay(context);
+                },
+                child: Icon(
+                  Icons.keyboard_control_key,
+                  size: screenWidth < 600 ? 12 : 15,
+                  color: Colors.blueAccent,
                 ),
               ),
             ],
           ),
-          Text(
-            widget.name,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-              color: Colors.blueAccent,
-            ),
-          ),
-          SizedBox(height: 2.0),
+          const SizedBox(height: 2.0),
           Text(
             widget.createdDate,
-            style: TextStyle(fontSize: 10, color: Colors.grey),
+            style: TextStyle(
+              fontSize: screenWidth < 600 ? 8 : 10,
+              color: Colors.grey,
+            ),
           ),
         ],
       ),
     );
   }
+
+  void _showOptionsOverlay(BuildContext context) async {
+    // Get the position of the icon
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final Offset position = renderBox.localToGlobal(Offset.zero);
+
+    await showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            OverlayOptions(
+              position: position,
+              itemName: widget.name,
+              onRename: () {
+                _showRenameDialog(context);
+              },
+              onDelete: () {
+                _showDeleteConfirmationDialog(context);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRenameDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return RenameDialog(
+          currentName: widget.name,
+          itemType: 'Room',
+          onRename: (newName) {
+            final roomProvider = Provider.of<RoomProvider>(
+              context,
+              listen: false,
+            );
+            roomProvider.renameRoom(widget.id, newName);
+          },
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return DeleteConfirmationDialog(
+          itemType: 'Room',
+          itemName: widget.name,
+          onConfirm: () {
+            final roomProvider = Provider.of<RoomProvider>(
+              context,
+              listen: false,
+            );
+            roomProvider.deleteRoom(widget.id);
+          },
+        );
+      },
+    );
+  }
 }
 
 /*--------------FolderItem--------------------*/
+
 class FolderItem extends StatefulWidget {
   final String id;
   final String name;
   final String createdDate;
   final Color color;
-  final bool isFavorite;
-  final VoidCallback onToggleFavorite;
   final List<String> subfolderIds;
   final List<String> fileIds;
 
@@ -101,8 +209,6 @@ class FolderItem extends StatefulWidget {
     required this.name,
     required this.createdDate,
     required this.color,
-    required this.isFavorite,
-    required this.onToggleFavorite,
     required this.subfolderIds,
     required this.fileIds,
   });
@@ -114,54 +220,135 @@ class FolderItem extends StatefulWidget {
 class _FolderItemState extends State<FolderItem> {
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final iconSize = screenWidth < 600 ? 120.0 : 170.0;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Stack(
+          SizedBox(
+            height: iconSize,
+            child: Center(
+              child: Icon(
+                Icons.folder_open,
+                size: iconSize,
+                color: widget.color,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.folder_open, size: 170, color: widget.color),
-              Positioned(
-                right: 15,
-                top: 15,
-                child: IconButton(
-                  icon: Icon(
-                    Icons.star_rate_rounded,
-                    size: 50,
-                    color:
-                        widget.isFavorite
-                            ? Colors
-                                .red // Show red if favorite
-                            : const Color.fromARGB(255, 212, 212, 212),
-                    shadows: [
-                      BoxShadow(
-                        color: Colors.black,
-                        blurRadius: 2,
-                        offset: Offset(-0.5, 0.5),
-                      ),
-                    ],
+              SizedBox(width: screenWidth < 600 ? 12 : 22),
+              Flexible(
+                child: Text(
+                  widget.name,
+                  style: TextStyle(
+                    fontSize: screenWidth < 600 ? 12 : 15,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.blueAccent,
                   ),
-                  onPressed: widget.onToggleFavorite,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 5),
+              InkWell(
+                onTap: () {
+                  _showOptionsOverlay(context);
+                },
+                child: Icon(
+                  Icons.keyboard_control_key,
+                  size: screenWidth < 600 ? 12 : 15,
+                  color: Colors.blueAccent,
                 ),
               ),
             ],
           ),
-          Text(
-            widget.name,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-              color: Colors.blueAccent,
-            ),
-          ),
-          SizedBox(height: 2.0),
+          const SizedBox(height: 2.0),
           Text(
             widget.createdDate,
-            style: TextStyle(fontSize: 10, color: Colors.grey),
+            style: TextStyle(
+              fontSize: screenWidth < 600 ? 8 : 10,
+              color: Colors.grey,
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  void _showOptionsOverlay(BuildContext context) async {
+    // Get the position of the icon
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final Offset position = renderBox.localToGlobal(Offset.zero);
+
+    await showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            OverlayOptions(
+              position: position,
+              itemName: widget.name,
+              onRename: () {
+                _showRenameDialog(context);
+              },
+              onDelete: () {
+                _showDeleteConfirmationDialog(context);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRenameDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return RenameDialog(
+          currentName: widget.name,
+          itemType: 'Folder',
+          onRename: (newName) {
+            // Add folder rename function to your provider
+            final folderProvider = Provider.of<FolderProvider>(
+              context,
+              listen: false,
+            );
+            // Implement renameFolder in your FolderProvider
+            folderProvider.renameFolder(widget.id, newName);
+          },
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return DeleteConfirmationDialog(
+          itemType: 'Folder',
+          itemName: widget.name,
+          onConfirm: () {
+            final folderProvider = Provider.of<FolderProvider>(
+              context,
+              listen: false,
+            );
+            folderProvider.deleteFolder(widget.id);
+          },
+        );
+      },
     );
   }
 }
@@ -172,28 +359,16 @@ class FileItem extends StatefulWidget {
   final String id;
   final String name;
   final String createdDate;
-  // final List<DrawingState> history;
-  final int currentHistoryIndex;
-  final String? recognizedText;
-  final bool isFavorite;
-  final VoidCallback onToggleFavorite;
-  final String templateId; // Changed from template string to templateId
-  final TemplateType templateType; // Added template type
-  final double spacing; // Added spacing
+  final String? pdfPath;
+  final List<String>? pageIds;
 
   const FileItem({
     super.key,
     required this.id,
     required this.name,
     required this.createdDate,
-    this.templateId = 'plain',
-    this.templateType = TemplateType.plain,
-    this.spacing = 30.0,
-    // required this.history,
-    this.currentHistoryIndex = -1,
-    this.recognizedText,
-    required this.isFavorite,
-    required this.onToggleFavorite,
+    this.pdfPath,
+    this.pageIds,
   });
 
   @override
@@ -204,51 +379,28 @@ class _FileItemState extends State<FileItem> {
   ui.Image? backgroundImage;
 
   @override
-  void initState() {
-    super.initState();
-    // _loadPreview();
-  }
-
-  // Future<void> _loadPreview() async {
-  //   if (widget.history.isNotEmpty && widget.currentHistoryIndex >= 0) {
-  //     final currentState = widget.history[widget.currentHistoryIndex];
-  //     if (currentState.imageData != null) {
-  //       await _loadBackgroundImage(currentState.imageData!);
-  //     }
-  //   }
-  // }
-
-  @override
   Widget build(BuildContext context) {
-    final template = PaperTemplate(
-      id: widget.templateId,
-      name: _getTemplateName(),
-      templateType: widget.templateType,
-      spacing: widget.spacing,
-    );
+    final screenWidth = MediaQuery.of(context).size.width;
+    final containerWidth = screenWidth < 600 ? 90.0 : 120.0;
+    final containerHeight = screenWidth < 600 ? 110.0 : 150.0;
     return SizedBox(
-      // Added a SizedBox to constrain the overall size
-      width: 190,
-      height: 210,
+      width: containerWidth,
+      height: containerHeight,
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 8.0,
-        ), // Reduced horizontal padding
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
         child: Column(
-          mainAxisSize: MainAxisSize.min, // Changed to min to prevent expansion
-          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Stack(
               children: [
                 Container(
-                  width: 170,
-                  height: 170,
+                  width: containerWidth,
+                  height: containerHeight,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        // ignore: deprecated_member_use
                         color: Colors.grey.withOpacity(0.3),
                         spreadRadius: 1,
                         blurRadius: 3,
@@ -258,86 +410,50 @@ class _FileItemState extends State<FileItem> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Stack(
+                    child: const Stack(
                       children: [
-                        CustomPaint(
-                          painter: TemplateThumbnailPainter(template: template),
-                          size: const Size(80, 60),
-                        ),
-                        if (widget.recognizedText != null &&
-                            widget.recognizedText!.isNotEmpty)
-                          Positioned(
-                            bottom: 5,
-                            left: 5,
-                            right: 5,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                // ignore: deprecated_member_use
-                                color: Colors.black.withOpacity(0.6),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                widget.recognizedText!,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
+                        // Show either PDF thumbnail or template
                       ],
                     ),
-                  ),
-                ),
-                Positioned(
-                  right: 15,
-                  top: 15,
-                  child: IconButton(
-                    icon: Icon(
-                      Icons.star_rate_rounded,
-                      size: 50,
-                      color:
-                          widget.isFavorite
-                              ? Colors.red
-                              : const Color.fromARGB(255, 212, 212, 212),
-                      shadows: const [
-                        BoxShadow(
-                          color: Colors.black,
-                          blurRadius: 2,
-                          offset: Offset(-0.5, 0.5),
-                        ),
-                      ],
-                    ),
-                    onPressed: widget.onToggleFavorite,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 4), // Reduced vertical spacing
-            Flexible(
-              // Added Flexible to allow text to shrink if needed
-              child: Text(
-                widget.name,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.blueAccent,
+            const SizedBox(height: 34),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(width: screenWidth < 600 ? 12 : 22),
+                Flexible(
+                  child: Text(
+                    widget.name,
+                    style: TextStyle(
+                      fontSize: screenWidth < 600 ? 12 : 15,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.blueAccent,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
+                const SizedBox(width: 5),
+                InkWell(
+                  onTap: () {
+                    _showOptionsOverlay(context);
+                  },
+                  child: Icon(
+                    Icons.keyboard_control_key,
+                    size: screenWidth < 600 ? 12 : 15,
+                    color: Colors.blueAccent,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4.0),
-            Flexible(
-              // Added Flexible to allow text to shrink if needed
-              child: Text(
-                widget.createdDate,
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
+            const SizedBox(height: 2.0),
+            Text(
+              widget.createdDate,
+              style: TextStyle(
+                fontSize: screenWidth < 600 ? 8 : 10,
+                color: Colors.grey,
               ),
             ),
           ],
@@ -346,123 +462,113 @@ class _FileItemState extends State<FileItem> {
     );
   }
 
-  String _getTemplateName() {
-    switch (widget.templateType) {
-      case TemplateType.plain:
-        return 'Plain Paper';
-      case TemplateType.lined:
-        return 'Lined Paper';
-      case TemplateType.grid:
-        return 'Grid Paper';
-      case TemplateType.dotted:
-        return 'Dotted Paper';
-    }
+  void _showOptionsOverlay(BuildContext context) async {
+    // Get the position of the icon
+    final RenderBox renderBox = context.findRenderObject() as RenderBox;
+    final Offset position = renderBox.localToGlobal(Offset.zero);
+
+    await showDialog(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            OverlayOptions(
+              position: position,
+              itemName: widget.name,
+              onRename: () {
+                _showRenameDialog(context);
+              },
+              onDelete: () {
+                _showDeleteConfirmationDialog(context);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRenameDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return RenameDialog(
+          currentName: widget.name,
+          itemType: 'File',
+          onRename: (newName) {
+            final fileProvider = Provider.of<FileProvider>(
+              context,
+              listen: false,
+            );
+            fileProvider.renameFile(widget.id, newName);
+          },
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return DeleteConfirmationDialog(
+          itemType: 'File',
+          itemName: widget.name,
+          onConfirm: () {
+            final fileProvider = Provider.of<FileProvider>(
+              context,
+              listen: false,
+            );
+            fileProvider.deleteFile(widget.id);
+          },
+        );
+      },
+    );
   }
 }
 
-// Custom painter for scaled note preview
-class NotePainter extends CustomPainter {
-  // final List<DrawingPoint> points;
-  final ui.Image? backgroundImage;
-  final double scale;
+//--------------- Paper Pages -----------------------//
 
-  NotePainter({
-    // required this.points,
-    this.backgroundImage,
-    required this.scale,
+class PaperItem extends StatefulWidget {
+  final String id;
+  final String? pdfPath;
+  final String? recognizedText;
+  final String templateId; // Changed from template string to templateId
+  final TemplateType templateType; // Added template type
+  // ignore: non_constant_identifier_names
+  final int PageNumber;
+  final double? widht;
+  final double? height;
+
+  const PaperItem({
+    super.key,
+    required this.id,
+    this.pdfPath,
+    this.recognizedText,
+    this.templateId = 'plain',
+    this.templateType = TemplateType.plain,
+    // ignore: non_constant_identifier_names
+    required this.PageNumber,
+    this.height,
+    this.widht,
   });
 
   @override
-  void paint(Canvas canvas, Size size) {
-    // Scale the canvas for preview
-    canvas.scale(scale);
-
-    // Draw background if exists
-    if (backgroundImage != null) {
-      canvas.drawImage(backgroundImage!, Offset.zero, Paint());
-    }
-
-    // Draw points
-    // for (var point in points) {
-    //   final paint = Paint()
-    //     ..color = point.color
-    //     ..strokeWidth = point.width
-    //     ..strokeCap = StrokeCap.round;
-
-    //   for (var i = 0; i < point.offsets.length - 1; i++) {
-    //     canvas.drawLine(
-    //       point.offsets[i],
-    //       point.offsets[i + 1],
-    //       paint,
-    //     );
-    //   }
-    // }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  State<PaperItem> createState() => _PaperState();
 }
 
-// Template painters
-class GridPainter extends CustomPainter {
+class _PaperState extends State<PaperItem> {
   @override
-  void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          // ignore: deprecated_member_use
-          ..color = Colors.grey.withOpacity(0.3)
-          ..strokeWidth = 0.5;
-
-    // Draw grid lines
-    for (double i = 0; i <= size.width; i += 20) {
-      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
-    }
-    for (double i = 0; i <= size.height; i += 20) {
-      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
-    }
+  Widget build(BuildContext context) {
+    return Container(); // Implement your widget build logic here
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class LinedPaperPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          // ignore: deprecated_member_use
-          ..color = Colors.blue.withOpacity(0.3)
-          ..strokeWidth = 0.5;
-
-    // Draw horizontal lines
-    for (double i = 20; i <= size.height; i += 20) {
-      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class TodoTemplatePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint =
-        Paint()
-          // ignore: deprecated_member_use
-          ..color = Colors.grey.withOpacity(0.5)
-          ..strokeWidth = 0.5;
-
-    // Draw checkbox outlines
-    for (int i = 0; i < 5; i++) {
-      final top = 30.0 + (i * 30);
-      canvas.drawRect(Rect.fromLTWH(20, top, 15, 15), paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 //--------------- Paper Template -----------------------//
