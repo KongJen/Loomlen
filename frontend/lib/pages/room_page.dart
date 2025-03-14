@@ -302,11 +302,21 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     }
   }
 
+  int _getCrossAxisCount(double width) {
+    if (width < 600) return 2;
+    if (width < 900) return 3;
+    if (width < 1200) return 4;
+    if (width < 1500) return 5;
+    return 6;
+  }
+
   @override
   Widget build(BuildContext context) {
     final roomProvider = Provider.of<RoomProvider>(context);
     final folderProvider = Provider.of<FolderProvider>(context);
     final fileProvider = Provider.of<FileProvider>(context);
+    final screenSize = MediaQuery.of(context).size;
+    final crossAxisCount = _getCrossAxisCount(screenSize.width);
 
     final roomId = currentRoom['id'];
     final room = roomProvider.rooms.firstWhere(
@@ -332,6 +342,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
         fileProvider.files
             .where((file) => currentFileIds.contains(file['id']))
             .toList();
+
+    final itemSize = screenSize.width < 600 ? 120.0 : 170.0;
 
     return Scaffold(
       appBar: AppBar(
@@ -368,17 +380,17 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: EdgeInsets.all(screenSize.width / 10000),
         child: Column(
           children: [
             Expanded(
               child: GridView.builder(
-                padding: const EdgeInsets.all(2.0),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 6,
-                  crossAxisSpacing: 1.0,
+                padding: EdgeInsets.all(screenSize.width / 10000),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  crossAxisSpacing: 10.0,
                   mainAxisSpacing: 16.0,
-                  childAspectRatio: 1,
+                  childAspectRatio: 0.8,
                 ),
                 itemCount: folders.length + files.length + 1,
                 itemBuilder: (context, index) {
@@ -393,32 +405,41 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                             details.globalPosition,
                           ),
                       child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Container(
-                            margin: const EdgeInsets.only(top: 50.0),
-                            child: DottedBorder(
-                              borderType: BorderType.RRect,
-                              radius: const Radius.circular(8.0),
-                              dashPattern: const [8, 4],
-                              color: Colors.blue,
-                              strokeWidth: 2,
-                              child: Container(
-                                width: 100.0,
-                                height: 100.0,
-                                alignment: Alignment.center,
-                                child: const Icon(
-                                  Icons.add,
-                                  size: 32,
-                                  color: Colors.blue,
+                          SizedBox(
+                            height: itemSize, // Match the height of room icons
+                            child: Center(
+                              child: DottedBorder(
+                                borderType: BorderType.RRect,
+                                radius: const Radius.circular(8.0),
+                                dashPattern: const [8, 4],
+                                color: Colors.blue,
+                                strokeWidth: 2,
+                                child: Container(
+                                  width: itemSize * 0.65,
+                                  height: itemSize * 0.65,
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    Icons.add,
+                                    size: itemSize * 0.2,
+                                    color: Colors.blue,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 4),
                           const Text(
                             "New",
-                            style: TextStyle(color: Colors.blue),
+                            style: TextStyle(
+                              color: Colors.blue,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
+                          const SizedBox(
+                            height: 12,
+                          ), // Match spacing of room items
                         ],
                       ),
                     );
