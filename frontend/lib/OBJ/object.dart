@@ -37,72 +37,84 @@ class RoomItem extends StatefulWidget {
 class _RoomItemState extends State<RoomItem> {
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final iconSize = screenWidth < 600 ? 120.0 : 170.0;
+    final starIconSize = iconSize * 0.3;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Stack(
-            children: [
-              Icon(Icons.home_filled, size: 170, color: widget.color),
-              Positioned(
-                right: 15,
-                top: 15,
-                child: IconButton(
-                  icon: Icon(
-                    Icons.star_rate_rounded,
-                    size: 50,
-                    color:
-                        widget.isFavorite
-                            ? Colors
-                                .red // Show red if favorite
-                            : const Color.fromARGB(255, 212, 212, 212),
-                    shadows: [
-                      BoxShadow(
-                        color: Colors.black,
-                        blurRadius: 2,
-                        offset: Offset(-0.5, 0.5),
+          SizedBox(
+            height: iconSize,
+            child: Center(
+              // Center the icon
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Icon(Icons.home_filled, size: iconSize, color: widget.color),
+                  Positioned(
+                    right: iconSize * 0.09,
+                    top: iconSize * 0.09,
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.star_rate_rounded,
+                        size: starIconSize,
+                        color:
+                            widget.isFavorite
+                                ? Colors.red
+                                : const Color.fromARGB(255, 212, 212, 212),
+                        shadows: const [
+                          BoxShadow(
+                            color: Colors.black,
+                            blurRadius: 2,
+                            offset: Offset(-0.5, 0.5),
+                          ),
+                        ],
                       ),
-                    ],
+                      onPressed: widget.onToggleFavorite,
+                    ),
                   ),
-                  onPressed:
-                      widget.onToggleFavorite, // Trigger the toggle callback
-                ),
+                ],
               ),
-            ],
+            ),
           ),
+          const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              SizedBox(width: 25),
-              Text(
-                widget.name,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.blueAccent,
-                ),
-              ),
-              SizedBox(width: 5),
-              Padding(
-                padding: EdgeInsets.only(top: 4),
-                child: InkWell(
-                  onTap: () {
-                    _showOptionsOverlay(context);
-                  },
-                  child: Icon(
-                    Icons.keyboard_control_key,
-                    size: 15,
+              SizedBox(width: screenWidth < 600 ? 12 : 22),
+              Flexible(
+                child: Text(
+                  widget.name,
+                  style: TextStyle(
+                    fontSize: screenWidth < 600 ? 12 : 15,
+                    fontWeight: FontWeight.w400,
                     color: Colors.blueAccent,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 5),
+              InkWell(
+                onTap: () {
+                  _showOptionsOverlay(context);
+                },
+                child: Icon(
+                  Icons.keyboard_control_key,
+                  size: screenWidth < 600 ? 12 : 15,
+                  color: Colors.blueAccent,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 2.0),
+          const SizedBox(height: 2.0),
           Text(
             widget.createdDate,
-            style: TextStyle(fontSize: 10, color: Colors.grey),
+            style: TextStyle(
+              fontSize: screenWidth < 600 ? 8 : 10,
+              color: Colors.grey,
+            ),
           ),
         ],
       ),
@@ -208,45 +220,59 @@ class FolderItem extends StatefulWidget {
 class _FolderItemState extends State<FolderItem> {
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final iconSize = screenWidth < 600 ? 120.0 : 170.0;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Stack(
-            children: [Icon(Icons.folder_open, size: 170, color: widget.color)],
+          SizedBox(
+            height: iconSize,
+            child: Center(
+              child: Icon(
+                Icons.folder_open,
+                size: iconSize,
+                color: widget.color,
+              ),
+            ),
           ),
+          const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                widget.name,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.blueAccent,
-                ),
-              ),
-              SizedBox(width: 5),
-              Padding(
-                padding: EdgeInsets.only(top: 4),
-                child: InkWell(
-                  onTap: () {
-                    _showOptionsOverlay(context);
-                  },
-                  child: Icon(
-                    Icons.keyboard_control_key,
-                    size: 15,
+              SizedBox(width: screenWidth < 600 ? 12 : 22),
+              Flexible(
+                child: Text(
+                  widget.name,
+                  style: TextStyle(
+                    fontSize: screenWidth < 600 ? 12 : 15,
+                    fontWeight: FontWeight.w400,
                     color: Colors.blueAccent,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 5),
+              InkWell(
+                onTap: () {
+                  _showOptionsOverlay(context);
+                },
+                child: Icon(
+                  Icons.keyboard_control_key,
+                  size: screenWidth < 600 ? 12 : 15,
+                  color: Colors.blueAccent,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 2.0),
+          const SizedBox(height: 2.0),
           Text(
             widget.createdDate,
-            style: TextStyle(fontSize: 10, color: Colors.grey),
+            style: TextStyle(
+              fontSize: screenWidth < 600 ? 8 : 10,
+              color: Colors.grey,
+            ),
           ),
         ],
       ),
@@ -354,25 +380,27 @@ class _FileItemState extends State<FileItem> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final containerWidth = screenWidth < 600 ? 90.0 : 120.0;
+    final containerHeight = screenWidth < 600 ? 110.0 : 150.0;
     return SizedBox(
-      width: 100,
-      height: 10,
+      width: containerWidth,
+      height: containerHeight,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10.0),
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Stack(
               children: [
                 Container(
-                  width: 120,
-                  height: 150,
+                  width: containerWidth,
+                  height: containerHeight,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
                     boxShadow: [
                       BoxShadow(
-                        // ignore: deprecated_member_use
                         color: Colors.grey.withOpacity(0.3),
                         spreadRadius: 1,
                         blurRadius: 3,
@@ -382,7 +410,7 @@ class _FileItemState extends State<FileItem> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Stack(
+                    child: const Stack(
                       children: [
                         // Show either PDF thumbnail or template
                       ],
@@ -391,45 +419,41 @@ class _FileItemState extends State<FileItem> {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 34),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                SizedBox(width: screenWidth < 600 ? 12 : 22),
                 Flexible(
                   child: Text(
                     widget.name,
-                    style: const TextStyle(
-                      fontSize: 15,
+                    style: TextStyle(
+                      fontSize: screenWidth < 600 ? 12 : 15,
                       fontWeight: FontWeight.w400,
                       color: Colors.blueAccent,
                     ),
                     overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
                   ),
                 ),
                 const SizedBox(width: 5),
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: InkWell(
-                    onTap: () {
-                      _showOptionsOverlay(context);
-                    },
-                    child: const Icon(
-                      Icons.keyboard_control_key,
-                      size: 15,
-                      color: Colors.blueAccent,
-                    ),
+                InkWell(
+                  onTap: () {
+                    _showOptionsOverlay(context);
+                  },
+                  child: Icon(
+                    Icons.keyboard_control_key,
+                    size: screenWidth < 600 ? 12 : 15,
+                    color: Colors.blueAccent,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 4.0),
-            Flexible(
-              child: Text(
-                widget.createdDate,
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
+            const SizedBox(height: 2.0),
+            Text(
+              widget.createdDate,
+              style: TextStyle(
+                fontSize: screenWidth < 600 ? 8 : 10,
+                color: Colors.grey,
               ),
             ),
           ],
