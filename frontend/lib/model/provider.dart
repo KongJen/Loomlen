@@ -36,8 +36,6 @@ class RoomProvider extends ChangeNotifier {
               'color':
                   (room['color'] is int) ? Color(room['color']) : room['color'],
               'isFavorite': room['isFavorite'],
-              'folderIds': List<String>.from(room['folderIds'] ?? []),
-              'fileIds': List<String>.from(room['fileIds'] ?? []),
             };
           }).toList();
 
@@ -61,8 +59,6 @@ class RoomProvider extends ChangeNotifier {
                     ? (room['color'] as Color).value
                     : room['color'],
             'isFavorite': room['isFavorite'],
-            'folderIds': room['folderIds'] ?? [],
-            'fileIds': room['fileIds'] ?? [],
           };
         }).toList();
 
@@ -95,77 +91,38 @@ class RoomProvider extends ChangeNotifier {
     notifyListeners(); // Refresh UI after adding a new room
   }
 
-  void addFolderToRoom(String roomId, String folderId) {
-    final index = _rooms.indexWhere((room) => room['id'] == roomId);
-    if (index != -1) {
-      // Ensure 'folderIds' is a List<String> before adding the new folder
-      var folders = _rooms[index]['folderIds'];
-
-      // If folders is not already a List<String>, initialize it
-      if (folders == null || folders is! List<String>) {
-        folders = <String>[]; // Initialize an empty list if needed
-      }
-      folders.add(folderId);
-      // Save the updated rooms and notify listeners
-      _rooms[index]['folderIds'] = folders; // Correct the key here
-      _saveRooms();
-      notifyListeners();
-    }
-  }
-
-  void addFileToRoom(String roomId, String fileId) {
-    final index = _rooms.indexWhere((room) => room['id'] == roomId);
-    //Change this function to add File
-    if (index != -1) {
-      // Ensure 'folderIds' is a List<String> before adding the new folder
-      var files = _rooms[index]['fileIds'];
-
-      // If folders is not already a List<String>, initialize it
-      if (files == null || files is! List<String>) {
-        files = <String>[]; // Initialize an empty list if needed
-      }
-
-      // Add the new folder ID to the list
-      files.add(fileId);
-
-      // Save the updated rooms and notify listeners
-      _rooms[index]['fileIds'] = files; // Correct the key here
-      _saveRooms();
-      notifyListeners();
-
-      // print("File $fileId added to room $roomId");
-    }
-  }
-
-  Future<void> deleteRoom(String roomId) async {
-    // Find the room to delete
-    final roomIndex = _rooms.indexWhere((room) => room['id'] == roomId);
-    if (roomIndex == -1) return; // Room not found
-
-    final room = _rooms[roomIndex];
-
-    // Get folderIds and fileIds from the room
-    final List<String> folderIds = List<String>.from(room['folderIds'] ?? []);
-    final List<String> fileIds = List<String>.from(room['fileIds'] ?? []);
-
-    // Delete all folders in this room (which will also delete subfolders and files)
-    final folderProvider = FolderProvider();
+  Future<void> deleteRoom(
+    String roomId,
+    FolderProvider folderProvider,
+    FileProvider fileProvider,
+    PaperProvider paperProvider,
+  ) async {
     await folderProvider._loadFolders(); // Load latest data
-
-    for (String folderId in folderIds) {
-      await folderProvider.deleteFolder(folderId);
-    }
-
-    // Delete all files directly in this room
-    final fileProvider = FileProvider();
     await fileProvider._loadFiles(); // Load latest data
+    await paperProvider._loadPapers();
 
-    for (String fileId in fileIds) {
-      await fileProvider.deleteFile(fileId);
+    List<Map<String, dynamic>> foldersToDelete =
+        folderProvider.folders
+            .where((folder) => folder['roomId'] == roomId)
+            .toList();
+
+    for (var folder in foldersToDelete) {
+      await folderProvider.deleteFolder(
+        folder['id'],
+        folderProvider,
+        fileProvider,
+        paperProvider,
+      );
     }
 
-    // Remove the room
-    _rooms.removeAt(roomIndex);
+    List<Map<String, dynamic>> filesToDelete =
+        fileProvider.files.where((file) => file['roomId'] == roomId).toList();
+
+    for (var file in filesToDelete) {
+      await fileProvider.deleteFile(file['id'], paperProvider);
+    }
+
+    _rooms.removeWhere((room) => room['id'] == roomId);
     await _saveRooms();
     notifyListeners();
   }
@@ -213,6 +170,8 @@ class FolderProvider extends ChangeNotifier {
         _folders =
             List<Map<String, dynamic>>.from(data).map((folder) {
               return {
+                'roomId': folder['roomId'],
+                'parentFolderId': folder['parentFolderId'],
                 'id': folder['id'],
                 'name': folder['name'],
                 'createdDate': folder['createdDate'],
@@ -242,6 +201,8 @@ class FolderProvider extends ChangeNotifier {
     List<Map<String, dynamic>> foldersToSave =
         _folders.map((folder) {
           return {
+            'roomId': folder['roomId'],
+            'parentFolderId': folder['parentFolderId'],
             'id': folder['id'],
             'name': folder['name'],
             'createdDate': folder['createdDate'],
@@ -250,8 +211,6 @@ class FolderProvider extends ChangeNotifier {
                     // ignore: deprecated_member_use
                     ? (folder['color'] as Color).value
                     : folder['color'],
-            'subfolderIds': folder['subfolderIds'] ?? [],
-            'fileIds': folder['fileIds'] ?? [],
           };
         }).toList();
 
@@ -259,9 +218,16 @@ class FolderProvider extends ChangeNotifier {
   }
 
   /// Add a new folder
-  String addFolder(String name, Color color) {
+  String addFolder(
+    String name,
+    Color color, {
+    String? roomId,
+    String? parentFolderId,
+  }) {
     final String folderId = _uuid.v4();
     final newFolder = {
+      'roomId': roomId, // If adding to a room
+      'parentFolderId': parentFolderId, // If adding to another folder
       'id': folderId,
       'name': name,
       'createdDate': DateTime.now().toIso8601String(),
@@ -276,81 +242,42 @@ class FolderProvider extends ChangeNotifier {
     return folderId;
   }
 
-  void addFolderToFolder(String folderId, String subfolderId) {
-    final index = _folders.indexWhere((folder) => folder['id'] == folderId);
-    if (index != -1) {
-      // Ensure 'folderIds' is a List<String> before adding the new folder
-      var folders = _folders[index]['subfolderIds'];
-
-      // If folders is not already a List<String>, initialize it
-      if (folders == null || folders is! List<String>) {
-        folders = <String>[]; // Initialize an empty list if needed
-      }
-
-      // Add the new folder ID to the list
-      folders.add(subfolderId);
-
-      // Save the updated rooms and notify listeners
-      _folders[index]['subfolderIds'] = folders; // Correct the key here
-      _saveFolders();
-      notifyListeners();
-    }
-  }
-
-  void addFileToFolder(String folderId, String fileId) {
-    final index = _folders.indexWhere((folder) => folder['id'] == folderId);
-    if (index != -1) {
-      // Ensure 'folderIds' is a List<String> before adding the new folder
-      var files = _folders[index]['fileIds'];
-
-      // If folders is not already a List<String>, initialize it
-      if (files == null || files is! List<String>) {
-        files = <String>[]; // Initialize an empty list if needed
-      }
-
-      // Add the new folder ID to the list
-      files.add(fileId);
-
-      // Save the updated rooms and notify listeners
-      _folders[index]['fileIds'] = files; // Correct the key here
-      _saveFolders();
-      notifyListeners();
-
-      // print("File $fileId added to folder $folderId");
-    }
-  }
-
-  Future<void> deleteFolder(String folderId) async {
-    // Find the folder to delete
-    final folderIndex = _folders.indexWhere(
-      (folder) => folder['id'] == folderId,
-    );
-    if (folderIndex == -1) return; // Folder not found
-
-    final folder = _folders[folderIndex];
-
-    // Get subfolderIds and fileIds from the folder
-    final List<String> subfolderIds = List<String>.from(
-      folder['subfolderIds'] ?? [],
-    );
-    final List<String> fileIds = List<String>.from(folder['fileIds'] ?? []);
-
-    // Recursively delete all subfolders
-    for (String subfolderId in subfolderIds) {
-      await deleteFolder(subfolderId);
-    }
-
-    // Delete all files in this folder
-    final fileProvider = FileProvider();
+  Future<void> deleteFolder(
+    String folderId,
+    FolderProvider folderProvider_,
+    FileProvider fileProvider,
+    PaperProvider paperProvider,
+  ) async {
+    await folderProvider_._loadFolders(); // Load latest data
     await fileProvider._loadFiles(); // Load latest data
+    await paperProvider._loadPapers();
 
-    for (String fileId in fileIds) {
-      await fileProvider.deleteFile(fileId);
+    List<Map<String, dynamic>> subfoldersToDelete =
+        folderProvider_.folders
+            .where((folder) => folder['parentFolderId'] == folderId)
+            .toList();
+
+    for (var folder in subfoldersToDelete) {
+      await folderProvider_.deleteFolder(
+        folder['id'],
+        folderProvider_,
+        fileProvider,
+        paperProvider,
+      );
     }
 
-    // Remove the folder
-    _folders.removeAt(folderIndex);
+    List<Map<String, dynamic>> filesToDelete =
+        fileProvider.files
+            .where((file) => file['folderId'] == folderId)
+            .toList();
+
+    for (var file in filesToDelete) {
+      await fileProvider.deleteFile(file['id'], paperProvider);
+    }
+
+    _folders.removeWhere((folder) => folder['id'] == folderId);
     await _saveFolders();
+    await _loadFolders();
     notifyListeners();
   }
 
@@ -397,6 +324,8 @@ class FileProvider extends ChangeNotifier {
         _files =
             List<Map<String, dynamic>>.from(data).map((file) {
               return {
+                'roomId': file['roomId'],
+                'parentFolderId': file['parentFolderId'],
                 'id': file['id'],
                 'name': file['name'],
                 'createdDate': file['createdDate'],
@@ -422,6 +351,8 @@ class FileProvider extends ChangeNotifier {
     List<Map<String, dynamic>> filesToSave =
         _files.map((file) {
           return {
+            'roomId': file['roomId'],
+            'parentFolderId': file['parentFolderId'],
             'id': file['id'],
             'name': file['name'],
             'createdDate': file['createdDate'],
@@ -433,17 +364,14 @@ class FileProvider extends ChangeNotifier {
   }
 
   /// Add a new file
-  String addFile(
-    String name, [
-    List<Map<String, dynamic>>? drawingData,
-    List<Map<String, dynamic>>? pageIds,
-  ]) {
+  String addFile(String name, {String? roomId, String? parentFolderId}) {
     final String fileId = _uuid.v4();
     final newFile = {
+      'roomId': roomId,
+      'parentFolderId': parentFolderId,
       'id': fileId,
       'name': name,
       'createdDate': DateTime.now().toIso8601String(),
-      'drawingData': drawingData ?? [],
     };
 
     _files.add(newFile);
@@ -451,39 +379,6 @@ class FileProvider extends ChangeNotifier {
     notifyListeners();
 
     return fileId;
-  }
-
-  void addPaperPageToFile(String fileId, String pageId) {
-    final index = _files.indexWhere((file) => file['id'] == fileId);
-    if (index != -1) {
-      // Ensure 'folderIds' is a List<String> before adding the new folder
-      var pages = _files[index]['pageIds'];
-
-      // If folders is not already a List<String>, initialize it
-      if (pages == null || pages is! List<String>) {
-        pages = <String>[]; // Initialize an empty list if needed
-      }
-
-      // Add the new folder ID to the list
-      pages.add(pageId);
-
-      // Save the updated rooms and notify listeners
-      _files[index]['pageIds'] = pages; // Correct the key here
-      _saveFiles();
-      notifyListeners();
-    }
-  }
-
-  Future<void> updateFileDrawingData(
-    String fileId,
-    List<Map<String, dynamic>> drawingData,
-  ) async {
-    final index = _files.indexWhere((file) => file['id'] == fileId);
-    if (index != -1) {
-      _files[index]['drawingData'] = drawingData;
-      _saveFiles();
-      notifyListeners();
-    }
   }
 
   Map<String, dynamic>? getFileById(String fileId) {
@@ -494,26 +389,18 @@ class FileProvider extends ChangeNotifier {
     return null;
   }
 
-  Future<void> deleteFile(String fileId) async {
-    // Find the file to delete
-    final fileIndex = _files.indexWhere((file) => file['id'] == fileId);
-    if (fileIndex == -1) return; // File not found
-
-    final file = _files[fileIndex];
-
-    // Get pageIds from the file
-    final List<String> pageIds = List<String>.from(file['pageIds'] ?? []);
-
-    // Delete all pages associated with this file
-    final paperProvider = PaperProvider();
+  Future<void> deleteFile(String fileId, PaperProvider paperProvider) async {
     await paperProvider._loadPapers(); // Load latest data
 
-    for (String pageId in pageIds) {
-      await paperProvider.deletePaper(pageId);
-    }
+    List<Map<String, dynamic>> papersToDelete =
+        paperProvider.papers
+            .where((paper) => paper['fileId'] == fileId)
+            .toList();
 
-    // Remove the file
-    _files.removeAt(fileIndex);
+    for (var paper in papersToDelete) {
+      await paperProvider.deletePaper(paper['id']);
+    }
+    _files.removeWhere((file) => file['id'] == fileId);
     await _saveFiles();
     notifyListeners();
   }
@@ -561,6 +448,7 @@ class PaperProvider extends ChangeNotifier {
         _papers =
             List<Map<String, dynamic>>.from(data).map((paper) {
               return {
+                'fileId': paper['fileId'],
                 'id': paper['id'],
                 'pdfPath': paper['pdfPath'],
                 'recognizedText': paper['recognizedText'],
@@ -569,6 +457,9 @@ class PaperProvider extends ChangeNotifier {
                 'PageNumber': paper['PageNumber'],
                 'width': paper['width'],
                 'height': paper['height'],
+                'drawingData':
+                    paper['drawingData'] ??
+                    [], // Add this line to include drawing data
               };
             }).toList();
 
@@ -590,6 +481,7 @@ class PaperProvider extends ChangeNotifier {
     List<Map<String, dynamic>> papersToSave =
         _papers.map((paper) {
           return {
+            'fileId': paper['fileId'],
             'id': paper['id'],
             'pdfPath': paper['pdfPath'],
             'recognizedText': paper['recognizedText'],
@@ -598,6 +490,9 @@ class PaperProvider extends ChangeNotifier {
             'PageNumber': paper['PageNumber'],
             'width': paper['width'],
             'height': paper['height'],
+            'drawingData':
+                paper['drawingData'] ??
+                [], // Add this line to save drawing data
           };
         }).toList();
 
@@ -612,9 +507,11 @@ class PaperProvider extends ChangeNotifier {
     String? pdfPath,
     double? width, // Add width parameter
     double? height, // Add height parameter
+    String fileId,
   ) {
     final String paperId = _uuid.v4();
     final newPaper = {
+      'fileId': fileId,
       'id': paperId,
       'templateId': template.id,
       'templateType': template.templateType.toString(),
@@ -653,29 +550,7 @@ class PaperProvider extends ChangeNotifier {
   }
 
   Future<void> deletePaper(String paperId) async {
-    // Find the paper to delete
-    final paperIndex = _papers.indexWhere((paper) => paper['id'] == paperId);
-    if (paperIndex == -1) return; // Paper not found
-
-    final paper = _papers[paperIndex];
-
-    // Check if there's a PDF path that needs to be deleted
-    final String? pdfPath = paper['pdfPath'];
-    if (pdfPath != null && pdfPath.isNotEmpty) {
-      try {
-        final file = File(pdfPath);
-        if (await file.exists()) {
-          await file.delete();
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          print("Error deleting PDF file: $e");
-        }
-      }
-    }
-
-    // Remove the paper
-    _papers.removeAt(paperIndex);
+    _papers.removeWhere((paper) => paper['id'] == paperId);
     await _savePapers();
     notifyListeners();
   }

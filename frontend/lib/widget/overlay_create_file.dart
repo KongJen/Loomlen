@@ -55,31 +55,39 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
   void createFile() {
     if (nameController.text.trim().isEmpty) return;
     try {
-      final roomProvider = Provider.of<RoomProvider>(context, listen: false);
-      final folderProvider = Provider.of<FolderProvider>(
-        context,
-        listen: false,
-      );
       final fileProvider = Provider.of<FileProvider>(context, listen: false);
       final paperProvider = Provider.of<PaperProvider>(context, listen: false);
 
-      final paperId = paperProvider.addPaper(
-        selectedTemplate,
-        1, // Start with page number 1
-        null, // No initial drawing data
-        null, // No PDF path since it's not imported
-        595.0, // Default A4 width in points
-        842.0, // Default A4 height in points
-      );
-
-      final fileId = fileProvider.addFile(nameController.text.trim());
-      // print("Created file with ID: $fileId");
-      fileProvider.addPaperPageToFile(fileId, paperId);
+      final fileId;
 
       if (widget.isInFolder == true) {
-        folderProvider.addFileToFolder(widget.parentId, fileId);
+        fileId = fileProvider.addFile(
+          nameController.text.trim(),
+          parentFolderId: widget.parentId,
+        );
+        paperProvider.addPaper(
+          selectedTemplate,
+          1,
+          null,
+          null,
+          595,
+          842,
+          fileId,
+        );
       } else {
-        roomProvider.addFileToRoom(widget.parentId, fileId);
+        fileId = fileProvider.addFile(
+          nameController.text.trim(),
+          roomId: widget.parentId,
+        );
+        paperProvider.addPaper(
+          selectedTemplate,
+          1,
+          null,
+          null,
+          595,
+          842,
+          fileId,
+        );
       }
 
       MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(false);

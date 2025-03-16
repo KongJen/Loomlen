@@ -119,8 +119,6 @@ class _FavoritesPageState extends State<FavoritesPage>
                               ? Color(room['color'])
                               : room['color'],
                       isFavorite: room['isFavorite'],
-                      folderIds: room['folderIds'] ?? [],
-                      fileIds: room['fileIds'] ?? [],
                       onToggleFavorite: () {
                         Provider.of<RoomProvider>(
                           context,

@@ -204,8 +204,6 @@ class _MyRoomPageState extends State<MyRoomPage> {
                                 ? Color(room['color'])
                                 : room['color'],
                         isFavorite: room['isFavorite'],
-                        folderIds: room['folderIds'] ?? [],
-                        fileIds: room['fileIds'] ?? [],
                         onToggleFavorite:
                             () => roomProvider.toggleFavorite(room['name']),
                       ),
