@@ -37,20 +37,21 @@ class _OverlayCreateFolderState extends State<OverlayCreateFolder> {
   void createFolder() {
     if (nameController.text.trim().isEmpty) return;
 
-    final roomProvider = Provider.of<RoomProvider>(context, listen: false);
     final folderProvider = Provider.of<FolderProvider>(context, listen: false);
 
-    final folderId = folderProvider.addFolder(
-      nameController.text.trim(),
-      selectedColor,
-    );
-
     if (widget.isInFolder == true) {
-      folderProvider.addFolderToFolder(widget.parentId, folderId);
+      folderProvider.addFolder(
+        nameController.text.trim(),
+        selectedColor,
+        parentFolderId: widget.parentId,
+      );
     } else {
-      roomProvider.addFolderToRoom(widget.parentId, folderId);
+      folderProvider.addFolder(
+        nameController.text.trim(),
+        selectedColor,
+        roomId: widget.parentId,
+      );
     }
-
     widget.onClose();
   }
 

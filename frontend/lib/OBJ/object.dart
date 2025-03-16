@@ -15,8 +15,6 @@ class RoomItem extends StatefulWidget {
   final Color color;
   final bool isFavorite;
   final VoidCallback onToggleFavorite;
-  final List<String> folderIds;
-  final List<String> fileIds;
 
   const RoomItem({
     super.key,
@@ -26,8 +24,6 @@ class RoomItem extends StatefulWidget {
     required this.color,
     required this.isFavorite,
     required this.onToggleFavorite,
-    required this.folderIds,
-    required this.fileIds,
   });
 
   @override
@@ -185,7 +181,12 @@ class _RoomItemState extends State<RoomItem> {
               context,
               listen: false,
             );
-            roomProvider.deleteRoom(widget.id);
+            roomProvider.deleteRoom(
+              widget.id,
+              Provider.of<FolderProvider>(context, listen: false),
+              Provider.of<FileProvider>(context, listen: false),
+              Provider.of<PaperProvider>(context, listen: false),
+            );
           },
         );
       },
@@ -196,21 +197,21 @@ class _RoomItemState extends State<RoomItem> {
 /*--------------FolderItem--------------------*/
 
 class FolderItem extends StatefulWidget {
+  final String? roomId;
+  final String? parentFolderId;
   final String id;
   final String name;
   final String createdDate;
   final Color color;
-  final List<String> subfolderIds;
-  final List<String> fileIds;
 
   const FolderItem({
     super.key,
+    this.roomId,
+    this.parentFolderId,
     required this.id,
     required this.name,
     required this.createdDate,
     required this.color,
-    required this.subfolderIds,
-    required this.fileIds,
   });
 
   @override
@@ -345,7 +346,12 @@ class _FolderItemState extends State<FolderItem> {
               context,
               listen: false,
             );
-            folderProvider.deleteFolder(widget.id);
+            folderProvider.deleteFolder(
+              widget.id,
+              Provider.of<FolderProvider>(context, listen: false),
+              Provider.of<FileProvider>(context, listen: false),
+              Provider.of<PaperProvider>(context, listen: false),
+            );
           },
         );
       },
@@ -356,19 +362,21 @@ class _FolderItemState extends State<FolderItem> {
 /*--------------FileItem--------------------*/
 
 class FileItem extends StatefulWidget {
+  final String? roomId;
+  final String? parentFolderId;
   final String id;
   final String name;
   final String createdDate;
   final String? pdfPath;
-  final List<String>? pageIds;
 
   const FileItem({
     super.key,
+    this.roomId,
+    this.parentFolderId,
     required this.id,
     required this.name,
     required this.createdDate,
     this.pdfPath,
-    this.pageIds,
   });
 
   @override
@@ -526,7 +534,10 @@ class _FileItemState extends State<FileItem> {
               context,
               listen: false,
             );
-            fileProvider.deleteFile(widget.id);
+            fileProvider.deleteFile(
+              widget.id,
+              Provider.of<PaperProvider>(context, listen: false),
+            );
           },
         );
       },
@@ -537,6 +548,7 @@ class _FileItemState extends State<FileItem> {
 //--------------- Paper Pages -----------------------//
 
 class PaperItem extends StatefulWidget {
+  final String fileId;
   final String id;
   final String? pdfPath;
   final String? recognizedText;
@@ -549,6 +561,7 @@ class PaperItem extends StatefulWidget {
 
   const PaperItem({
     super.key,
+    required this.fileId,
     required this.id,
     this.pdfPath,
     this.recognizedText,

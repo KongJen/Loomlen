@@ -49,6 +49,7 @@ dependencies:
 
   dotted_border: ^2.0.0
   screenshot: ^3.0.0
+  socket_io_client: ^3.0.2
 
 dev_dependencies:
   flutter_test:

@@ -118,15 +118,17 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           context,
           listen: false,
         );
-        final roomProvider = Provider.of<RoomProvider>(context, listen: false);
-        final folderProvider = Provider.of<FolderProvider>(
-          context,
-          listen: false,
-        );
 
-        String fileId = fileProvider.addFile(pdfName);
-        List<String> paperIds = [];
-        debugPrint('Created file ID: $fileId');
+        String fileId;
+
+        if (currentFolder != null) {
+          fileId = fileProvider.addFile(
+            pdfName,
+            parentFolderId: currentFolder!['id'],
+          );
+        } else {
+          fileId = fileProvider.addFile(pdfName, roomId: parentId);
+        }
 
         final loadingOverlay = LoadingOverlay(
           context: context,
@@ -178,12 +180,10 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
             imagePath,
             pdfWidth,
             pdfHeight,
+            fileId,
           );
 
           debugPrint('Created paper ID: $paperId for page $i');
-
-          paperIds.add(paperId);
-          fileProvider.addPaperPageToFile(fileId, paperId);
 
           pageImage.dispose();
         }
@@ -192,14 +192,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
         pdfDoc.dispose();
 
-        if (currentFolder != null) {
-          folderProvider.addFileToFolder(currentFolder!['id'], fileId);
-        } else {
-          roomProvider.addFileToRoom(parentId, fileId);
-        }
-
         setState(() {});
-        debugPrint('Paper IDs for file $fileId: $paperIds');
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -214,7 +207,6 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                 (context) => PaperPage(
                   name: pdfName,
                   fileId: fileId,
-                  initialPageIds: paperIds,
                   onFileUpdated: () => setState(() {}),
                 ),
           ),
@@ -319,29 +311,28 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final crossAxisCount = _getCrossAxisCount(screenSize.width);
 
     final roomId = currentRoom['id'];
-    final room = roomProvider.rooms.firstWhere(
-      (room) => room['id'] == roomId,
-      orElse: () => <String, dynamic>{},
-    );
 
-    final List<String> currentFolderIds =
-        currentFolder != null
-            ? (currentFolder!['subfolderIds'] ?? [])
-            : (room['folderIds'] ?? []);
-
+    // Fetch folders correctly
     final folders =
-        folderProvider.folders
-            .where((folder) => currentFolderIds.contains(folder['id']))
-            .toList();
+        currentFolder == null
+            ? folderProvider.folders
+                .where((folder) => folder['roomId'] == roomId)
+                .toList()
+            : folderProvider.folders
+                .where(
+                  (folder) => folder['parentFolderId'] == currentFolder?['id'],
+                )
+                .toList();
 
-    final List<String> currentFileIds =
-        currentFolder != null
-            ? (currentFolder!['fileIds'] ?? [])
-            : (room['fileIds'] ?? []);
+    // Fetch files correctly
     final files =
-        fileProvider.files
-            .where((file) => currentFileIds.contains(file['id']))
-            .toList();
+        currentFolder == null
+            ? fileProvider.files
+                .where((file) => file['roomId'] == roomId)
+                .toList()
+            : fileProvider.files
+                .where((file) => file['parentFolderId'] == currentFolder?['id'])
+                .toList();
 
     final itemSize = screenSize.width < 600 ? 120.0 : 170.0;
 
@@ -455,8 +446,6 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                             (folder['color'] is int)
                                 ? Color(folder['color'])
                                 : folder['color'],
-                        subfolderIds: folder['subfolderIds'] ?? [],
-                        fileIds: folder['fileIds'] ?? [],
                       ),
                     );
                   } else {

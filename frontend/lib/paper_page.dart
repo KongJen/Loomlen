@@ -22,15 +22,13 @@ enum DrawingMode { pencil, eraser }
 
 class PaperPage extends StatefulWidget {
   final String name;
-  final String? fileId;
-  final List<String>? initialPageIds;
+  final String fileId;
   final Function? onFileUpdated;
 
   const PaperPage({
     super.key,
     required this.name,
-    this.fileId,
-    this.initialPageIds,
+    required this.fileId,
     this.onFileUpdated,
   });
 
@@ -64,10 +62,11 @@ class _PaperPageState extends State<PaperPage> {
   Map<String, PaperTemplate> paperTemplates = {};
   bool _isDrawing = false;
 
+  List<String> papers = [];
+
   @override
   void initState() {
     super.initState();
-    pageIds = widget.initialPageIds ?? [];
     eraserTool = EraserTool(
       eraserWidth: 10.0,
       eraserMode: EraserMode.point,
@@ -87,45 +86,45 @@ class _PaperPageState extends State<PaperPage> {
       currentPaperId: '',
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (widget.fileId != null) {
-        _loadDrawingFromPaper();
-      }
-      if (pageIds.isEmpty && widget.fileId != null) {
-        _addNewPaperPage();
-      }
+      _loadDrawingFromPaper();
     });
     _centerContent();
   }
 
   void _centerContent() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || pageIds.isEmpty) return;
+      if (!mounted) return;
 
-      final fileProvider = Provider.of<FileProvider>(context, listen: false);
       final paperProvider = Provider.of<PaperProvider>(context, listen: false);
-      final file = fileProvider.files.firstWhere(
-        (file) => file['id'] == widget.fileId,
-        orElse: () => <String, dynamic>{},
-      );
-      final currentPaperIds =
-          (file['pageIds'] as List<dynamic>?)?.cast<String>() ?? [];
-      if (currentPaperIds.isEmpty) return;
 
-      final firstPaper = paperProvider.getPaperById(currentPaperIds.first);
-      final double paperWidth = firstPaper?['width'] as double? ?? 595.0;
-      final double paperHeight = firstPaper?['height'] as double? ?? 842.0;
+      // Fetch papers linked to this fileId
+      final papers =
+          paperProvider.papers
+              .where((paper) => paper['fileId'] == widget.fileId)
+              .toList();
+      if (papers.isEmpty) return; // Exit if no papers found
 
-      final double totalHeight = currentPaperIds.length * (paperHeight + 16.0);
+      // Get first paper dimensions
+      final firstPaper = papers.first;
+      final double paperWidth = firstPaper['width'] as double? ?? 595.0;
+      final double paperHeight = firstPaper['height'] as double? ?? 842.0;
+
+      // Calculate total height of all papers
+      final double totalHeight = papers.length * (paperHeight + 16.0);
+
+      // Get screen dimensions
       final screenSize = MediaQuery.of(context).size;
       final double screenWidth = screenSize.width;
       final double screenHeight = screenSize.height;
 
+      // Calculate centering offsets
       final double xOffset = (screenWidth - paperWidth) / 2;
       final double yOffset =
           (screenHeight - totalHeight) / 2 > 0
               ? (screenHeight - totalHeight) / 2
               : 0;
 
+      // Apply centering transformation
       _controller.value = Matrix4.identity()..translate(xOffset, yOffset);
     });
   }
@@ -165,7 +164,6 @@ class _PaperPageState extends State<PaperPage> {
   }
 
   void _addNewPaperPage() {
-    final fileProvider = context.read<FileProvider>();
     final paperProvider = context.read<PaperProvider>();
     PaperTemplate newPageTemplate;
     int newPageNumber = 1;
@@ -191,25 +189,52 @@ class _PaperPageState extends State<PaperPage> {
       );
     }
 
-    final String newPaperId = paperProvider.addPaper(
+    paperProvider.addPaper(
       newPageTemplate,
       newPageNumber,
       null,
       null,
       595.0,
       842.0,
+      widget.fileId,
     );
 
-    if (widget.fileId != null) {
-      fileProvider.addPaperPageToFile(widget.fileId!, newPaperId);
-    }
+    _reloadPaperData();
 
+    // Scroll to the bottom after UI updates
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
+    });
+  }
+
+  // Add this new method to reload all paper data
+  void _reloadPaperData() {
+    final paperProvider = context.read<PaperProvider>();
+
+    // Fetch all papers for this file ID
+    final papers =
+        paperProvider.papers
+            .where((paper) => paper['fileId'] == widget.fileId)
+            .toList();
+
+    setState(() {
+      // Update pageIds with all paper IDs
+      pageIds = papers.map((paper) => paper['id'].toString()).toList();
+
+      // Reload templates
+      _loadTemplatesForPapers(papers);
+
+      // Reload drawing data
+      _loadDrawingFromPaper();
+
+      // Center the content
+      _centerContent();
+
+      _hasUnsavedChanges = true;
     });
   }
 
@@ -328,35 +353,32 @@ class _PaperPageState extends State<PaperPage> {
 
   @override
   Widget build(BuildContext context) {
-    final fileProvider = Provider.of<FileProvider>(context);
     final paperProvider = Provider.of<PaperProvider>(context);
 
-    final fileId = widget.fileId;
-    final file = fileProvider.files.firstWhere(
-      (file) => file['id'] == fileId,
-      orElse: () => <String, dynamic>{},
-    );
+    // Fetch papers linked to this fileId
 
-    final List<String> currentPaperIds =
-        (file['pageIds'] as List<dynamic>?)?.cast<String>() ?? [];
     final papers =
         paperProvider.papers
-            .where((paper) => currentPaperIds.contains(paper['id']))
+            .where((paper) => paper['fileId'] == widget.fileId)
             .toList();
 
-    if (currentPaperIds.isNotEmpty && pageIds.isEmpty) {
-      setState(() {
-        pageIds = currentPaperIds;
+    // If papers exist but pageIds is empty, update pageIds and load drawings
+    if (papers.isNotEmpty && pageIds.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          pageIds = papers.map((paper) => paper['id'].toString()).toList();
+        });
+        _loadDrawingFromPaper(); // Load drawings after updating pageIds
       });
     }
-
     _loadTemplatesForPapers(papers);
     _centerContent();
 
     // Calculate total height of all papers
     double totalHeight = 0;
-    for (var paperId in currentPaperIds) {
-      final paperData = paperProvider.getPaperById(paperId);
+    // ignore: unused_local_variable
+    for (var paperId in papers) {
+      final paperData = paperProvider.getPaperById(paperId['id']);
       final double paperHeight = paperData?['height'] as double? ?? 842.0;
       totalHeight += paperHeight + 16.0; // Add padding (8.0 top + 8.0 bottom)
     }
@@ -477,7 +499,7 @@ class _PaperPageState extends State<PaperPage> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.start,
                           children:
-                              currentPaperIds.map((paperId) {
+                              pageIds.map((paperId) {
                                 final template =
                                     paperTemplates[paperId] ??
                                     PaperTemplate(
