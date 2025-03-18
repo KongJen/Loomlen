@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import "../model/provider.dart";
+import 'package:frontend/providers/room_provider.dart';
 
 class OverlayCreateRoom extends StatefulWidget {
   final VoidCallback onClose;

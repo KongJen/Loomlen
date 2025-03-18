@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend/navigation_menu.dart';
-import 'package:frontend/model/provider.dart';
+import 'package:frontend/providers/folder_provider.dart';
+import 'package:frontend/providers/room_provider.dart';
+import 'package:frontend/providers/file_provider.dart';
+import 'package:frontend/providers/paper_provider.dart';
 
 void main() {
   runApp(

@@ -1,21 +1,21 @@
-// ignore_for_file: use_build_context_synchronously
-
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:pdf_render/pdf_render.dart';
-import 'dart:io';
-import 'package:image/image.dart' as img;
-import '../model/provider.dart';
-import 'package:dotted_border/dotted_border.dart';
+import 'package:frontend/services/PDF_import_service.dart';
+import 'package:frontend/services/folder_navigation_service.dart';
+import 'package:frontend/widget/grid_layout.dart';
+import 'package:frontend/widget/ui_component.dart';
 import 'package:provider/provider.dart';
+import '../providers/folder_provider.dart';
+import '../providers/file_provider.dart';
+import '../providers/room_provider.dart';
+import '../providers/paper_provider.dart';
+import '../services/overlay_service.dart';
+import '../items/folder_item.dart';
+import '../items/file_item.dart';
 import '../widget/overlay_menu.dart';
 import '../widget/overlay_create_folder.dart';
-import '../OBJ/object.dart';
 import '../widget/overlay_create_file.dart';
-import '../paper_page.dart';
-import 'package:path_provider/path_provider.dart';
+import 'paper_page.dart';
 import '../main.dart';
-import '../widget/overlay_loading.dart';
 
 class RoomDetailPage extends StatefulWidget {
   final Map<String, dynamic> room;
@@ -29,226 +29,166 @@ class RoomDetailPage extends StatefulWidget {
 }
 
 class _RoomDetailPageState extends State<RoomDetailPage> {
-  late Map<String, dynamic> currentRoom;
-  OverlayEntry? _overlayEntry;
-  List<Map<String, dynamic>> navigationStack = [];
-  Map<String, dynamic>? currentFolder;
-  Map<String, dynamic>? currentFile;
+  late FolderNavigationService _navigationService;
 
   @override
   void initState() {
     super.initState();
-    currentRoom = Map<String, dynamic>.from(widget.room);
+    _navigationService = FolderNavigationService(widget.room);
   }
 
-  void _toggleOverlay(Widget? overlayWidget) {
-    if (_overlayEntry != null) {
-      _overlayEntry!.remove();
-      _overlayEntry = null;
-    } else if (overlayWidget != null) {
-      OverlayState overlayState = Overlay.of(context);
-      _overlayEntry = OverlayEntry(builder: (context) => overlayWidget);
-      overlayState.insert(_overlayEntry!);
-    }
-  }
-
-  void showOverlaySelect(
-    String parentId,
-    BuildContext context,
-    Offset position,
-  ) {
-    _toggleOverlay(
+  void showOverlaySelect(BuildContext context, Offset position) {
+    OverlayService.showOverlay(
+      context,
       OverlaySelect(
         overlayPosition: position,
         onCreateFolder: () {
-          _toggleOverlay(null);
-          showCreateFolderOverlay(parentId);
+          OverlayService.hideOverlay();
+          _showCreateFolderOverlay();
         },
         onCreateFile: () {
-          _toggleOverlay(null);
-          showCreateFileOverlay(parentId);
+          OverlayService.hideOverlay();
+          _showCreateFileOverlay();
         },
         onImportPDF: () {
-          _toggleOverlay(null);
-          showImportPDF(parentId);
+          OverlayService.hideOverlay();
+          _importPDF();
         },
-        onClose: () => _toggleOverlay(null),
+        onClose: OverlayService.hideOverlay,
       ),
     );
   }
 
-  void showCreateFolderOverlay(String parentId) {
-    _toggleOverlay(
+  void _showCreateFolderOverlay() {
+    OverlayService.showOverlay(
+      context,
       OverlayCreateFolder(
-        parentId: currentFolder != null ? currentFolder!['id'] : parentId,
-        isInFolder: currentFolder != null,
-        onClose: () => _toggleOverlay(null),
+        parentId: _navigationService.currentParentId,
+        isInFolder: _navigationService.isInFolder,
+        onClose: OverlayService.hideOverlay,
       ),
     );
   }
 
-  void showCreateFileOverlay(String parentId) {
-    _toggleOverlay(
+  void _showCreateFileOverlay() {
+    OverlayService.showOverlay(
+      context,
       OverlayCreateFile(
-        parentId: currentFile != null ? currentFile!['id'] : parentId,
-        isInFolder: currentFolder != null,
-        onClose: () => _toggleOverlay(null),
+        parentId: _navigationService.currentParentId,
+        isInFolder: _navigationService.isInFolder,
+        onClose: OverlayService.hideOverlay,
       ),
     );
   }
 
-  Future<void> showImportPDF(String parentId) async {
-    try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-      );
+  void _importPDF() {
+    final fileProvider = Provider.of<FileProvider>(context, listen: false);
+    final paperProvider = Provider.of<PaperProvider>(context, listen: false);
 
-      if (result != null && result.files.single.path != null) {
-        String pdfPath = result.files.single.path!;
-        String pdfName = result.files.single.name;
-        debugPrint('Selected PDF: $pdfPath');
-
-        PdfDocument pdfDoc = await PdfDocument.openFile(pdfPath);
-        int pageCount = pdfDoc.pageCount;
-        debugPrint('PDF has $pageCount pages');
-
-        final fileProvider = Provider.of<FileProvider>(context, listen: false);
-        final paperProvider = Provider.of<PaperProvider>(
-          context,
-          listen: false,
-        );
-
-        String fileId;
-
-        if (currentFolder != null) {
-          fileId = fileProvider.addFile(
-            pdfName,
-            parentFolderId: currentFolder!['id'],
-          );
-        } else {
-          fileId = fileProvider.addFile(pdfName, roomId: parentId);
-        }
-
-        final loadingOverlay = LoadingOverlay(
-          context: context,
-          message: 'Preparing to import PDF',
-          subMessage: 'Please wait while we process your file',
-        );
-
-        loadingOverlay.show();
-
-        for (int i = 1; i <= pageCount; i++) {
-          PdfPage page = await pdfDoc.getPage(i);
-          double pdfWidth = page.width; // Get PDF page width in points
-          double pdfHeight = page.height; // Get PDF page height in points
-          debugPrint('Page $i size: ${pdfWidth}x$pdfHeight');
-
-          PdfPageImage? pageImage = await page.render(
-            // Increase the resolution by applying a scale factor
-            width: (page.width * 2).toInt(), // Double the resolution
-            height: (page.height * 2).toInt(), // Double the resolution
-          );
-
-          // Convert raw pixels to PNG format
-          final image = img.Image.fromBytes(
-            width: pageImage.width,
-            height: pageImage.height,
-            bytes: pageImage.pixels.buffer,
-            order: img.ChannelOrder.rgba,
-          );
-          final pngBytes = img.encodePng(image, level: 6);
-
-          // Save the PNG to a file
-          final directory = await getApplicationDocumentsDirectory();
-          String imagePath = '${directory.path}/${pdfName}_page_$i.png';
-          File imageFile = File(imagePath);
-          await imageFile.writeAsBytes(pngBytes);
-          debugPrint('Saved PNG for page $i at: $imagePath');
-          debugPrint('Image exists: ${await imageFile.exists()}');
-
-          // Pass the PDF size to addPaper
-          String paperId = paperProvider.addPaper(
-            PaperTemplate(
-              id: 'plain',
-              name: 'Plain Paper',
-              templateType: TemplateType.plain,
-              spacing: 30.0,
-            ),
-            i,
-            null,
-            imagePath,
-            pdfWidth,
-            pdfHeight,
-            fileId,
-          );
-
-          debugPrint('Created paper ID: $paperId for page $i');
-
-          pageImage.dispose();
-        }
-
-        loadingOverlay.hide();
-
-        pdfDoc.dispose();
-
-        setState(() {});
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('PDF "$pdfName" imported as $pageCount pages'),
-          ),
-        );
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder:
-                (context) => PaperPage(
-                  name: pdfName,
-                  fileId: fileId,
-                  onFileUpdated: () => setState(() {}),
-                ),
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error importing PDF: $e');
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error importing PDF: $e')));
-    }
+    PdfService(
+      showError:
+          (message) => ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message))),
+      showSuccess:
+          (message) => ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(message))),
+      onImportComplete: (fileId, name) {
+        _navigateToPaperPage(name, fileId);
+      },
+      showLoading: () => _showLoadingOverlay(),
+      hideLoading: () => OverlayService.hideOverlay(),
+    ).importPDF(
+      parentId: _navigationService.currentParentId,
+      isInFolder: _navigationService.isInFolder,
+      addFile: fileProvider.addFile,
+      addPaper: paperProvider.addPaper,
+    );
   }
 
-  void navigateToFolder(Map<String, dynamic> folder) {
-    setState(() {
-      if (currentFolder != null) {
-        navigationStack.add(currentFolder!);
-      }
-      currentFolder = folder;
+  void _showLoadingOverlay() {
+    OverlayService.showOverlay(
+      context,
+      LoadingOverlay(
+        message: 'Preparing to import PDF',
+        subMessage: 'Please wait while we process your file',
+      ),
+    );
+  }
+
+  void _navigateToPaperPage(String name, String fileId) {
+    MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(false);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => PaperPage(
+              name: name,
+              fileId: fileId,
+              onFileUpdated: () => setState(() {}),
+            ),
+      ),
+    ).then((_) {
+      MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(true);
     });
   }
 
-  void navigateBack() {
-    if (navigationStack.isNotEmpty) {
-      setState(() {
-        currentFolder = navigationStack.removeLast();
-      });
-    } else {
-      setState(() {
-        currentFolder = null;
-      });
-    }
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: _navigationService,
+      builder: (context, _) {
+        return Scaffold(
+          appBar: _buildAppBar(context),
+          body: _buildBody(context),
+        );
+      },
+    );
   }
 
-  Widget buildBreadcrumb() {
-    List<Map<String, dynamic>> fullPath = [currentRoom];
-    if (navigationStack.isNotEmpty) {
-      fullPath.addAll(navigationStack);
-    }
-    if (currentFolder != null) {
-      fullPath.add(currentFolder!);
-    }
+  PreferredSize _buildAppBar(BuildContext context) {
+    final roomProvider = Provider.of<RoomProvider>(context, listen: false);
+
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(kToolbarHeight),
+      child: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            if (!_navigationService.navigateBack()) {
+              Navigator.pop(context);
+            }
+          },
+        ),
+        title: _buildBreadcrumb(),
+        backgroundColor: _navigationService.currentColor,
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _navigationService.currentRoom['isFavorite']
+                  ? Icons.star
+                  : Icons.star_border,
+              color: Colors.white,
+            ),
+            onPressed: () {
+              roomProvider.toggleFavorite(_navigationService.currentRoom['id']);
+              setState(() {
+                _navigationService.currentRoom['isFavorite'] =
+                    !_navigationService.currentRoom['isFavorite'];
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBreadcrumb() {
+    List<Map<String, dynamic>> fullPath =
+        _navigationService.getBreadcrumbPath();
+
     if (fullPath.length < 5) {
       return Row(
         children:
@@ -272,6 +212,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
             }).toList(),
       );
     } else {
+      // Simplified breadcrumb for deep paths
       return Row(
         children: [
           const Padding(
@@ -283,10 +224,10 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
             style: const TextStyle(color: Colors.white),
           ),
           const Icon(Icons.chevron_right, color: Colors.white),
-          Text('...', style: const TextStyle(color: Colors.white)),
+          const Text('...', style: TextStyle(color: Colors.white)),
           const Icon(Icons.chevron_right, color: Colors.white),
           Text(
-            fullPath[fullPath.length - 1]['name'],
+            fullPath.last['name'],
             style: const TextStyle(color: Colors.white),
           ),
         ],
@@ -294,192 +235,126 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     }
   }
 
-  int _getCrossAxisCount(double width) {
-    if (width < 600) return 2;
-    if (width < 900) return 3;
-    if (width < 1200) return 4;
-    if (width < 1500) return 5;
-    return 6;
+  Widget _buildBody(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final itemSize = screenSize.width < 600 ? 120.0 : 170.0;
+
+    return Padding(
+      padding: EdgeInsets.all(screenSize.width / 10000),
+      child: Column(
+        children: [Expanded(child: _buildContentGrid(context, itemSize))],
+      ),
+    );
   }
+
+  Widget _buildContentGrid(BuildContext context, double itemSize) {
+    final folderProvider = Provider.of<FolderProvider>(context);
+    final fileProvider = Provider.of<FileProvider>(context);
+    final String currentParentId = _navigationService.currentParentId;
+    final bool isInFolder = _navigationService.isInFolder;
+
+    // Fetch folders for current location
+    final folders =
+        isInFolder
+            ? folderProvider.folders
+                .where((folder) => folder['parentFolderId'] == currentParentId)
+                .toList()
+            : folderProvider.folders
+                .where((folder) => folder['roomId'] == currentParentId)
+                .toList();
+
+    // Fetch files for current location
+    final files =
+        isInFolder
+            ? fileProvider.files
+                .where((file) => file['parentFolderId'] == currentParentId)
+                .toList()
+            : fileProvider.files
+                .where((file) => file['roomId'] == currentParentId)
+                .toList();
+
+    // Create list of items for the grid
+    List<Widget> gridItems = [
+      // Add the "New" button
+      GestureDetector(
+        onTapDown:
+            (TapDownDetails details) =>
+                showOverlaySelect(context, details.globalPosition),
+        child: UIComponents.createAddButton(
+          onPressed: () {}, // Handled by onTapDown instead
+          itemSize: itemSize,
+        ),
+      ),
+
+      // Add folder items
+      ...folders.map(
+        (folder) => GestureDetector(
+          onTap: () => _navigationService.navigateToFolder(folder),
+          child: FolderItem(
+            id: folder['id'],
+            name: folder['name'],
+            createdDate: folder['createdDate'],
+            color:
+                (folder['color'] is int)
+                    ? Color(folder['color'])
+                    : folder['color'],
+          ),
+        ),
+      ),
+
+      // Add file items
+      ...files.map(
+        (file) => GestureDetector(
+          onTap: () => _navigateToPaperPage(file['name'], file['id']),
+          child: FileItem(
+            id: file['id'],
+            name: file['name'],
+            createdDate: file['createdDate'],
+          ),
+        ),
+      ),
+    ];
+
+    return ResponsiveGridLayout(children: gridItems);
+  }
+}
+
+class LoadingOverlay extends StatelessWidget {
+  final String message;
+  final String subMessage;
+
+  const LoadingOverlay({
+    super.key,
+    required this.message,
+    required this.subMessage,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final roomProvider = Provider.of<RoomProvider>(context);
-    final folderProvider = Provider.of<FolderProvider>(context);
-    final fileProvider = Provider.of<FileProvider>(context);
-    final screenSize = MediaQuery.of(context).size;
-    final crossAxisCount = _getCrossAxisCount(screenSize.width);
-
-    final roomId = currentRoom['id'];
-
-    // Fetch folders correctly
-    final folders =
-        currentFolder == null
-            ? folderProvider.folders
-                .where((folder) => folder['roomId'] == roomId)
-                .toList()
-            : folderProvider.folders
-                .where(
-                  (folder) => folder['parentFolderId'] == currentFolder?['id'],
-                )
-                .toList();
-
-    // Fetch files correctly
-    final files =
-        currentFolder == null
-            ? fileProvider.files
-                .where((file) => file['roomId'] == roomId)
-                .toList()
-            : fileProvider.files
-                .where((file) => file['parentFolderId'] == currentFolder?['id'])
-                .toList();
-
-    final itemSize = screenSize.width < 600 ? 120.0 : 170.0;
-
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed:
-              currentFolder != null
-                  ? navigateBack
-                  : () => Navigator.pop(context),
-        ),
-        title: buildBreadcrumb(),
-        backgroundColor:
-            (currentFolder != null && currentFolder!['color'] != null)
-                ? (currentFolder!['color'] is int
-                    ? Color(currentFolder!['color'])
-                    : currentFolder!['color'])
-                : (currentRoom['color'] is int
-                    ? Color(currentRoom['color'])
-                    : currentRoom['color']),
-        iconTheme: const IconThemeData(color: Colors.white),
-        actions: [
-          IconButton(
-            icon: Icon(
-              currentRoom['isFavorite'] ? Icons.star : Icons.star_border,
-              color: Colors.white,
-            ),
-            onPressed: () {
-              roomProvider.toggleFavorite(currentRoom['name']);
-              setState(() {
-                currentRoom['isFavorite'] = !currentRoom['isFavorite'];
-              });
-            },
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: EdgeInsets.all(screenSize.width / 10000),
-        child: Column(
-          children: [
-            Expanded(
-              child: GridView.builder(
-                padding: EdgeInsets.all(screenSize.width / 10000),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: crossAxisCount,
-                  crossAxisSpacing: 10.0,
-                  mainAxisSpacing: 16.0,
-                  childAspectRatio: 0.8,
+    return Container(
+      color: Colors.black54,
+      child: Center(
+        child: Card(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  message,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                itemCount: folders.length + files.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return GestureDetector(
-                      onTapDown:
-                          (TapDownDetails details) => showOverlaySelect(
-                            currentFolder != null
-                                ? currentFolder!['id']
-                                : currentRoom['id'],
-                            context,
-                            details.globalPosition,
-                          ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            height: itemSize, // Match the height of room icons
-                            child: Center(
-                              child: DottedBorder(
-                                borderType: BorderType.RRect,
-                                radius: const Radius.circular(8.0),
-                                dashPattern: const [8, 4],
-                                color: Colors.blue,
-                                strokeWidth: 2,
-                                child: Container(
-                                  width: itemSize * 0.65,
-                                  height: itemSize * 0.65,
-                                  alignment: Alignment.center,
-                                  child: Icon(
-                                    Icons.add,
-                                    size: itemSize * 0.2,
-                                    color: Colors.blue,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            "New",
-                            style: TextStyle(
-                              color: Colors.blue,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                          const SizedBox(
-                            height: 12,
-                          ), // Match spacing of room items
-                        ],
-                      ),
-                    );
-                  } else if (index <= folders.length) {
-                    final folder = folders[index - 1];
-                    return GestureDetector(
-                      onTap: () => navigateToFolder(folder),
-                      child: FolderItem(
-                        id: folder['id'],
-                        name: folder['name'],
-                        createdDate: folder['createdDate'],
-                        color:
-                            (folder['color'] is int)
-                                ? Color(folder['color'])
-                                : folder['color'],
-                      ),
-                    );
-                  } else {
-                    final file = files[index - folders.length - 1];
-                    return GestureDetector(
-                      onTap: () {
-                        MyApp.navMenuKey.currentState
-                            ?.toggleBottomNavVisibility(false);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder:
-                                (context) => PaperPage(
-                                  name: file['name'],
-                                  fileId: file['id'],
-                                  onFileUpdated: () => setState(() {}),
-                                ),
-                          ),
-                        ).then((_) {
-                          MyApp.navMenuKey.currentState
-                              ?.toggleBottomNavVisibility(true);
-                        });
-                      },
-                      child: FileItem(
-                        id: file['id'],
-                        name: file['name'],
-                        createdDate: file['createdDate'],
-                      ),
-                    );
-                  }
-                },
-              ),
+                const SizedBox(height: 8),
+                Text(subMessage),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

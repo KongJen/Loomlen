@@ -34,6 +34,12 @@ class BottomNavigationMenuState extends State<NavigationMenu> {
       setState(() {
         _selectedIndex = index;
       });
+
+      for (int i = 0; i < _navigatorKeys.length; i++) {
+        if (i != index) {
+          _navigatorKeys[i].currentState?.popUntil((route) => route.isFirst);
+        }
+      }
     }
   }
 
