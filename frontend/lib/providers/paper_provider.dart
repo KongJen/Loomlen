@@ -57,6 +57,28 @@ class PaperProvider extends ChangeNotifier {
     return paperId;
   }
 
+  // String addPaperFromClone(Map<String, dynamic> paperData, String newFileId) {
+  //   final String paperId = _uuid.v4();
+
+  //   // Create a new paper with the cloned data but new IDs
+  //   final newPaper = {
+  //     'fileId': newFileId,
+  //     'id': paperId,
+  //     'templateId': paperData['templateId'],
+  //     'templateType': paperData['templateType'],
+  //     'drawingData': paperData['drawingData'] ?? [],
+  //     'PageNumber': paperData['PageNumber'],
+  //     'pdfPath': paperData['pdfPath'],
+  //     'width': paperData['width'] ?? 595.0,
+  //     'height': paperData['height'] ?? 842.0,
+  //   };
+
+  //   _papers.add(newPaper);
+  //   _savePapers();
+  //   notifyListeners();
+  //   return paperId;
+  // }
+
   /// Update drawing data
   Future<void> updatePaperDrawingData(
     String paperId,
