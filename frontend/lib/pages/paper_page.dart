@@ -2,7 +2,6 @@
 // ignore_for_file: curly_braces_in_flow_control_structures, use_build_context_synchronously
 
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/model/template_model.dart';
 import 'package:frontend/providers/paper_provider.dart';

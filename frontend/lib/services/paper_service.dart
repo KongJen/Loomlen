@@ -1,6 +1,5 @@
 // Create file: lib/services/paper_service.dart
 
-import 'package:flutter/material.dart';
 import 'package:frontend/model/template_model.dart';
 import 'package:frontend/providers/paper_provider.dart';
 
