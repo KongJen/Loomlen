@@ -1,9 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:frontend/model/provider.dart';
-import 'package:frontend/paper_page.dart';
+import 'package:frontend/model/template_model.dart';
+import 'package:frontend/pages/paper_page.dart';
+import 'package:frontend/providers/file_provider.dart';
+import 'package:frontend/providers/paper_provider.dart';
 import 'package:provider/provider.dart';
-import '../OBJ/object.dart';
 import '../main.dart';
 
 class OverlayCreateFile extends StatefulWidget {
@@ -58,13 +59,14 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
       final fileProvider = Provider.of<FileProvider>(context, listen: false);
       final paperProvider = Provider.of<PaperProvider>(context, listen: false);
 
-      final fileId;
+      final String fileId;
 
       if (widget.isInFolder == true) {
         fileId = fileProvider.addFile(
           nameController.text.trim(),
           parentFolderId: widget.parentId,
         );
+
         paperProvider.addPaper(
           selectedTemplate,
           1,
