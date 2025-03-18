@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../model/template_model.dart';
+import 'package:frontend/items/template_item.dart';
 
 class PaperItem extends StatefulWidget {
   final String fileId;
