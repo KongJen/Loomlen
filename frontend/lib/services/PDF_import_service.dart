@@ -3,10 +3,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:frontend/items/template_item.dart';
 import 'package:pdf_render/pdf_render.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
-import '../model/template_model.dart';
 
 class PdfService {
   final Function(String message) showError;

@@ -65,11 +65,14 @@ class DrawingPoint {
     }
 
     return DrawingPoint(
-      id: json['id'],
+      id: json['id'] ?? -1, // Provide a default ID if null
       offsets: offsetsList,
-      color: Color(json['color']),
-      width: json['width'],
-      isEraser: json['isEraser'] ?? false,
+      color:
+          json['color'] != null
+              ? Color(json['color'])
+              : Colors.black, // Default to black if null
+      width: json['width'] ?? 2.0, // Default width if null
+      isEraser: json['isEraser'] ?? false, // Default to false
     );
   }
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/model/drawingpoint.dart';
+import 'package:frontend/items/drawingpoint_item.dart';
 
 /*-----------------Pencil Tool-----------------*/
 class DrawingPainter extends CustomPainter {
