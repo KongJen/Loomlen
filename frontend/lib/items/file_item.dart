@@ -1,6 +1,9 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:frontend/items/paper_item.dart';
+import 'package:frontend/items/paper_preview_item.dart';
+import 'package:frontend/items/template_item.dart';
 import 'package:frontend/providers/file_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:provider/provider.dart';
@@ -60,33 +63,15 @@ class _FileItemState extends State<FileItem> with Renamable, Deletable {
   }
 
   Widget _buildFilePreview(double width, double height) {
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            spreadRadius: 1,
-            blurRadius: 3,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child:
-            widget.pdfPath != null
-                ? Center(child: Text('PDF: ${widget.pdfPath!}'))
-                : const Center(
-                  child: Icon(
-                    Icons.insert_drive_file,
-                    size: 48,
-                    color: Colors.grey,
-                  ),
-                ),
+    return Center(
+      child: SizedBox(
+        height: 140, // Set the fixed height you want
+        width: width, // Use the dynamic width passed as parameter
+        child: PaperPreviewItem(
+          fileId: widget.id,
+          maxWidth: width,
+          maxHeight: height,
+        ),
       ),
     );
   }

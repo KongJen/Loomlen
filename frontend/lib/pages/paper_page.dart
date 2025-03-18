@@ -3,7 +3,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:frontend/model/template_model.dart';
+import 'package:frontend/items/template_item.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';

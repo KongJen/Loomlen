@@ -5,8 +5,8 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:frontend/model/drawingpoint.dart';
-import 'package:frontend/model/template_model.dart' as template_model;
+import 'package:frontend/items/drawingpoint_item.dart';
+import 'package:frontend/items/template_item.dart' as template_model;
 import 'package:frontend/model/tools.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:frontend/widget/export_dialog.dart';

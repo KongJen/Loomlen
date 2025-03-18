@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:frontend/model/template_model.dart';
+import 'package:frontend/items/template_item.dart';
 import 'package:frontend/pages/paper_page.dart';
 import 'package:frontend/providers/file_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';

@@ -1,6 +1,6 @@
 // Create file: lib/services/paper_service.dart
 
-import 'package:frontend/model/template_model.dart';
+import 'package:frontend/items/template_item.dart';
 import 'package:frontend/providers/paper_provider.dart';
 
 /// Service responsible for paper operations
