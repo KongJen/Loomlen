@@ -1,8 +1,8 @@
 // Create file: lib/services/drawing_service.dart
 
 import 'package:flutter/material.dart';
-import 'package:frontend/model/drawingpoint.dart';
-import 'package:frontend/model/template_model.dart';
+import 'package:frontend/items/drawingpoint_item.dart';
+import 'package:frontend/items/template_item.dart';
 import 'package:frontend/model/tools.dart';
 import 'package:frontend/providers/paper_provider.dart';
 

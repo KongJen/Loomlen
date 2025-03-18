@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
+import 'package:frontend/items/template_item.dart';
 import 'package:uuid/uuid.dart';
 import '../services/storage_service.dart';
-import '../model/template_model.dart'; // Ensure correct import
 
 class PaperProvider extends ChangeNotifier {
   final StorageService _storageService = StorageService();
