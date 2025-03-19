@@ -27,6 +27,9 @@ func main() {
 	router.HandleFunc("/api/notes/{fileId}", handlers.DeleteNote).Methods("DELETE", "OPTIONS")
 	router.HandleFunc("/api/user/login", handlers.UserLogin).Methods("POST")
 	router.HandleFunc("/api/user/signup", handlers.UserSignup).Methods("POST")
+	router.HandleFunc("/api/share", handlers.ShareFile).Methods("POST")
+	router.HandleFunc("/api/shared", handlers.GetSharedFiles).Methods("GET")
+	router.HandleFunc("/api/shared/{id}/clone", handlers.CloneSharedFile).Methods("GET")
 
 	log.Printf("Server starting on port 8080...")
 	log.Fatal(http.ListenAndServe(":8080", router))

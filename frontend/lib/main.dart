@@ -5,6 +5,7 @@ import 'package:frontend/providers/folder_provider.dart';
 import 'package:frontend/providers/room_provider.dart';
 import 'package:frontend/providers/file_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
+import 'package:frontend/providers/auth_provider.dart';
 
 void main() {
   runApp(
@@ -14,6 +15,7 @@ void main() {
         ChangeNotifierProvider(create: (context) => RoomProvider()),
         ChangeNotifierProvider(create: (context) => FileProvider()),
         ChangeNotifierProvider(create: (context) => PaperProvider()),
+        ChangeNotifierProvider(create: (context) => AuthProvider()),
       ],
       child: MyApp(),
     ),
@@ -34,7 +36,23 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: NavigationMenu(key: navMenuKey),
+      home: FutureBuilder(
+        // Just perform the initial load of auth state
+        future:
+            Provider.of<AuthProvider>(
+              context,
+              listen: false,
+            ).refreshAuthState(),
+        builder: (ctx, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+          // Always return NavigationMenu, it will handle showing the login overlay
+          return NavigationMenu(key: navMenuKey);
+        },
+      ),
     );
   }
 }
