@@ -12,6 +12,7 @@ import 'package:frontend/model/tools.dart';
 import 'package:frontend/services/drawing_service.dart';
 import 'package:frontend/services/pdf_export_service.dart';
 import 'package:frontend/services/paper_service.dart';
+import 'package:frontend/widget/share_dialog.dart';
 
 enum DrawingMode { pencil, eraser }
 
@@ -305,6 +306,18 @@ class _PaperPageState extends State<PaperPage> {
           icon: Icon(Icons.picture_as_pdf),
           onPressed: exportToPdf,
           tooltip: 'Export to PDF',
+        ),
+        IconButton(
+          icon: const Icon(Icons.share),
+          tooltip: 'Share this file',
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder:
+                  (context) =>
+                      ShareDialog(fileId: widget.fileId, fileName: widget.name),
+            );
+          },
         ),
       ],
     );

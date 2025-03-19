@@ -95,8 +95,12 @@ func verifyPassword(password, encodedHash string) (bool, error) {
 	return string(hash) == string(storedHash), nil
 }
 
-func GenerateJWT() (string, error) {
+func GenerateJWT(userID string) (string, error) {
 	token := jwt.New(jwt.SigningMethodHS256)
+	claims := token.Claims.(jwt.MapClaims)
+	claims["user_id"] = userID
+	claims["exp"] = time.Now().Add(24 * time.Hour).Unix() // Token expires in 24 hours
+
 	tokenString, err := token.SignedString(SECRET_KEY)
 	if err != nil {
 		log.Println("Error in JWT token generation", err)
@@ -194,7 +198,7 @@ func UserLogin(response http.ResponseWriter, request *http.Request) {
 		// Continue with login process even if updating timestamp fails
 	}
 
-	jwtToken, err := GenerateJWT()
+	jwtToken, err := GenerateJWT(dbUser.ID.Hex()) // Assuming ID is a primitive.ObjectID
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte(`{"message":"` + err.Error() + `"}`))

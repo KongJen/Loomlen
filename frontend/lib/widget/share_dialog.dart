@@ -1,0 +1,201 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/file_provider.dart';
+import '../providers/paper_provider.dart';
+import '../providers/auth_provider.dart';
+
+class ShareDialog extends StatefulWidget {
+  final String fileId;
+  final String fileName;
+
+  const ShareDialog({Key? key, required this.fileId, required this.fileName})
+    : super(key: key);
+
+  @override
+  _ShareDialogState createState() => _ShareDialogState();
+}
+
+class _ShareDialogState extends State<ShareDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  String _permission = 'read';
+  List<String> _sharedWith = [];
+  bool _isSharing = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  void _addEmail() {
+    if (_formKey.currentState!.validate()) {
+      setState(() {
+        _sharedWith.add(_emailController.text.trim());
+        _emailController.clear();
+      });
+    }
+  }
+
+  void _removeEmail(String email) {
+    setState(() {
+      _sharedWith.remove(email);
+    });
+  }
+
+  Future<void> _shareFile() async {
+    if (_sharedWith.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add at least one user to share with'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSharing = true;
+    });
+
+    try {
+      final fileProvider = Provider.of<FileProvider>(context, listen: false);
+      final paperProvider = Provider.of<PaperProvider>(context, listen: false);
+
+      await fileProvider.shareFile(
+        widget.fileId,
+        _sharedWith,
+        _permission,
+        paperProvider,
+      );
+
+      Navigator.of(context).pop(true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File shared & cloned successfully')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to share file: $e')));
+    } finally {
+      setState(() {
+        _isSharing = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Check if user is logged in
+    final authProvider = Provider.of<AuthProvider>(context);
+    final isLoggedIn = authProvider.isLoggedIn;
+
+    if (!isLoggedIn) {
+      return AlertDialog(
+        title: const Text('Login Required'),
+        content: const Text('You need to be logged in to share files.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pushNamed('/login');
+            },
+            child: const Text('Login'),
+          ),
+        ],
+      );
+    }
+
+    return AlertDialog(
+      title: Text('Share "${widget.fileName}"'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Form(
+              key: _formKey,
+              child: TextFormField(
+                controller: _emailController,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  hintText: 'Enter email to share with',
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: _addEmail,
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter an email';
+                  }
+                  if (!value.contains('@')) {
+                    return 'Please enter a valid email';
+                  }
+                  return null;
+                },
+                keyboardType: TextInputType.emailAddress,
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (_sharedWith.isNotEmpty) ...[
+              const Text('Shared with:'),
+              const SizedBox(height: 8),
+              ...List.generate(_sharedWith.length, (index) {
+                return ListTile(
+                  dense: true,
+                  title: Text(_sharedWith[index]),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.remove),
+                    onPressed: () => _removeEmail(_sharedWith[index]),
+                  ),
+                );
+              }),
+              const SizedBox(height: 16),
+            ],
+            const Text('Permission:'),
+            RadioListTile<String>(
+              title: const Text('Read only'),
+              value: 'read',
+              groupValue: _permission,
+              onChanged: (value) {
+                setState(() {
+                  _permission = value!;
+                });
+              },
+            ),
+            RadioListTile<String>(
+              title: const Text('Read and write'),
+              value: 'write',
+              groupValue: _permission,
+              onChanged: (value) {
+                setState(() {
+                  _permission = value!;
+                });
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: Navigator.of(context).pop,
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _isSharing ? null : _shareFile,
+          child:
+              _isSharing
+                  ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                  : const Text('Share'),
+        ),
+      ],
+    );
+  }
+}
