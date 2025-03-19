@@ -1,19 +1,23 @@
-import 'dart:io';
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
+import 'package:frontend/items/drawingpoint_item.dart';
+import 'dart:io';
 import 'package:frontend/items/template_item.dart';
+import 'package:frontend/model/drawing_point_preview.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:provider/provider.dart';
 
 class PaperPreviewItem extends StatelessWidget {
   final String fileId;
-  final double maxWidth; // Max preview width
-  final double maxHeight; // Max preview height
+  final double maxWidth;
+  final double maxHeight;
 
   const PaperPreviewItem({
     super.key,
     required this.fileId,
-    this.maxWidth = 120, // Adjusted max preview size
-    this.maxHeight = 150, // Adjusted max preview size
+    this.maxWidth = 120,
+    this.maxHeight = 150,
   });
 
   @override
@@ -33,18 +37,18 @@ class PaperPreviewItem extends StatelessWidget {
     double originalWidth = firstPaper['width'] as double? ?? 595.0;
     double originalHeight = firstPaper['height'] as double? ?? 842.0;
 
-    // Maintain the fixed maxHeight and scale width to maintain the aspect ratio
+    // Maintain aspect ratio
     double scaleFactor = maxHeight / originalHeight;
     double previewHeight = maxHeight;
     double previewWidth = originalWidth * scaleFactor;
 
-    // If the width exceeds maxWidth, adjust it
     if (previewWidth > maxWidth) {
       scaleFactor = maxWidth / originalWidth;
       previewWidth = maxWidth;
       previewHeight = originalHeight * scaleFactor;
     }
 
+    // Get template
     final template = PaperTemplateFactory.getTemplate(
       firstPaper['templateId'],
       TemplateType.values.firstWhere(
@@ -52,6 +56,10 @@ class PaperPreviewItem extends StatelessWidget {
         orElse: () => TemplateType.plain,
       ),
     );
+
+    // Load drawing points
+    final List<DrawingPoint> drawingPoints = paperProvider
+        .getDrawingPointsForPage(firstPaper['id']);
 
     return Center(
       child: Container(
@@ -71,12 +79,16 @@ class PaperPreviewItem extends StatelessWidget {
         ),
         child: Stack(
           children: [
-            // Template background
+            // Draw template
             CustomPaint(
-              painter: TemplatePainter(template: template),
+              painter: TemplateThumbnailPainter(
+                template: template,
+                scaleFactor: scaleFactor,
+              ),
               size: Size(previewWidth, previewHeight),
             ),
-            // PDF background if available
+
+            // PDF preview if exists
             if (firstPaper['pdfPath'] != null)
               Image.file(
                 File(firstPaper['pdfPath']!),
@@ -89,6 +101,14 @@ class PaperPreviewItem extends StatelessWidget {
                   );
                 },
               ),
+            // Draw stored drawing
+            CustomPaint(
+              painter: DrawingThumbnailPainter(
+                drawingPoints: drawingPoints,
+                scaleFactor: scaleFactor,
+              ),
+              size: Size(previewWidth, previewHeight),
+            ),
           ],
         ),
       ),

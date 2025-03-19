@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:frontend/items/drawingpoint_item.dart';
 import 'package:frontend/items/template_item.dart';
 import 'package:uuid/uuid.dart';
 import '../services/storage_service.dart';
@@ -76,6 +77,31 @@ class PaperProvider extends ChangeNotifier {
       (paper) => paper['id'] == paperId,
       orElse: () => {},
     );
+  }
+
+  List<DrawingPoint> getDrawingPointsForPage(String pageId) {
+    final paperData = _papers.firstWhere(
+      (paper) => paper['id'] == pageId,
+      orElse: () => {},
+    );
+
+    if (paperData['drawingData'] == null) {
+      return []; // No drawing data found
+    }
+
+    final List<DrawingPoint> drawingPoints = [];
+
+    // Process the drawingData and create DrawingPoint objects
+    for (final stroke in paperData['drawingData']) {
+      if (stroke['type'] == 'drawing') {
+        final point = DrawingPoint.fromJson(stroke['data']);
+        if (point.offsets.isNotEmpty) {
+          drawingPoints.add(point);
+        }
+      }
+    }
+
+    return drawingPoints;
   }
 
   /// Delete paper

@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 
 enum TemplateType { plain, lined, grid, dotted }
@@ -134,12 +136,24 @@ class TemplatePainter extends CustomPainter {
 
 class TemplateThumbnailPainter extends CustomPainter {
   final PaperTemplate template;
+  final double scaleFactor; // Scaling factor for preview
 
-  TemplateThumbnailPainter({required this.template});
+  TemplateThumbnailPainter({required this.template, required this.scaleFactor});
 
   @override
   void paint(Canvas canvas, Size size) {
-    template.paintTemplate(canvas, size);
+    // Reduce spacing according to scaleFactor
+    final PaperTemplate scaledTemplate = PaperTemplate(
+      id: template.id,
+      name: template.name,
+      backgroundColor: template.backgroundColor,
+      lineColor: template.lineColor.withOpacity(0.3),
+      lineWidth: template.lineWidth,
+      templateType: template.templateType,
+      spacing: template.spacing * scaleFactor, // Scale the spacing
+    );
+
+    scaledTemplate.paintTemplate(canvas, size);
   }
 
   @override

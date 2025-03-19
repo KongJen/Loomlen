@@ -148,9 +148,8 @@ class _PaperPageState extends State<PaperPage> {
 
   void _reloadPaperData() {
     final paperProvider = context.read<PaperProvider>();
-    final pageIds = _paperService.reloadPaperData(paperProvider, widget.fileId);
 
-    _drawingService.loadDrawingPoints(pageIds, paperProvider);
+    _drawingService.loadFromProvider(paperProvider, widget.fileId);
 
     setState(() {
       _hasUnsavedChanges = true;
