@@ -90,6 +90,8 @@ class _OverlayAuthState extends State<OverlayAuth> {
     String? token = prefs.getString("token");
     String? email = prefs.getString("email");
 
+    print("Login Token : ${token}");
+
     if (token != null && email != null) {
       setState(() {
         isAuthenticated = true;

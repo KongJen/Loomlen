@@ -308,18 +308,18 @@ class _PaperPageState extends State<PaperPage> {
           onPressed: exportToPdf,
           tooltip: 'Export to PDF',
         ),
-        // IconButton(
-        //   icon: const Icon(Icons.share),
-        //   tooltip: 'Share this file',
-        //   onPressed: () {
-        //     showDialog(
-        //       context: context,
-        //       builder:
-        //           (context) =>
-        //               ShareDialog(fileId: widget.fileId, fileName: widget.name),
-        //     );
-        //   },
-        // ),
+        IconButton(
+          icon: const Icon(Icons.share),
+          tooltip: 'Share this file',
+          onPressed: () {
+            showDialog(
+              context: context,
+              builder:
+                  (context) =>
+                      ShareDialog(fileId: widget.fileId, fileName: widget.name),
+            );
+          },
+        ),
       ],
     );
   }
