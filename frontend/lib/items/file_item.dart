@@ -1,9 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import 'package:frontend/items/paper_item.dart';
 import 'package:frontend/items/paper_preview_item.dart';
-import 'package:frontend/items/template_item.dart';
 import 'package:frontend/providers/file_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:provider/provider.dart';

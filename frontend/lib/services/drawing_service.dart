@@ -109,7 +109,7 @@ class DrawingService {
     final papers =
         provider.papers.where((paper) => paper['fileId'] == fileId).toList();
     _pageIds = papers.map((paper) => paper['id'].toString()).toList();
-    _loadTemplatesForPapers(papers);
+    _loadTemplatesForPapers(_pageIds, provider);
     loadDrawingPoints(_pageIds, provider);
 
     if (onDataLoaded != null) {
@@ -117,32 +117,35 @@ class DrawingService {
     }
   }
 
-  void _loadTemplatesForPapers(List<Map<String, dynamic>> papers) {
+  void _loadTemplatesForPapers(
+    List<String> pageIds,
+    PaperProvider paperProvider,
+  ) {
     final Map<String, PaperTemplate> tempTemplates = {};
 
-    for (final paper in papers) {
-      final String paperId = paper['id'];
-      final String templateId = paper['templateId'] ?? 'plain';
-      final String typeString = paper['templateType']?.toString() ?? 'plain';
+    for (final pageId in pageIds) {
+      final paperData = paperProvider.getPaperById(pageId);
 
-      final TemplateType templateType = switch (typeString) {
-        String s when s.contains('lined') => TemplateType.lined,
-        String s when s.contains('grid') => TemplateType.grid,
-        String s when s.contains('dotted') => TemplateType.dotted,
-        _ => TemplateType.plain,
-      };
+      if (paperData != null) {
+        final String templateId = paperData['templateId'] ?? 'plain';
+        final String typeString =
+            paperData['templateType']?.toString() ?? 'plain';
 
-      tempTemplates[paperId] = PaperTemplate(
-        id: templateId,
-        name: '${templateType.name.capitalize()} Paper',
-        templateType: templateType,
-        spacing: paper['spacing']?.toDouble() ?? 30.0,
-      );
-    }
+        final TemplateType templateType = switch (typeString) {
+          String s when s.contains('lined') => TemplateType.lined,
+          String s when s.contains('grid') => TemplateType.grid,
+          String s when s.contains('dotted') => TemplateType.dotted,
+          _ => TemplateType.plain,
+        };
 
-    // Ensure all pageIds have a template
-    for (final pageId in _pageIds) {
-      if (!tempTemplates.containsKey(pageId)) {
+        tempTemplates[pageId] = PaperTemplate(
+          id: templateId,
+          name: '${templateType.name.capitalize()} Paper',
+          templateType: templateType,
+          spacing: paperData['spacing']?.toDouble() ?? 30.0,
+        );
+      } else {
+        // If no paper data exists for the pageId, set a default template
         tempTemplates[pageId] = PaperTemplate(
           id: 'plain',
           name: 'Plain Paper',
