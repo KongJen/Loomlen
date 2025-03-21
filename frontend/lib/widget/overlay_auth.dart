@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/providers/auth_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OverlayAuth extends StatefulWidget {
@@ -62,6 +64,12 @@ class _OverlayAuthState extends State<OverlayAuth> {
             isAuthenticated = true;
             userEmail = data["user"]["email"];
           });
+
+          final authProvider = Provider.of<AuthProvider>(
+            context,
+            listen: false,
+          );
+          await authProvider.refreshAuthState();
 
           if (kDebugMode) {
             print("Login successful!");

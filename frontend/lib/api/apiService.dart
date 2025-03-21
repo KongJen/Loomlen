@@ -43,11 +43,7 @@ class ApiService {
         'name': name,
       };
 
-      // Log the request payload for debugging
-      print('Sharing file payload: ${jsonEncode(payload)}');
-
       final bodyf = jsonEncode(payload);
-      print('Body being sent: $bodyf');
 
       SharedPreferences prefs = await SharedPreferences.getInstance();
       String? token = prefs.getString("token");
@@ -61,19 +57,13 @@ class ApiService {
 
         body: bodyf,
       );
-      print('Response status code: ${response.statusCode}');
-      print('respond Header: ${response.headers}');
-      print('respond body : ${response.body}');
 
       // Check for error status codes
       if (response.statusCode >= 400) {
-        print('Server error: ${response.statusCode}');
-        print('Response body: ${response.body}');
         throw Exception('Server error: ${response.statusCode}');
       }
 
       if (response.body.isEmpty) {
-        print('Warning: Empty response body');
         return {'message': 'Operation completed but server returned no data'};
       }
 
@@ -81,8 +71,6 @@ class ApiService {
       try {
         return jsonDecode(response.body);
       } catch (e) {
-        print('JSON parsing error: $e');
-        print('Response body: ${response.body}');
         throw Exception('Invalid response format');
       }
     } catch (e) {
@@ -95,7 +83,7 @@ class ApiService {
   Future<List<Map<String, dynamic>>> getSharedFiles() async {
     final headers = await _getHeaders();
     final response = await http.get(
-      Uri.parse('$baseUrl/shared'),
+      Uri.parse('$baseUrl/api/shared'),
       headers: headers,
     );
 

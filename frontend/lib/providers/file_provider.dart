@@ -37,7 +37,7 @@ class FileProvider extends ChangeNotifier {
     try {
       _sharedFiles.clear();
       final sharedFilesData = await _apiService.getSharedFiles();
-      print(sharedFilesData);
+      print("Shared Files Data: $sharedFilesData");
       _sharedFiles.addAll(sharedFilesData);
       notifyListeners();
     } catch (e) {
