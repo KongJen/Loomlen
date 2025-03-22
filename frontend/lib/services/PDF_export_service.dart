@@ -107,11 +107,7 @@ class PdfExportService {
         // Get the template for this page
         final template =
             paperTemplates[paperId] ??
-            template_model.PaperTemplate(
-              id: 'plain',
-              name: 'Plain Paper',
-              templateType: template_model.TemplateType.plain,
-            );
+            template_model.PaperTemplate(id: 'plain', name: 'Plain Paper');
 
         // Create a widget for this specific page
         final pageWidget = SizedBox(

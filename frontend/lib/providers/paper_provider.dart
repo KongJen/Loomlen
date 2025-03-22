@@ -44,7 +44,6 @@ class PaperProvider extends ChangeNotifier {
       'fileId': fileId,
       'id': paperId,
       'templateId': template.id,
-      'templateType': template.templateType.toString(),
       'drawingData': drawingData ?? [],
       'PageNumber': pageNumber,
       'pdfPath': pdfPath,

@@ -7,7 +7,6 @@ class PaperItem extends StatefulWidget {
   final String? pdfPath;
   final String? recognizedText;
   final String templateId;
-  final TemplateType templateType;
   final int pageNumber; // fixed camelCase naming
   final double? width; // fixed typo
   final double? height;
@@ -19,7 +18,6 @@ class PaperItem extends StatefulWidget {
     this.pdfPath,
     this.recognizedText,
     this.templateId = 'plain',
-    this.templateType = TemplateType.plain,
     required this.pageNumber,
     this.width,
     this.height,
@@ -44,10 +42,7 @@ class _PaperItemState extends State<PaperItem> {
       child: Center(
         child: CustomPaint(
           painter: TemplatePainter(
-            template: PaperTemplateFactory.getTemplate(
-              widget.templateId,
-              widget.templateType,
-            ),
+            template: PaperTemplateFactory.getTemplate(widget.templateId),
           ),
           size: Size(widget.width ?? 200, widget.height ?? 280),
         ),

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/items/drawingpoint_item.dart';
 import 'dart:io';
 import 'package:frontend/items/template_item.dart';
-import 'package:frontend/model/drawing_point_preview.dart';
+import 'package:frontend/widget/drawing_point_preview.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:provider/provider.dart';
 
@@ -49,13 +49,8 @@ class PaperPreviewItem extends StatelessWidget {
     }
 
     // Get template
-    final template = PaperTemplateFactory.getTemplate(
-      firstPaper['templateId'],
-      TemplateType.values.firstWhere(
-        (e) => e.toString() == firstPaper['templateType'],
-        orElse: () => TemplateType.plain,
-      ),
-    );
+    final template = PaperTemplateFactory.getTemplate(firstPaper['templateId']);
+    print(firstPaper['templateId']);
 
     // Load drawing points
     final List<DrawingPoint> drawingPoints = paperProvider

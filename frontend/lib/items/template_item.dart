@@ -10,7 +10,6 @@ class PaperTemplate {
   final Color backgroundColor;
   final Color lineColor;
   final double lineWidth;
-  final TemplateType templateType;
   final double spacing;
 
   const PaperTemplate({
@@ -19,7 +18,6 @@ class PaperTemplate {
     this.backgroundColor = Colors.white,
     this.lineColor = const Color(0xFFCCCCCC),
     this.lineWidth = 1.0,
-    this.templateType = TemplateType.plain,
     this.spacing = 30.0,
   });
 
@@ -35,17 +33,17 @@ class PaperTemplate {
           ..style = PaintingStyle.stroke;
 
     // Draw template based on type
-    switch (templateType) {
-      case TemplateType.plain:
+    switch (id) {
+      case 'plain':
         // Plain paper has just the background
         break;
-      case TemplateType.lined:
+      case 'lined':
         _drawLinedPaper(canvas, size, linePaint);
         break;
-      case TemplateType.grid:
+      case 'grid':
         _drawGridPaper(canvas, size, linePaint);
         break;
-      case TemplateType.dotted:
+      case 'dotted':
         _drawDottedPaper(canvas, size, linePaint);
         break;
     }
@@ -85,32 +83,13 @@ class PaperTemplate {
 // Factory for creating templates
 class PaperTemplateFactory {
   static final Map<String, PaperTemplate> _templates = {
-    'plain': const PaperTemplate(
-      id: 'plain',
-      name: 'Plain',
-      templateType: TemplateType.plain,
-    ),
-    'lined': const PaperTemplate(
-      id: 'lined',
-      name: 'Lined',
-      templateType: TemplateType.lined,
-    ),
-    'grid': const PaperTemplate(
-      id: 'grid',
-      name: 'Grid',
-      templateType: TemplateType.grid,
-    ),
-    'dotted': const PaperTemplate(
-      id: 'dotted',
-      name: 'Dotted',
-      templateType: TemplateType.dotted,
-    ),
+    'plain': const PaperTemplate(id: 'plain', name: 'Plain'),
+    'lined': const PaperTemplate(id: 'lined', name: 'Lined'),
+    'grid': const PaperTemplate(id: 'grid', name: 'Grid'),
+    'dotted': const PaperTemplate(id: 'dotted', name: 'Dotted'),
   };
 
-  static PaperTemplate getTemplate(
-    String templateId,
-    TemplateType templateType,
-  ) {
+  static PaperTemplate getTemplate(String templateId) {
     return _templates[templateId] ?? _templates['plain']!;
   }
 
@@ -149,7 +128,6 @@ class TemplateThumbnailPainter extends CustomPainter {
       backgroundColor: template.backgroundColor,
       lineColor: template.lineColor.withOpacity(0.3),
       lineWidth: template.lineWidth,
-      templateType: template.templateType,
       spacing: template.spacing * scaleFactor, // Scale the spacing
     );
 
