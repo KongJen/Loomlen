@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend/navigation_menu.dart';
 import 'package:frontend/providers/folder_provider.dart';
@@ -13,6 +14,7 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (context) => FolderProvider()),
         ChangeNotifierProvider(create: (context) => RoomProvider()),
+        ChangeNotifierProvider(create: (context) => RoomDBProvider()),
         ChangeNotifierProvider(create: (context) => FileProvider()),
         ChangeNotifierProvider(create: (context) => PaperProvider()),
         ChangeNotifierProvider(create: (context) => AuthProvider()),

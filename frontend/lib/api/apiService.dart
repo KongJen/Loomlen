@@ -9,14 +9,13 @@ class ApiService {
   // Get the auth token from shared preferences
   Future<String?> _getToken() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.getString('auth_token');
+    return prefs.getString('token');
   }
 
   // Headers with authorization
   Future<Map<String, String>> _getHeaders() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? token = prefs.getString("token");
-    print("Token is : ${token}");
+    String? token = await _getToken();
+    print("Token is : $token");
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
@@ -45,16 +44,11 @@ class ApiService {
 
       final bodyf = jsonEncode(payload);
 
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      String? token = prefs.getString("token");
+      final headers = await _getHeaders();
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/share'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-
+        headers: headers,
         body: bodyf,
       );
 
@@ -76,6 +70,21 @@ class ApiService {
     } catch (e) {
       print('Error in shareFile: $e');
       rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getRooms() async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/room'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.cast<Map<String, dynamic>>();
+    } else {
+      throw Exception('Failed to get shared rooms: ${response.body}');
     }
   }
 
