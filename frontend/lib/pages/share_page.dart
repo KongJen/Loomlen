@@ -1,45 +1,99 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/api/apiService.dart';
+import 'package:frontend/items/room_db_item.dart';
+import 'package:frontend/items/room_item.dart';
+import 'package:frontend/pages/room_page.dart';
+import 'package:frontend/providers/auth_provider.dart';
+import 'package:frontend/providers/roomdb_provider.dart';
+import 'package:frontend/widget/app_bar.dart';
+import 'package:frontend/widget/grid_layout.dart';
+import 'package:provider/provider.dart';
 
-class SharePage extends StatelessWidget {
+class SharePage extends StatefulWidget {
   const SharePage({super.key});
 
   @override
+  State<SharePage> createState() => _SharePageState();
+}
+
+class _SharePageState extends State<SharePage> {
+  late Future<List<Map<String, dynamic>>> _roomsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRooms();
+  }
+
+  void _loadRooms() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.refreshAuthState();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final roomDBProvider = Provider.of<RoomDBProvider>(context);
+    final isLoggedIn = authProvider.isLoggedIn;
+    final rooms = roomDBProvider.rooms;
+    final screenSize = MediaQuery.of(context).size;
+    final itemSize = screenSize.width < 600 ? 120.0 : 170.0;
+
     return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: Size.fromHeight(100.0),
-        child: AppBar(
-          elevation: 0,
-          flexibleSpace: Container(
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
-            ),
-            child: Padding(
-              padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + 35,
-                left: 60,
-                right: 16,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Share',
-                    style: TextStyle(
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black, // Add text color
-                    ),
-                  ),
-                  // You can add more widgets here if needed
-                ],
-              ),
-            ),
+      appBar: ReusableAppBar(title: 'My Room', showActionButtons: true),
+      body: Padding(
+        padding: EdgeInsets.all(screenSize.width / 10000),
+        child:
+            isLoggedIn
+                ? rooms.isEmpty
+                    ? Center(child: Text('No rooms available'))
+                    : _buildRoomGrid(context, rooms, itemSize)
+                : Center(child: Text('Please log in to view your rooms')),
+      ),
+    );
+  }
+
+  Widget _buildRoomGrid(
+    BuildContext context,
+    List<Map<String, dynamic>> rooms,
+    double itemSize,
+  ) {
+    // Create room widgets list
+    List<Widget> gridItems = [];
+
+    // Add all room items
+    gridItems.addAll(
+      rooms.map(
+        (room) => GestureDetector(
+          onTap: () => _navigateToRoomDetail(context, room),
+          child: RoomDBItem(
+            id: room['id'],
+            name: room['name'],
+            color:
+                (room['color'] is int)
+                    ? Color(room['color'])
+                    : (room['color'] ?? Colors.grey),
+            isFavorite: room['is_favorite'] ?? false,
+            onToggleFavorite: () => null,
+            createdDate: room['createdAt'] ?? 'Unknown',
+            updatedAt: room['updatedAt'] ?? 'Unknown',
           ),
         ),
       ),
-      body: Center(
-        child: Text('Welcome to Share!', style: TextStyle(fontSize: 24)),
+    );
+
+    return ResponsiveGridLayout(children: gridItems);
+  }
+
+  void _navigateToRoomDetail(BuildContext context, Map<String, dynamic> room) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => RoomDetailPage(
+              room: room,
+              onRoomUpdated: () => setState(() {}),
+            ),
       ),
     );
   }

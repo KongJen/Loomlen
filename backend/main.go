@@ -20,14 +20,16 @@ func main() {
 	router.Use(middleware.CorsMiddleware)
 
 	// Define routes
-	router.HandleFunc("/api/notes", handlers.CreateNote).Methods("POST", "OPTIONS")
-	router.HandleFunc("/api/notes", handlers.GetNotes).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/notes/{fileId}", handlers.GetNote).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/notes/{fileId}", handlers.UpdateNote).Methods("PUT", "OPTIONS")
-	router.HandleFunc("/api/notes/{fileId}", handlers.DeleteNote).Methods("DELETE", "OPTIONS")
+	// router.HandleFunc("/api/notes", handlers.CreateNote).Methods("POST", "OPTIONS")
+	// router.HandleFunc("/api/notes", handlers.GetNotes).Methods("GET", "OPTIONS")
+	// router.HandleFunc("/api/notes/{fileId}", handlers.GetNote).Methods("GET", "OPTIONS")
+	// router.HandleFunc("/api/notes/{fileId}", handlers.UpdateNote).Methods("PUT", "OPTIONS")
+	// router.HandleFunc("/api/notes/{fileId}", handlers.DeleteNote).Methods("DELETE", "OPTIONS")
 	router.HandleFunc("/api/user/login", handlers.UserLogin).Methods("POST")
 	router.HandleFunc("/api/user/signup", handlers.UserSignup).Methods("POST")
-	router.HandleFunc("/api/share", handlers.ShareFile).Methods("POST")
+	router.HandleFunc("/api/shared", handlers.ShareFile).Methods("POST")
+	router.HandleFunc("/api/room", handlers.AddRoom).Methods("POST")
+	router.HandleFunc("/api/room", handlers.GetRooms).Methods("GET")
 	router.HandleFunc("/api/shared", handlers.GetSharedFiles).Methods("GET")
 	router.HandleFunc("/api/shared/{id}/clone", handlers.CloneSharedFile).Methods("GET")
 
