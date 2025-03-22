@@ -73,31 +73,17 @@ class DrawingService {
 
   PaperTemplate getTemplateForPage(String pageId) {
     return _paperTemplates[pageId] ??
-        PaperTemplate(
-          id: 'plain',
-          name: 'Plain Paper',
-          templateType: TemplateType.plain,
-        );
+        PaperTemplate(id: 'plain', name: 'Plain Paper');
   }
 
   PaperTemplate getTemplateForLastPage() {
     if (_pageIds.isEmpty) {
-      return PaperTemplate(
-        id: 'plain',
-        name: 'Plain Paper',
-        templateType: TemplateType.plain,
-        spacing: 30.0,
-      );
+      return PaperTemplate(id: 'plain', name: 'Plain Paper', spacing: 30.0);
     }
 
     final lastPageId = _pageIds.last;
     return _paperTemplates[lastPageId] ??
-        PaperTemplate(
-          id: 'plain',
-          name: 'Plain Paper',
-          templateType: TemplateType.plain,
-          spacing: 30.0,
-        );
+        PaperTemplate(id: 'plain', name: 'Plain Paper', spacing: 30.0);
   }
 
   // Load drawing data from PaperProvider
@@ -141,7 +127,6 @@ class DrawingService {
         tempTemplates[pageId] = PaperTemplate(
           id: templateId,
           name: '${templateType.name.capitalize()} Paper',
-          templateType: templateType,
           spacing: paperData['spacing']?.toDouble() ?? 30.0,
         );
       } else {
@@ -149,7 +134,6 @@ class DrawingService {
         tempTemplates[pageId] = PaperTemplate(
           id: 'plain',
           name: 'Plain Paper',
-          templateType: TemplateType.plain,
           spacing: 30.0,
         );
       }

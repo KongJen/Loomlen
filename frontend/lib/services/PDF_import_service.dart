@@ -115,12 +115,7 @@ class PdfService {
       await imageFile.writeAsBytes(pngBytes);
 
       addPaper(
-        PaperTemplate(
-          id: 'plain',
-          name: 'Plain Paper',
-          templateType: TemplateType.plain,
-          spacing: 30.0,
-        ),
+        PaperTemplate(id: 'plain', name: 'Plain Paper', spacing: 30.0),
         i,
         null,
         imagePath,

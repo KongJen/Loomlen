@@ -28,29 +28,10 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
   final TextEditingController nameController = TextEditingController();
   late PaperTemplate selectedTemplate;
   List<PaperTemplate> availableTemplates = [
-    const PaperTemplate(
-      id: 'plain',
-      name: 'Plain Paper',
-      templateType: TemplateType.plain,
-    ),
-    const PaperTemplate(
-      id: 'lined',
-      name: 'Lined Paper',
-      templateType: TemplateType.lined,
-      spacing: 30.0,
-    ),
-    const PaperTemplate(
-      id: 'grid',
-      name: 'Grid Paper',
-      templateType: TemplateType.grid,
-      spacing: 30.0,
-    ),
-    const PaperTemplate(
-      id: 'dotted',
-      name: 'Dotted Paper',
-      templateType: TemplateType.dotted,
-      spacing: 30.0,
-    ),
+    const PaperTemplate(id: 'plain', name: 'Plain Paper'),
+    const PaperTemplate(id: 'lined', name: 'Lined Paper', spacing: 30.0),
+    const PaperTemplate(id: 'grid', name: 'Grid Paper', spacing: 30.0),
+    const PaperTemplate(id: 'dotted', name: 'Dotted Paper', spacing: 30.0),
   ];
 
   void createFile() {
