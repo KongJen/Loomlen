@@ -47,7 +47,7 @@ class ApiService {
       final headers = await _getHeaders();
 
       final response = await http.post(
-        Uri.parse('$baseUrl/api/share'),
+        Uri.parse('$baseUrl/api/shared'),
         headers: headers,
         body: bodyf,
       );
