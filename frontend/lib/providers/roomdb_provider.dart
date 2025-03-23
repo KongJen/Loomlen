@@ -8,24 +8,26 @@ class RoomDBProvider extends ChangeNotifier {
 
   List<Map<String, dynamic>> get rooms => List.unmodifiable(_rooms);
 
-  RoomDBProvider() {
-    loadRoomsDB();
-  }
-
   Future<void> loadRoomsDB() async {
     try {
       _rooms.clear();
       final roomDBData = await _apiService.getRooms();
       _rooms.addAll(roomDBData); // Ensure _rooms is populated
-      print('Rooms loaded: $_rooms');
+      print('Rooms loaded: ${_rooms}');
       notifyListeners();
     } catch (e) {
       print('Error loading rooms: $e');
     }
   }
 
-  getRooms() {
-    loadRoomsDB();
+  void toggleFavorite(String roomId) async {
+    try {
+      await _apiService.toggleFav(roomId);
+      loadRoomsDB();
+      notifyListeners();
+    } catch (e) {
+      print('Error loading rooms: $e');
+    }
   }
 
   Future<void> refreshRooms() async {
