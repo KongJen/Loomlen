@@ -69,10 +69,7 @@ class _SharePageState extends State<SharePage> {
           child: RoomDBItem(
             id: room['id'],
             name: room['name'],
-            color:
-                (room['color'] is int)
-                    ? Color(room['color'])
-                    : (room['color'] ?? Colors.grey),
+            color: parseColor(room['color']),
             isFavorite: room['is_favorite'] ?? false,
             onToggleFavorite: () => null,
             createdDate: room['createdAt'] ?? 'Unknown',
