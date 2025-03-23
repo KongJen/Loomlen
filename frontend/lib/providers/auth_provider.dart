@@ -45,6 +45,7 @@ class AuthProvider with ChangeNotifier {
       await prefs.setString('email', _email!);
 
       notifyListeners();
+      print("loginToken: $_token");
     } else {
       throw Exception('Failed to login: ${response.body}');
     }
@@ -80,6 +81,7 @@ class AuthProvider with ChangeNotifier {
     _email = null;
     _token = null;
     notifyListeners();
+    print("logoutToken: $_token");
   }
 
   // This method helps to refresh the auth state when the OverlayAuth changes it
