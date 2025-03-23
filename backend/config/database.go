@@ -16,6 +16,7 @@ var (
 	fileCollection   *mongo.Collection
 	userCollection   *mongo.Collection
 	roomCollection   *mongo.Collection
+	folderCollection *mongo.Collection
 	sharedCollection *mongo.Collection
 )
 
@@ -49,7 +50,7 @@ func ConnectDB() {
 	db := client.Database("Roomlen")
 	userCollection = db.Collection("Users")
 	roomCollection = db.Collection("Rooms")
-
+	folderCollection = db.Collection("Folders")
 	fileCollection = db.Collection("Files")
 	sharedCollection = db.Collection("SharedFiles")
 }
@@ -64,6 +65,10 @@ func GetUserCollection() *mongo.Collection {
 
 func GetRoomCollection() *mongo.Collection {
 	return roomCollection
+}
+
+func GetFolderCollection() *mongo.Collection {
+	return folderCollection
 }
 
 func GetSharedCollection() *mongo.Collection {

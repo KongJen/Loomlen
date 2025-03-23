@@ -178,3 +178,29 @@ class _RoomDBItemState extends State<RoomDBItem>
     roomProvider.toggleFavorite(id);
   }
 }
+
+Color parseColor(String? colorString) {
+  if (colorString == null || colorString.isEmpty) {
+    return Colors.grey; // Default color if the color string is empty or null
+  }
+
+  // Remove the leading '#' if present
+  if (colorString.startsWith('#')) {
+    colorString = colorString.substring(1);
+  }
+
+  // Parse the color string to an integer
+  int colorValue;
+  try {
+    colorValue = int.parse(colorString, radix: 16);
+  } catch (e) {
+    return Colors.grey; // Default color if parsing fails
+  }
+
+  // If the color string is in the format #RRGGBB, add the alpha value
+  if (colorString.length == 6) {
+    colorValue = 0xFF000000 | colorValue;
+  }
+
+  return Color(colorValue);
+}
