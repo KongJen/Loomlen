@@ -41,6 +41,21 @@ class _SharePageState extends State<SharePage> {
     });
   }
 
+  //load room when login
+  bool _initialLoadComplete = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final authProvider = Provider.of<AuthProvider>(context);
+
+    // Only load rooms if authenticated and not already loaded
+    if (authProvider.isLoggedIn && !_initialLoadComplete) {
+      _initialLoadComplete = true;
+      Provider.of<RoomDBProvider>(context, listen: false).loadRoomsDB();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
