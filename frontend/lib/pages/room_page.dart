@@ -149,7 +149,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
   PreferredSize _buildAppBar(BuildContext context) {
     final roomProvider = Provider.of<RoomProvider>(context, listen: false);
-
+    print(_navigationService.currentColor);
     return PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
       child: AppBar(

@@ -18,10 +18,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// AddShareRoom handles the sharing of a room with other users
-func AddRoom(w http.ResponseWriter, r *http.Request) {
+func AddFolder(w http.ResponseWriter, r *http.Request) {
 	// Verify user is authenticated
-	userID, err := utils.GetUserIDFromToken(r)
+	_, err := utils.GetUserIDFromToken(r)
 	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -38,39 +37,41 @@ func AddRoom(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Raw request body: %s\n", string(body))
 
 	// Unmarshal the request into our struct
-	var roomRequest struct {
-		RoomID string `bson:"room_id" json:"room_id"`
-		Name   string `bson:"name" json:"name"`
-		IsFav  bool   `bson:"is_favorite" json:"is_favorite"`
-		Color  string `bson:"color" json:"color"`
+	var folderRequest struct {
+		FolderID    string `bson:"folder_id" json:"folder_id"`
+		RoomID      string `bson:"room_id" json:"room_id"`
+		SubFolderID string `bson:"sub_folder_id" json:"sub_folder_id"`
+		Name        string `bson:"name" json:"name"`
+		IsFav       bool   `bson:"is_favorite" json:"is_favorite"`
+		Color       string `bson:"color" json:"color"`
 	}
 
-	if err := json.Unmarshal(body, &roomRequest); err != nil {
+	if err := json.Unmarshal(body, &folderRequest); err != nil {
 		log.Printf("Error decoding request: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("Received request: %+v", roomRequest)
+	log.Printf("Received request: %+v", folderRequest)
 
 	// Create shared file document
-	Room := models.Room{
-		ID:         primitive.NewObjectID(),
-		OriginalID: roomRequest.RoomID,
-		OwnerID:    userID,
-		Name:       roomRequest.Name,
-		IsFav:      roomRequest.IsFav,
-		Color:      roomRequest.Color,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+	Room := models.Folder{
+		ID:          primitive.NewObjectID(),
+		OriginalID:  folderRequest.FolderID,
+		RoomID:      folderRequest.RoomID,
+		SubFolderID: folderRequest.SubFolderID,
+		Name:        folderRequest.Name,
+		Color:       folderRequest.Color,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
 	// Insert into database
-	RoomCollection := config.GetRoomCollection()
-	result, err := RoomCollection.InsertOne(context.Background(), Room)
+	FolderCollection := config.GetFolderCollection()
+	result, err := FolderCollection.InsertOne(context.Background(), Room)
 	if err != nil {
 		log.Printf("MongoDB insertion error: %v", err)
-		http.Error(w, fmt.Sprintf("Failed to add Room: %v", err), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to add folder: %v", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -85,41 +86,7 @@ func AddRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetSharedRooms returns all rooms shared with the user
-func GetRooms(w http.ResponseWriter, r *http.Request) {
-	// Verify user is authenticated
-	userID, err := utils.GetUserIDFromToken(r)
-	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	// Query database for files shared with the user
-	roomCollection := config.GetRoomCollection()
-	filter := bson.M{"$or": []bson.M{
-		{"owner_id": userID},
-	}}
-
-	cursor, err := roomCollection.Find(context.Background(), filter)
-	if err != nil {
-		http.Error(w, "Failed to fetch rooms", http.StatusInternalServerError)
-		return
-	}
-	defer cursor.Close(context.Background())
-
-	// Decode results
-	var Rooms []models.Room
-	if err = cursor.All(context.Background(), &Rooms); err != nil {
-		http.Error(w, "Failed to decode shared rooms", http.StatusInternalServerError)
-		return
-	}
-
-	// Return files
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Rooms)
-}
-
-// GetSharedRooms returns all rooms shared with the user
-func GetAllRooms(w http.ResponseWriter, r *http.Request) {
+func GetFolder(w http.ResponseWriter, r *http.Request) {
 	// Verify user is authenticated
 	userID, err := utils.GetUserIDFromToken(r)
 	if err != nil {
