@@ -46,6 +46,7 @@ class AuthProvider with ChangeNotifier {
       await prefs.setString('email', _email!);
 
       notifyListeners();
+      print("loginToken: $_token");
     } else {
       throw Exception('Failed to login: ${response.body}');
     }
