@@ -42,7 +42,7 @@ class _SharePageState extends State<SharePage> {
   }
 
   //load room when login
-  bool _initialLoadComplete = false;
+  bool _initialLoadComplete = true;
 
   @override
   void didChangeDependencies() {
@@ -52,7 +52,7 @@ class _SharePageState extends State<SharePage> {
     // Only load rooms if authenticated and not already loaded
     if (authProvider.isLoggedIn && !_initialLoadComplete) {
       _initialLoadComplete = true;
-      Provider.of<RoomDBProvider>(context, listen: false).loadRoomsDB();
+      _loadRooms();
     }
   }
 
@@ -63,7 +63,6 @@ class _SharePageState extends State<SharePage> {
     final isLoggedIn = authProvider.isLoggedIn;
     final rooms = roomDBProvider.rooms;
     final screenSize = MediaQuery.of(context).size;
-    final itemSize = screenSize.width < 600 ? 120.0 : 170.0;
 
     return Scaffold(
       appBar: ReusableAppBar(title: 'My Room', showActionButtons: true),
@@ -89,7 +88,7 @@ class _SharePageState extends State<SharePage> {
                           ],
                         ),
                       )
-                      : _buildRoomGrid(context, rooms, itemSize)
+                      : _buildRoomGrid(context, rooms, roomDBProvider)
                   : Center(child: Text('Please log in to view your rooms')),
         ),
       ),
@@ -99,7 +98,7 @@ class _SharePageState extends State<SharePage> {
   Widget _buildRoomGrid(
     BuildContext context,
     List<Map<String, dynamic>> rooms,
-    double itemSize,
+    RoomDBProvider roomDBProvider,
   ) {
     // Create room widgets list
     List<Widget> gridItems = [];
@@ -113,8 +112,8 @@ class _SharePageState extends State<SharePage> {
             id: room['id'],
             name: room['name'],
             color: parseColor(room['color']),
-            isFavorite: room['is_favorite'] ?? false,
-            onToggleFavorite: () => null,
+            is_favorite: room['is_favorite'],
+            onToggleFavorite: () => roomDBProvider.toggleFavorite(room['id']),
             createdDate: room['createdAt'] ?? 'Unknown',
             updatedAt: room['updatedAt'] ?? 'Unknown',
           ),

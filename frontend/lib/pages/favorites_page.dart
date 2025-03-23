@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/items/room_db_item.dart';
+import 'package:frontend/providers/auth_provider.dart';
+import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:provider/provider.dart';
 import '../providers/room_provider.dart';
 import '../items/room_item.dart';
@@ -17,6 +20,33 @@ class _FavoritesPageState extends State<FavoritesPage>
     with AutomaticKeepAliveClientMixin, RouteAware {
   RouteObserver<PageRoute>? routeObserver;
 
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRooms();
+  }
+
+  Future<void> _loadRooms() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.refreshAuthState();
+
+    final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
+    await roomDBProvider.loadRoomsDB();
+
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  //load room when login
+  bool _initialLoadComplete = true;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -25,6 +55,14 @@ class _FavoritesPageState extends State<FavoritesPage>
     super.didChangeDependencies();
     routeObserver?.unsubscribe(this);
     routeObserver?.subscribe(this, ModalRoute.of(context) as PageRoute);
+
+    final authProvider = Provider.of<AuthProvider>(context);
+
+    // Only load rooms if authenticated and not already loaded
+    if (authProvider.isLoggedIn && !_initialLoadComplete) {
+      _initialLoadComplete = true;
+      _loadRooms();
+    }
   }
 
   @override
@@ -41,26 +79,85 @@ class _FavoritesPageState extends State<FavoritesPage>
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
-
+    final authProvider = Provider.of<AuthProvider>(context);
+    final roomDBProvider = Provider.of<RoomDBProvider>(context);
     final roomProvider = Provider.of<RoomProvider>(context);
+
+    // Get favorite rooms from both providers
+    final favoriteDBRooms =
+        roomDBProvider.rooms.where((room) => room['is_favorite'] == true).map((
+          room,
+        ) {
+          // Normalize the room data structure
+          return {
+            'id': room['id'],
+            'name': room['name'],
+            'color': room['color'],
+            'createdDate':
+                room['created_at'] ??
+                room['createdAt'] ??
+                DateTime.now().toString(),
+            'isFavorite': true, // It's in the favorites list
+            'isFromDB': true, // Flag to identify source
+          };
+        }).toList();
+
     final favoriteRooms =
-        roomProvider.rooms.where((room) => room['isFavorite']).toList();
+        roomProvider.rooms.where((room) => room['isFavorite'] == true).map((
+          room,
+        ) {
+          return {
+            'id': room['id'],
+            'name': room['name'],
+            'color': room['color'],
+            'createdDate':
+                room['createdDate'] ??
+                room['created_at'] ??
+                DateTime.now().toString(),
+            'isFavorite': true,
+            'isFromDB': false,
+          };
+        }).toList();
+
+    // Combine both lists
+    final allFavoriteRooms = [...favoriteDBRooms, ...favoriteRooms];
+
+    // Remove duplicates (if a room exists in both providers)
+    final Map<String, Map<String, dynamic>> uniqueRooms = {};
+    for (var room in allFavoriteRooms) {
+      uniqueRooms[room['id']] = room;
+    }
+
+    final List<Map<String, dynamic>> combinedFavoriteRooms =
+        uniqueRooms.values.toList();
 
     return Scaffold(
       appBar: UIComponents.createTitleAppBar(
         context: context,
         title: 'Favorites',
       ),
-      body: Padding(
-        padding: EdgeInsets.all(MediaQuery.of(context).size.width / 10000),
-        child: Column(
-          children: [
-            Expanded(
-              child: _buildRoomGrid(context, favoriteRooms, roomProvider),
-            ),
-          ],
-        ),
-      ),
+      body:
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : combinedFavoriteRooms.isEmpty
+              ? const Center(child: Text('No favorite rooms yet'))
+              : Padding(
+                padding: EdgeInsets.all(
+                  MediaQuery.of(context).size.width / 10000,
+                ),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: _buildRoomGrid(
+                        context,
+                        combinedFavoriteRooms,
+                        roomProvider,
+                        roomDBProvider,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
     );
   }
 
@@ -68,11 +165,14 @@ class _FavoritesPageState extends State<FavoritesPage>
     BuildContext context,
     List<Map<String, dynamic>> rooms,
     RoomProvider roomProvider,
+    RoomDBProvider roomDBProvider,
   ) {
     final List<Widget> roomWidgets =
         rooms.map((room) {
           final roomColor =
-              (room['color'] is int)
+              (room['color'] is String)
+                  ? parseColor(room['color'])
+                  : (room['color'] is int)
                   ? Color(room['color'])
                   : room['color'] ?? Colors.grey;
 
@@ -84,7 +184,18 @@ class _FavoritesPageState extends State<FavoritesPage>
               createdDate: room['createdDate'],
               color: roomColor,
               isFavorite: room['isFavorite'],
-              onToggleFavorite: () => roomProvider.toggleFavorite(room['id']),
+              onToggleFavorite: () {
+                // Call the appropriate provider based on the source
+                if (room['isFromDB'] == true) {
+                  roomDBProvider.toggleFavorite(room['id']);
+                } else {
+                  roomProvider.toggleFavorite(room['id']);
+                }
+                // Update the UI immediately
+                setState(() {
+                  room['isFavorite'] = !room['isFavorite'];
+                });
+              },
             ),
           );
         }).toList();
