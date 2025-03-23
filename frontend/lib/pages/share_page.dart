@@ -17,7 +17,7 @@ class SharePage extends StatefulWidget {
 }
 
 class _SharePageState extends State<SharePage> {
-  late Future<List<Map<String, dynamic>>> _roomsFuture;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -25,9 +25,20 @@ class _SharePageState extends State<SharePage> {
     _loadRooms();
   }
 
-  void _loadRooms() async {
+  Future<void> _loadRooms() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.refreshAuthState();
+
+    final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
+    await roomDBProvider.loadRoomsDB();
+
+    setState(() {
+      _isLoading = false;
+    });
   }
 
   @override
@@ -41,14 +52,31 @@ class _SharePageState extends State<SharePage> {
 
     return Scaffold(
       appBar: ReusableAppBar(title: 'My Room', showActionButtons: true),
-      body: Padding(
-        padding: EdgeInsets.all(screenSize.width / 10000),
-        child:
-            isLoggedIn
-                ? rooms.isEmpty
-                    ? Center(child: Text('No rooms available'))
-                    : _buildRoomGrid(context, rooms, itemSize)
-                : Center(child: Text('Please log in to view your rooms')),
+      body: RefreshIndicator(
+        onRefresh: _loadRooms,
+        child: Padding(
+          padding: EdgeInsets.all(screenSize.width / 10000),
+          child:
+              _isLoading
+                  ? Center(child: CircularProgressIndicator())
+                  : isLoggedIn
+                  ? rooms.isEmpty
+                      ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('No rooms available'),
+                            SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: _loadRooms,
+                              child: Text('Refresh'),
+                            ),
+                          ],
+                        ),
+                      )
+                      : _buildRoomGrid(context, rooms, itemSize)
+                  : Center(child: Text('Please log in to view your rooms')),
+        ),
       ),
     );
   }
@@ -85,16 +113,31 @@ class _SharePageState extends State<SharePage> {
     return ResponsiveGridLayout(children: gridItems);
   }
 
-  void _navigateToRoomDetail(BuildContext context, Map<String, dynamic> room) {
-    Navigator.push(
+  void _navigateToRoomDetail(
+    BuildContext context,
+    Map<String, dynamic> room,
+  ) async {
+    // Wait for the navigation to return before refreshing rooms
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder:
             (context) => RoomDetailPage(
               room: room,
-              onRoomUpdated: () => setState(() {}),
+              onRoomUpdated: () {
+                // This callback will be called when room is updated
+                Provider.of<RoomDBProvider>(
+                  context,
+                  listen: false,
+                ).refreshRooms();
+              },
             ),
       ),
     );
+
+    // Refresh rooms when returning from the detail page
+    if (mounted) {
+      _loadRooms();
+    }
   }
 }
