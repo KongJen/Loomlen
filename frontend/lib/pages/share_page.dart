@@ -17,17 +17,31 @@ class SharePage extends StatefulWidget {
 }
 
 class _SharePageState extends State<SharePage> {
-  late Future<List<Map<String, dynamic>>> _roomsFuture;
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   WidgetsBinding.instance.addPostFrameCallback((_) {
+  //     if (mounted) {
+  //       final authProvider = Provider.of<AuthProvider>(context, listen: false);
+  //       if (authProvider.isLoggedIn) {
+  //         Provider.of<RoomDBProvider>(context, listen: false).loadRoomsDB();
+  //       }
+  //     }
+  //   });
+  // }
+
+  bool _initialLoadComplete = false;
 
   @override
-  void initState() {
-    super.initState();
-    _loadRooms();
-  }
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final authProvider = Provider.of<AuthProvider>(context);
 
-  void _loadRooms() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    await authProvider.refreshAuthState();
+    // Only load rooms if authenticated and not already loaded
+    if (authProvider.isLoggedIn && !_initialLoadComplete) {
+      _initialLoadComplete = true;
+      Provider.of<RoomDBProvider>(context, listen: false).loadRoomsDB();
+    }
   }
 
   @override

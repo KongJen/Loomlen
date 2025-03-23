@@ -25,7 +25,7 @@ class RoomDBProvider extends ChangeNotifier {
     }
   }
 
-  getRooms() {
-    _loadRoomsDB();
+  Future<void> loadRoomsDB() async {
+    await _loadRoomsDB();
   }
 }
