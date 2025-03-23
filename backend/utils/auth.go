@@ -2,11 +2,16 @@
 package utils
 
 import (
+	"backend/config"
+	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -73,8 +78,20 @@ func ParseObjectID(id string) (primitive.ObjectID, error) {
 	return primitive.ObjectIDFromHex(id)
 }
 
-// ValidateToken checks if a token is valid
 func ValidateToken(tokenString string) (bool, error) {
+	collection := config.GetBlacklistCollection()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	count, err := collection.CountDocuments(ctx, bson.M{"token": tokenString})
+	if err != nil {
+		return false, err
+	}
+
+	if count > 0 {
+		return false, fmt.Errorf("token is blacklisted")
+	}
+
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return SECRET_KEY, nil
 	})
