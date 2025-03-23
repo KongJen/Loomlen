@@ -9,6 +9,7 @@ class AuthProvider with ChangeNotifier {
   bool _isLoggedIn = false;
   String? _email;
   String? _token;
+  String? _userId;
 
   bool get isLoggedIn => _isLoggedIn;
   String? get email => _email;
@@ -75,11 +76,64 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    _isLoggedIn = false;
-    _email = null;
-    _token = null;
-    notifyListeners();
+    final token = prefs.getString('token');
+
+    if (token != null) {
+      try {
+        final response = await http.post(
+          Uri.parse('$baseUrl/api/user/logout'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+        );
+
+        if (response.statusCode == 200) {
+          // Successfully logged out from server, now clear local data
+          await prefs.remove('token');
+          await prefs.remove('user_id');
+          await prefs.remove('email');
+          await prefs.remove('name');
+          await prefs.remove('last_login');
+
+          _token = null;
+          _userId = null;
+          _email = null;
+          _isLoggedIn = false;
+
+          notifyListeners();
+        } else {
+          // Handle server error
+          print('Logout failed: ${response.body}');
+          throw Exception('Failed to logout');
+        }
+      } catch (e) {
+        // Handle network errors
+        print('Network error during logout: $e');
+
+        // Even if the server request fails, clear local data for security
+        await prefs.remove('token');
+        await prefs.remove('user_id');
+        await prefs.remove('email');
+        await prefs.remove('name');
+        await prefs.remove('last_login');
+
+        _token = null;
+        _userId = null;
+        _email = null;
+        _isLoggedIn = false;
+
+        notifyListeners();
+        throw e;
+      }
+    } else {
+      // No token found, just clear state
+      _token = null;
+      _userId = null;
+      _email = null;
+      _isLoggedIn = false;
+      notifyListeners();
+    }
   }
 
   // This method helps to refresh the auth state when the OverlayAuth changes it
