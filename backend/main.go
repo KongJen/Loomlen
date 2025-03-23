@@ -27,6 +27,7 @@ func main() {
 	// router.HandleFunc("/api/notes/{fileId}", handlers.DeleteNote).Methods("DELETE", "OPTIONS")
 	router.HandleFunc("/api/user/login", handlers.UserLogin).Methods("POST")
 	router.HandleFunc("/api/user/signup", handlers.UserSignup).Methods("POST")
+	router.HandleFunc("/api/user/logout", handlers.UserLogout).Methods("POST")
 	router.HandleFunc("/api/shared", handlers.ShareFile).Methods("POST")
 	router.HandleFunc("/api/room", handlers.AddRoom).Methods("POST")
 	router.HandleFunc("/api/room", handlers.GetRooms).Methods("GET")

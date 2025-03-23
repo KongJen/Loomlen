@@ -15,6 +15,7 @@ import (
 
 	"backend/config"
 	"backend/models"
+	"backend/utils"
 )
 
 var SECRET_KEY = []byte("gosecretkey")
@@ -216,4 +217,73 @@ func UserLogin(response http.ResponseWriter, request *http.Request) {
 	}
 
 	json.NewEncoder(response).Encode(responseData)
+}
+
+func UserLogout(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("Content-Type", "application/json")
+
+	// Extract token from Authorization header
+	authHeader := request.Header.Get("Authorization")
+	if authHeader == "" || len(authHeader) < 8 || authHeader[:7] != "Bearer " {
+		response.WriteHeader(http.StatusBadRequest)
+		response.Write([]byte(`{"message":"Invalid or missing token"}`))
+		return
+	}
+
+	tokenString := authHeader[7:] // Remove "Bearer " prefix
+
+	// Validate the token using your existing function
+	valid, err := utils.ValidateToken(tokenString)
+	if err != nil || !valid {
+		response.WriteHeader(http.StatusUnauthorized)
+		response.Write([]byte(`{"message":"Invalid token"}`))
+		return
+	}
+
+	// Parse token to get claims
+	token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return SECRET_KEY, nil
+	})
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{"message":"Could not parse token claims"}`))
+		return
+	}
+
+	userID, ok := claims["user_id"].(string)
+	if !ok {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{"message":"Invalid user ID in token"}`))
+		return
+	}
+
+	// Create a token blacklist collection if you don't already have one
+	collection := config.GetBlacklistCollection()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Store the token in the blacklist
+	blacklistedToken := struct {
+		Token         string    `bson:"token"`
+		UserID        string    `bson:"user_id"`
+		ExpiresAt     time.Time `bson:"expires_at"`
+		BlacklistedAt time.Time `bson:"blacklisted_at"`
+	}{
+		Token:         tokenString,
+		UserID:        userID,
+		ExpiresAt:     time.Unix(int64(claims["exp"].(float64)), 0),
+		BlacklistedAt: time.Now(),
+	}
+
+	_, err = collection.InsertOne(ctx, blacklistedToken)
+	if err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{"message":"Error blacklisting token"}`))
+		return
+	}
+
+	response.WriteHeader(http.StatusOK)
+	response.Write([]byte(`{"message":"Successfully logged out"}`))
 }
