@@ -17,6 +17,7 @@ import '../widget/overlay_create_folder.dart';
 import '../widget/overlay_create_file.dart';
 import 'paper_page.dart';
 import '../main.dart';
+import '../widget/shareroom_dialog.dart';
 
 class RoomDetailPage extends StatefulWidget {
   final Map<String, dynamic> room;
@@ -203,6 +204,20 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                 });
               },
             ),
+          IconButton(
+            icon: const Icon(Icons.share),
+            tooltip: 'Share this room',
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder:
+                    (context) => ShareDialog(
+                      roomId: _navigationService.currentRoom['id'],
+                      roomName: _navigationService.currentRoom['name'],
+                    ),
+              );
+            },
+          ),
         ],
       ),
     );
