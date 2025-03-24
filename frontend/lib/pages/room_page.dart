@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:frontend/services/PDF_import_service.dart';
 import 'package:frontend/services/folder_navigation_service.dart';
 import 'package:frontend/widget/grid_layout.dart';
@@ -149,7 +150,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
   PreferredSize _buildAppBar(BuildContext context) {
     final roomProvider = Provider.of<RoomProvider>(context, listen: false);
-    print(_navigationService.currentColor);
+    final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
+    print("navigation: ${_navigationService.currentRoom['isFavorite']}");
     return PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
       child: AppBar(
@@ -165,21 +167,42 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
         backgroundColor: _navigationService.currentColor,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          IconButton(
-            icon: Icon(
-              _navigationService.currentRoom['isFavorite']
-                  ? Icons.star
-                  : Icons.star_border,
-              color: Colors.white,
+          if (_navigationService.currentRoom['isFavorite'] == null)
+            IconButton(
+              icon: Icon(
+                _navigationService.currentRoom['is_favorite']
+                    ? Icons.star
+                    : Icons.star_border,
+                color: Colors.white,
+              ),
+              onPressed: () {
+                roomDBProvider.toggleFavorite(
+                  _navigationService.currentRoom['id'],
+                );
+                setState(() {
+                  _navigationService.currentRoom['is_favorite'] =
+                      !_navigationService.currentRoom['is_favorite'];
+                });
+              },
+            )
+          else
+            IconButton(
+              icon: Icon(
+                _navigationService.currentRoom['isFavorite']
+                    ? Icons.star
+                    : Icons.star_border,
+                color: Colors.white,
+              ),
+              onPressed: () {
+                roomProvider.toggleFavorite(
+                  _navigationService.currentRoom['id'],
+                );
+                setState(() {
+                  _navigationService.currentRoom['isFavorite'] =
+                      !_navigationService.currentRoom['isFavorite'];
+                });
+              },
             ),
-            onPressed: () {
-              roomProvider.toggleFavorite(_navigationService.currentRoom['id']);
-              setState(() {
-                _navigationService.currentRoom['isFavorite'] =
-                    !_navigationService.currentRoom['isFavorite'];
-              });
-            },
-          ),
         ],
       ),
     );

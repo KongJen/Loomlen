@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/items/room_db_item.dart';
 
 class FolderNavigationService extends ChangeNotifier {
   final List<Map<String, dynamic>> _navigationStack = [];
@@ -16,11 +17,15 @@ class FolderNavigationService extends ChangeNotifier {
 
   Color get currentColor {
     if (_currentFolder != null && _currentFolder!['color'] != null) {
-      return (_currentFolder!['color'] is int)
+      return (_currentFolder!['color'] is String)
+          ? parseColor(_currentFolder!['color'])
+          : (_currentFolder!['color'] is int)
           ? Color(_currentFolder!['color'])
           : _currentFolder!['color'];
     } else {
-      return (_rootRoom['color'] is int)
+      return (_rootRoom['color'] is String)
+          ? parseColor(_rootRoom['color'])
+          : (_rootRoom['color'] is int)
           ? Color(_rootRoom['color'])
           : _rootRoom['color'];
     }
