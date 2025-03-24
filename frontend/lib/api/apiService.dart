@@ -88,6 +88,21 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> toggleFav(roomId) async {
+    final headers = await _getHeaders();
+    final response = await http.put(
+      Uri.parse('$baseUrl/api/room'),
+      headers: headers,
+      body: jsonEncode({"room_id": roomId}),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to toggle favorite: ${response.body}');
+    }
+  }
+
   // Get files shared with the user
   Future<List<Map<String, dynamic>>> getSharedFiles() async {
     final headers = await _getHeaders();

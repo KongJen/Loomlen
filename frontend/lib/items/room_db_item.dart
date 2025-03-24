@@ -12,7 +12,7 @@ import '../services/item_dialog_service.dart';
 
 class RoomDBItem extends BaseItem {
   final Color color;
-  final bool isFavorite;
+  final bool is_favorite;
   final VoidCallback onToggleFavorite;
   final String updatedAt;
 
@@ -22,7 +22,7 @@ class RoomDBItem extends BaseItem {
     required super.name,
     required super.createdDate,
     required this.color,
-    required this.isFavorite,
+    required this.is_favorite,
     required this.onToggleFavorite,
     required this.updatedAt,
   });
@@ -59,7 +59,7 @@ class _RoomDBItemState extends State<RoomDBItem>
                         Icons.star_rate_rounded,
                         size: starIconSize,
                         color:
-                            widget.isFavorite
+                            widget.is_favorite
                                 ? Colors.red
                                 : const Color.fromARGB(255, 212, 212, 212),
                         shadows: const [
