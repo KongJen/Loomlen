@@ -39,9 +39,11 @@ func AddRoom(w http.ResponseWriter, r *http.Request) {
 
 	// Unmarshal the request into our struct
 	var roomRequest struct {
-		RoomID string `bson:"room_id" json:"room_id"`
-		Name   string `bson:"name" json:"name"`
-		Color  string `bson:"color" json:"color"`
+		RoomID     string   `bson:"room_id" json:"room_id"`
+		Name       string   `bson:"name" json:"name"`
+		SharedWith []string `json:"sharedWith"`
+		Permission string   `json:"permission"`
+		Color      int      `bson:"color" json:"color"`
 	}
 
 	if err := json.Unmarshal(body, &roomRequest); err != nil {
@@ -58,6 +60,8 @@ func AddRoom(w http.ResponseWriter, r *http.Request) {
 		OriginalID: roomRequest.RoomID,
 		OwnerID:    userID,
 		Name:       roomRequest.Name,
+		Permission: roomRequest.Permission,
+		SharedWith: roomRequest.SharedWith,
 		Color:      roomRequest.Color,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
