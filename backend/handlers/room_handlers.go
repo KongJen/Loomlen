@@ -39,11 +39,9 @@ func AddRoom(w http.ResponseWriter, r *http.Request) {
 
 	// Unmarshal the request into our struct
 	var roomRequest struct {
-		RoomID     string   `bson:"room_id" json:"room_id"`
-		Name       string   `bson:"name" json:"name"`
-		SharedWith []string `json:"sharedWith"`
-		Permission string   `json:"permission"`
-		Color      int      `bson:"color" json:"color"`
+		RoomID string `bson:"room_id" json:"room_id"`
+		Name   string `bson:"name" json:"name"`
+		Color  int    `bson:"color" json:"color"`
 	}
 
 	if err := json.Unmarshal(body, &roomRequest); err != nil {
@@ -60,8 +58,6 @@ func AddRoom(w http.ResponseWriter, r *http.Request) {
 		OriginalID: roomRequest.RoomID,
 		OwnerID:    userID,
 		Name:       roomRequest.Name,
-		Permission: roomRequest.Permission,
-		SharedWith: roomRequest.SharedWith,
 		Color:      roomRequest.Color,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
@@ -102,7 +98,6 @@ func AddRoom(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// GetSharedRooms returns all rooms shared with the user
 func GetRooms(w http.ResponseWriter, r *http.Request) {
 	// Verify user is authenticated
 	userID, err := utils.GetUserIDFromToken(r)
@@ -111,89 +106,139 @@ func GetRooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Query database for files shared with the user
+	// Get room collections
 	roomCollection := config.GetRoomCollection()
-	filter := bson.M{"$or": []bson.M{
-		{"owner_id": userID},
-	}}
+	roomMemberCollection := config.GetRoomMemberCollection()
+	favoriteCollection := config.GetFavoriteCollection()
 
-	cursor, err := roomCollection.Find(context.Background(), filter)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	ownedRoomsFilter := bson.M{"owner_id": userID}
+
+	// Find owned rooms
+	ownedRoomsCursor, err := roomCollection.Find(ctx, ownedRoomsFilter)
 	if err != nil {
-		http.Error(w, "Failed to fetch rooms", http.StatusInternalServerError)
+		log.Printf("Error finding owned rooms: %v", err)
+		http.Error(w, "Failed to fetch owned rooms", http.StatusInternalServerError)
 		return
 	}
-	defer cursor.Close(context.Background())
+	defer ownedRoomsCursor.Close(ctx)
 
-	// Decode results
-	var rooms []models.Room
-	if err = cursor.All(context.Background(), &rooms); err != nil {
+	// Decode owned rooms
+	var ownedRooms []models.Room
+	if err = ownedRoomsCursor.All(ctx, &ownedRooms); err != nil {
+		log.Printf("Error decoding owned rooms: %v", err)
+		http.Error(w, "Failed to decode owned rooms", http.StatusInternalServerError)
+		return
+	}
+
+	sharedRoomMembersFilter := bson.M{"shared_with": userID}
+	sharedRoomMembersCursor, err := roomMemberCollection.Find(ctx, sharedRoomMembersFilter)
+	if err != nil {
+		log.Printf("Error finding shared room members: %v", err)
+		http.Error(w, "Failed to fetch shared room members", http.StatusInternalServerError)
+		return
+	}
+	defer sharedRoomMembersCursor.Close(ctx)
+
+	// Decode shared room members
+	var sharedRoomMembers []models.RoomMembers
+	if err = sharedRoomMembersCursor.All(ctx, &sharedRoomMembers); err != nil {
+		log.Printf("Error decoding shared room members: %v", err)
 		http.Error(w, "Failed to decode shared rooms", http.StatusInternalServerError)
 		return
 	}
 
-	// Get favorite status for each room
-	favoriteCollection := config.GetFavoriteCollection()
+	sharedRoomIDs := make([]string, 0)
+	for _, member := range sharedRoomMembers {
+		sharedRoomIDs = append(sharedRoomIDs, member.RoomID)
+	}
+
+	allRooms := ownedRooms
+
+	// Find shared rooms details
+	if len(sharedRoomIDs) > 0 {
+		sharedRoomsFilter := bson.M{"original_id": bson.M{"$in": sharedRoomIDs}}
+
+		sharedRoomsCursor, err := roomCollection.Find(ctx, sharedRoomsFilter)
+		if err != nil {
+			log.Printf("Error finding shared room details: %v", err)
+			http.Error(w, "Failed to fetch shared room details", http.StatusInternalServerError)
+			return
+		}
+		defer sharedRoomsCursor.Close(ctx)
+
+		var sharedRooms []models.Room
+		if err = sharedRoomsCursor.All(ctx, &sharedRooms); err != nil {
+			log.Printf("Error decoding shared room details: %v", err)
+			http.Error(w, "Failed to decode shared room details", http.StatusInternalServerError)
+			return
+		}
+
+		for _, room := range sharedRooms {
+			log.Printf("Found Shared Room - ID: %v, OriginalID: %v", room.ID, room.OriginalID)
+		}
+
+		allRooms = append(allRooms, sharedRooms...)
+	}
+
 	roomsWithFav := make([]map[string]interface{}, 0)
 
-	for _, room := range rooms {
-		// Create a map to store room data with favorite status
+	for _, room := range allRooms {
 		roomData := make(map[string]interface{})
 
-		// Convert room to map
 		roomBytes, _ := json.Marshal(room)
 		json.Unmarshal(roomBytes, &roomData)
 
-		// Query favorite status
 		var favorite models.Favorite
-		favFilter := bson.M{"user_id": userID, "room_id": room.ID.Hex()}
-		err = favoriteCollection.FindOne(context.Background(), favFilter).Decode(&favorite)
+		favFilter := bson.M{"user_id": userID, "room_id": room.OriginalID}
+		err = favoriteCollection.FindOne(ctx, favFilter).Decode(&favorite)
 
 		if err == nil {
-			// Favorite exists
 			roomData["is_favorite"] = favorite.IsFav
 		} else {
-			// No favorite record, default to false
 			roomData["is_favorite"] = false
 		}
 
 		roomsWithFav = append(roomsWithFav, roomData)
 	}
 
-	// Return files
+	// Return rooms
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(roomsWithFav)
 }
 
-// GetSharedRooms returns all rooms shared with the user
-func GetAllRooms(w http.ResponseWriter, r *http.Request) {
-	// Verify user is authenticated
-	userID, err := utils.GetUserIDFromToken(r)
-	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+// // GetSharedRooms returns all rooms shared with the user
+// func GetAllRooms(w http.ResponseWriter, r *http.Request) {
+// 	// Verify user is authenticated
+// 	userID, err := utils.GetUserIDFromToken(r)
+// 	if err != nil {
+// 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+// 		return
+// 	}
 
-	// Query database for files shared with the user
-	roomCollection := config.GetRoomCollection()
-	filter := bson.M{"$or": []bson.M{
-		{"owner_id": userID},
-	}}
+// 	// Query database for files shared with the user
+// 	roomCollection := config.GetRoomCollection()
+// 	filter := bson.M{"$or": []bson.M{
+// 		{"owner_id": userID},
+// 	}}
 
-	cursor, err := roomCollection.Find(context.Background(), filter)
-	if err != nil {
-		http.Error(w, "Failed to fetch rooms", http.StatusInternalServerError)
-		return
-	}
-	defer cursor.Close(context.Background())
+// 	cursor, err := roomCollection.Find(context.Background(), filter)
+// 	if err != nil {
+// 		http.Error(w, "Failed to fetch rooms", http.StatusInternalServerError)
+// 		return
+// 	}
+// 	defer cursor.Close(context.Background())
 
-	// Decode results
-	var Rooms []models.Room
-	if err = cursor.All(context.Background(), &Rooms); err != nil {
-		http.Error(w, "Failed to decode shared rooms", http.StatusInternalServerError)
-		return
-	}
+// 	// Decode results
+// 	var Rooms []models.Room
+// 	if err = cursor.All(context.Background(), &Rooms); err != nil {
+// 		http.Error(w, "Failed to decode shared rooms", http.StatusInternalServerError)
+// 		return
+// 	}
 
-	// Return files
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Rooms)
-}
+// 	// Return files
+// 	w.Header().Set("Content-Type", "application/json")
+// 	json.NewEncoder(w).Encode(Rooms)
+// }

@@ -12,14 +12,15 @@ import (
 )
 
 var (
-	client             *mongo.Client
-	fileCollection     *mongo.Collection
-	userCollection     *mongo.Collection
-	favoriteCollection *mongo.Collection
-	roomCollection     *mongo.Collection
-	folderCollection   *mongo.Collection
-	sharedCollection   *mongo.Collection
-	backlistCollection *mongo.Collection
+	client               *mongo.Client
+	fileCollection       *mongo.Collection
+	userCollection       *mongo.Collection
+	favoriteCollection   *mongo.Collection
+	roomCollection       *mongo.Collection
+	folderCollection     *mongo.Collection
+	sharedCollection     *mongo.Collection
+	backlistCollection   *mongo.Collection
+	roomMemberCollection *mongo.Collection
 )
 
 func ConnectDB() {
@@ -57,6 +58,7 @@ func ConnectDB() {
 	fileCollection = db.Collection("Files")
 	sharedCollection = db.Collection("SharedFiles")
 	backlistCollection = db.Collection("Backlist")
+	roomMemberCollection = db.Collection("Room_Member")
 }
 
 func GetFileCollection() *mongo.Collection {
@@ -85,4 +87,8 @@ func GetSharedCollection() *mongo.Collection {
 
 func GetBlacklistCollection() *mongo.Collection {
 	return backlistCollection
+}
+
+func GetRoomMemberCollection() *mongo.Collection {
+	return roomMemberCollection
 }

@@ -76,17 +76,13 @@ class ApiService {
   // Share a file with other users
   Future<dynamic> shareRoom({
     required String roomId,
-    required List<String> sharedWith,
-    required String permission,
     required String name,
     required int color,
   }) async {
     try {
       // Convert the data to JSON strings
       final Map<String, dynamic> payload = {
-        'roomId': roomId,
-        'sharedWith': sharedWith,
-        'permission': permission,
+        'room_id': roomId,
         'name': name,
         'color': color,
       };
@@ -97,6 +93,51 @@ class ApiService {
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/room'),
+        headers: headers,
+        body: bodyf,
+      );
+
+      // Check for error status codes
+      if (response.statusCode >= 400) {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+
+      if (response.body.isEmpty) {
+        return {'message': 'Operation completed but server returned no data'};
+      }
+
+      // Try to parse the response
+      try {
+        return jsonDecode(response.body);
+      } catch (e) {
+        throw Exception('Invalid response format');
+      }
+    } catch (e) {
+      print('Error in shareFile: $e');
+      rethrow;
+    }
+  }
+
+  // Share a file with other users
+  Future<dynamic> shareMember({
+    required String roomId,
+    required List<String> sharedWith,
+    required String permission,
+  }) async {
+    try {
+      // Convert the data to JSON strings
+      final Map<String, dynamic> payload = {
+        'room_id': roomId,
+        'email': sharedWith,
+        'role_id': permission,
+      };
+
+      final bodyf = jsonEncode(payload);
+
+      final headers = await _getHeaders();
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/roomMember'),
         headers: headers,
         body: bodyf,
       );

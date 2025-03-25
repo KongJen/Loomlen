@@ -13,6 +13,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Secret key - matching the one used in account_handlers.go
@@ -112,4 +113,29 @@ func ExtractUserIDFromRequest(r *http.Request) (string, error) {
 
 	// Otherwise extract from token
 	return GetUserIDFromToken(r)
+}
+
+func GetUserIDFromEmail(ctx context.Context, email string) (string, error) {
+	// Get the users collection from your config package
+	collection := config.GetUserCollection()
+
+	// Create a filter to find the user by email
+	filter := bson.M{"email": email}
+
+	// Create a variable to store the user document
+	var user struct {
+		ID primitive.ObjectID `bson:"_id"`
+	}
+
+	// Find the user and extract the ID
+	err := collection.FindOne(ctx, filter).Decode(&user)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return "", errors.New("no user found with this email")
+		}
+		return "", fmt.Errorf("error retrieving user: %v", err)
+	}
+
+	// Convert ObjectID to string and return
+	return user.ID.Hex(), nil
 }

@@ -111,7 +111,7 @@ class _SharePageState extends State<SharePage> {
           child: RoomDBItem(
             id: room['id'],
             name: room['name'],
-            color: parseColor(room['color']),
+            color: Color(room['color']),
             is_favorite: room['is_favorite'],
             onToggleFavorite: () => roomDBProvider.toggleFavorite(room['id']),
             createdDate: room['createdAt'] ?? 'Unknown',
