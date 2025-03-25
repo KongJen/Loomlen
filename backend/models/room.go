@@ -12,8 +12,6 @@ type Room struct {
 	OwnerID    string             `bson:"owner_id" json:"owner_id"`
 	Name       string             `bson:"name" json:"name"`
 	Color      int                `bson:"color" json:"color"`
-	SharedWith []string           `bson:"sharedWith" json:"sharedWith"`
-	Permission string             `bson:"permission" json:"permission"`
 	//sharelink string
 	//isshare bool
 	CreatedAt time.Time `bson:"createdAt" json:"createdAt"`
