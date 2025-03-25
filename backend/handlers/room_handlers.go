@@ -119,6 +119,7 @@ func GetRooms(w http.ResponseWriter, r *http.Request) {
 
 	cursor, err := roomCollection.Find(context.Background(), filter)
 	if err != nil {
+		log.Println("Database query error:", err)
 		http.Error(w, "Failed to fetch rooms", http.StatusInternalServerError)
 		return
 	}
@@ -126,7 +127,9 @@ func GetRooms(w http.ResponseWriter, r *http.Request) {
 
 	// Decode results
 	var rooms []models.Room
-	if err = cursor.All(context.Background(), &rooms); err != nil {
+	err = cursor.All(context.Background(), &rooms)
+	if err != nil {
+		log.Println("Decoding error:", err)
 		http.Error(w, "Failed to decode shared rooms", http.StatusInternalServerError)
 		return
 	}

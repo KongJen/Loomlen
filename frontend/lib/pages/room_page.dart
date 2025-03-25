@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/api/socketService.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:frontend/services/PDF_import_service.dart';
 import 'package:frontend/services/folder_navigation_service.dart';
@@ -15,7 +16,6 @@ import '../items/file_item.dart';
 import '../widget/overlay_menu.dart';
 import '../widget/overlay_create_folder.dart';
 import '../widget/overlay_create_file.dart';
-import 'package:frontend/api/socketService.dart';
 import 'paper_page.dart';
 import '../main.dart';
 import '../widget/shareroom_dialog.dart';
@@ -33,38 +33,44 @@ class RoomDetailPage extends StatefulWidget {
 
 class _RoomDetailPageState extends State<RoomDetailPage> {
   late FolderNavigationService _navigationService;
-  String receivedMessage = '';
   late SocketService _socketService;
-  bool isDB = false;
+  bool isCollab = false;
+  bool isConnected = false;
 
   @override
   void initState() {
     super.initState();
-    _socketService = SocketService();
-    _socketService.initializeSocket('room123', (success, error) {
+    _checkisCollab();
+    _navigationService = FolderNavigationService(widget.room);
+    if (isCollab == true) {
+      _socketService = SocketService();
+      _connectToSocket();
+    }
+  }
+
+  void _checkisCollab() {
+    if (widget.room['isFavorite'] == null) {
+      isCollab = true;
+    }
+  }
+
+  void _connectToSocket() {
+    _socketService.initializeSocket(widget.room['id'], (success, error) {
       if (success) {
-        print('Successfully joined the room!');
-        // Proceed with further logic (e.g., navigate to the room)
+        setState(() {
+          isConnected = true;
+        });
+        print("Successfully connected to room: ${widget.room['id']}");
       } else {
-        print('Failed to join the room: $error');
-        // Show an error message to the user
+        print("Socket connection error: $error");
       }
     });
-
-    checkRoom();
-    _navigationService = FolderNavigationService(widget.room);
   }
 
   @override
   void dispose() {
-    _socketService.closeSocket(); // Close the socket connection
+    _socketService.closeSocket();
     super.dispose();
-  }
-
-  void checkRoom() {
-    if (widget.room['isFavorite'] == null) {
-      isDB = true;
-    }
   }
 
   void showOverlaySelect(BuildContext context, Offset position) {
@@ -116,14 +122,12 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final paperProvider = Provider.of<PaperProvider>(context, listen: false);
 
     PdfService(
-      showError:
-          (message) => ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(message))),
-      showSuccess:
-          (message) => ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(message))),
+      showError: (message) => ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message))),
+      showSuccess: (message) => ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message))),
       onImportComplete: (fileId, name) {
         _navigateToPaperPage(name, fileId);
       },
@@ -152,12 +156,11 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (context) => PaperPage(
-              name: name,
-              fileId: fileId,
-              onFileUpdated: () => setState(() {}),
-            ),
+        builder: (context) => PaperPage(
+          name: name,
+          fileId: fileId,
+          onFileUpdated: () => setState(() {}),
+        ),
       ),
     ).then((_) {
       MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(true);
@@ -180,6 +183,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   PreferredSize _buildAppBar(BuildContext context) {
     final roomProvider = Provider.of<RoomProvider>(context, listen: false);
     final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
+    print("navigation: ${_navigationService.currentRoom['isFavorite']}");
     return PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
       child: AppBar(
@@ -195,7 +199,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
         backgroundColor: _navigationService.currentColor,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          if (isDB)
+          if (_navigationService.currentRoom['isFavorite'] == null)
             IconButton(
               icon: Icon(
                 _navigationService.currentRoom['is_favorite']
@@ -208,7 +212,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                   _navigationService.currentRoom['id'],
                 );
                 setState(() {
-                  !_navigationService.currentRoom['is_favorite'];
+                  _navigationService.currentRoom['is_favorite'] =
+                      !_navigationService.currentRoom['is_favorite'];
                 });
               },
             )
@@ -225,7 +230,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                   _navigationService.currentRoom['id'],
                 );
                 setState(() {
-                  !_navigationService.currentRoom['isFavorite'];
+                  _navigationService.currentRoom['isFavorite'] =
+                      !_navigationService.currentRoom['isFavorite'];
                 });
               },
             ),
@@ -235,11 +241,10 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
             onPressed: () {
               showDialog(
                 context: context,
-                builder:
-                    (context) => ShareDialog(
-                      roomId: _navigationService.currentRoom['id'],
-                      roomName: _navigationService.currentRoom['name'],
-                    ),
+                builder: (context) => ShareDialog(
+                  roomId: _navigationService.currentRoom['id'],
+                  roomName: _navigationService.currentRoom['name'],
+                ),
               );
             },
           ),
@@ -254,25 +259,24 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
     if (fullPath.length < 5) {
       return Row(
-        children:
-            fullPath.map((folder) {
-              int index = fullPath.indexOf(folder);
-              return Row(
-                children: [
-                  if (index == 0)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 5),
-                      child: Icon(Icons.home_filled, color: Colors.white),
-                    ),
-                  if (index > 0)
-                    const Icon(Icons.chevron_right, color: Colors.white),
-                  Text(
-                    folder['name'],
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ],
-              );
-            }).toList(),
+        children: fullPath.map((folder) {
+          int index = fullPath.indexOf(folder);
+          return Row(
+            children: [
+              if (index == 0)
+                const Padding(
+                  padding: EdgeInsets.only(left: 5),
+                  child: Icon(Icons.home_filled, color: Colors.white),
+                ),
+              if (index > 0)
+                const Icon(Icons.chevron_right, color: Colors.white),
+              Text(
+                folder['name'],
+                style: const TextStyle(color: Colors.white),
+              ),
+            ],
+          );
+        }).toList(),
       );
     } else {
       // Simplified breadcrumb for deep paths
@@ -317,32 +321,29 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final bool isInFolder = _navigationService.isInFolder;
 
     // Fetch folders for current location
-    final folders =
-        isInFolder
-            ? folderProvider.folders
-                .where((folder) => folder['parentFolderId'] == currentParentId)
-                .toList()
-            : folderProvider.folders
-                .where((folder) => folder['roomId'] == currentParentId)
-                .toList();
+    final folders = isInFolder
+        ? folderProvider.folders
+            .where((folder) => folder['parentFolderId'] == currentParentId)
+            .toList()
+        : folderProvider.folders
+            .where((folder) => folder['roomId'] == currentParentId)
+            .toList();
 
     // Fetch files for current location
-    final files =
-        isInFolder
-            ? fileProvider.files
-                .where((file) => file['parentFolderId'] == currentParentId)
-                .toList()
-            : fileProvider.files
-                .where((file) => file['roomId'] == currentParentId)
-                .toList();
+    final files = isInFolder
+        ? fileProvider.files
+            .where((file) => file['parentFolderId'] == currentParentId)
+            .toList()
+        : fileProvider.files
+            .where((file) => file['roomId'] == currentParentId)
+            .toList();
 
     // Create list of items for the grid
     List<Widget> gridItems = [
       // Add the "New" button
       GestureDetector(
-        onTapDown:
-            (TapDownDetails details) =>
-                showOverlaySelect(context, details.globalPosition),
+        onTapDown: (TapDownDetails details) =>
+            showOverlaySelect(context, details.globalPosition),
         child: UIComponents.createAddButton(
           onPressed: () {}, // Handled by onTapDown instead
           itemSize: itemSize,
@@ -357,10 +358,9 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
             id: folder['id'],
             name: folder['name'],
             createdDate: folder['createdDate'],
-            color:
-                (folder['color'] is int)
-                    ? Color(folder['color'])
-                    : folder['color'],
+            color: (folder['color'] is int)
+                ? Color(folder['color'])
+                : folder['color'],
           ),
         ),
       ),
