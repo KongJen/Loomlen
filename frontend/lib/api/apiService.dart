@@ -118,6 +118,51 @@ class ApiService {
     }
   }
 
+  Future<dynamic> AddFolder({
+    required String id,
+    required String roomId,
+    required String subFolderId,
+    required String name,
+    required int color,
+  }) async {
+    try {
+      // Convert the data to JSON strings
+      final Map<String, dynamic> payload = {
+        'folder_id': id,
+        'room_id': roomId,
+        'sub_folder_id': subFolderId,
+        'name': name,
+        'color': color,
+      };
+
+      final bodyf = jsonEncode(payload);
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/folder'),
+        body: bodyf,
+      );
+
+      // Check for error status codes
+      if (response.statusCode >= 400) {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+
+      if (response.body.isEmpty) {
+        return {'message': 'Operation completed but server returned no data'};
+      }
+
+      // Try to parse the response
+      try {
+        return jsonDecode(response.body);
+      } catch (e) {
+        throw Exception('Invalid response format');
+      }
+    } catch (e) {
+      print('Error in addFolder: $e');
+      rethrow;
+    }
+  }
+
   // Share a file with other users
   Future<dynamic> shareMember({
     required String roomId,
@@ -190,6 +235,20 @@ class ApiService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to toggle favorite: ${response.body}');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getFolders(String roomId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/folder')
+          .replace(queryParameters: {"room_id": roomId}),
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
+      return data.map((item) => item as Map<String, dynamic>).toList();
+    } else {
+      throw Exception('Failed to get folders: ${response.body}');
     }
   }
 

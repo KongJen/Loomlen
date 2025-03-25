@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/providers/folderdb_provider.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend/navigation_menu.dart';
@@ -15,6 +16,7 @@ void main() {
         ChangeNotifierProvider(create: (context) => FolderProvider()),
         ChangeNotifierProvider(create: (context) => RoomProvider()),
         ChangeNotifierProvider(create: (context) => RoomDBProvider()),
+        ChangeNotifierProvider(create: (context) => FolderDBProvider()),
         ChangeNotifierProvider(create: (context) => FileProvider()),
         ChangeNotifierProvider(create: (context) => PaperProvider()),
         ChangeNotifierProvider(create: (context) => AuthProvider()),
@@ -40,11 +42,10 @@ class MyApp extends StatelessWidget {
       ),
       home: FutureBuilder(
         // Just perform the initial load of auth state
-        future:
-            Provider.of<AuthProvider>(
-              context,
-              listen: false,
-            ).refreshAuthState(),
+        future: Provider.of<AuthProvider>(
+          context,
+          listen: false,
+        ).refreshAuthState(),
         builder: (ctx, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(

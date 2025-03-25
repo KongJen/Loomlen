@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/api/socketService.dart';
+import 'package:frontend/providers/folderdb_provider.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:frontend/services/PDF_import_service.dart';
 import 'package:frontend/services/folder_navigation_service.dart';
@@ -42,6 +43,14 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     super.initState();
     _checkisCollab();
     _navigationService = FolderNavigationService(widget.room);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final folderDBProvider =
+          Provider.of<FolderDBProvider>(context, listen: false);
+
+      // Load folders for the specific room
+      folderDBProvider.loadFoldersDB(widget.room['id']);
+    });
     if (isCollab == true) {
       _socketService = SocketService();
       _connectToSocket();
@@ -55,7 +64,9 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   }
 
   void _connectToSocket() {
-    _socketService.initializeSocket(widget.room['id'], (success, error) {
+    _socketService
+        .initializeSocket(widget.room['id'], context, // Pass the context
+            (success, error) {
       if (success) {
         setState(() {
           isConnected = true;
@@ -99,8 +110,10 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     OverlayService.showOverlay(
       context,
       OverlayCreateFolder(
+        roomId: widget.room['id'],
         parentId: _navigationService.currentParentId,
         isInFolder: _navigationService.isInFolder,
+        isCollab: isCollab,
         onClose: OverlayService.hideOverlay,
       ),
     );
@@ -110,8 +123,10 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     OverlayService.showOverlay(
       context,
       OverlayCreateFile(
+        roomId: widget.room['id'],
         parentId: _navigationService.currentParentId,
         isInFolder: _navigationService.isInFolder,
+        isCollab: isCollab,
         onClose: OverlayService.hideOverlay,
       ),
     );
@@ -183,7 +198,6 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   PreferredSize _buildAppBar(BuildContext context) {
     final roomProvider = Provider.of<RoomProvider>(context, listen: false);
     final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
-    print("navigation: ${_navigationService.currentRoom['isFavorite']}");
     return PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
       child: AppBar(
@@ -230,8 +244,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                   _navigationService.currentRoom['id'],
                 );
                 setState(() {
-                  _navigationService.currentRoom['isFavorite'] =
-                      !_navigationService.currentRoom['isFavorite'];
+                  !_navigationService.currentRoom['isFavorite'];
                 });
               },
             ),
@@ -316,18 +329,32 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
   Widget _buildContentGrid(BuildContext context, double itemSize) {
     final folderProvider = Provider.of<FolderProvider>(context);
+    final folderDBProvider = Provider.of<FolderDBProvider>(context);
     final fileProvider = Provider.of<FileProvider>(context);
     final String currentParentId = _navigationService.currentParentId;
     final bool isInFolder = _navigationService.isInFolder;
+    final folderDBs = folderDBProvider.folders;
 
-    // Fetch folders for current location
-    final folders = isInFolder
-        ? folderProvider.folders
-            .where((folder) => folder['parentFolderId'] == currentParentId)
-            .toList()
-        : folderProvider.folders
-            .where((folder) => folder['roomId'] == currentParentId)
-            .toList();
+    final List<Map<String, dynamic>> folders;
+    if (isCollab == true) {
+      folders = isInFolder
+          ? folderDBs
+              .where((folder) => folder['sub_folder_id'] == currentParentId)
+              .toList()
+          : folderDBs
+              .where((folder) => (folder['room_id'] == currentParentId &&
+                  folder['sub_folder_id'] == 'Unknow'))
+              .toList();
+    } else {
+      // Fetch folders for current location
+      folders = isInFolder
+          ? folderProvider.folders
+              .where((folder) => folder['parentFolderId'] == currentParentId)
+              .toList()
+          : folderProvider.folders
+              .where((folder) => folder['roomId'] == currentParentId)
+              .toList();
+    }
 
     // Fetch files for current location
     final files = isInFolder
@@ -357,7 +384,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           child: FolderItem(
             id: folder['id'],
             name: folder['name'],
-            createdDate: folder['createdDate'],
+            createdDate: folder['createdDate'] ?? folder['createdAt'],
             color: (folder['color'] is int)
                 ? Color(folder['color'])
                 : folder['color'],

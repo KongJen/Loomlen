@@ -8,16 +8,19 @@ import 'package:provider/provider.dart';
 import '../main.dart';
 
 class OverlayCreateFile extends StatefulWidget {
+  final String roomId;
   final String parentId;
   final bool isInFolder;
+  final bool isCollab;
   final VoidCallback onClose;
 
-  const OverlayCreateFile({
-    super.key,
-    required this.onClose,
-    required this.parentId,
-    required this.isInFolder,
-  });
+  const OverlayCreateFile(
+      {super.key,
+      required this.roomId,
+      required this.onClose,
+      required this.parentId,
+      required this.isInFolder,
+      required this.isCollab});
 
   @override
   // ignore: library_private_types_in_public_api
@@ -41,6 +44,8 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
       final paperProvider = Provider.of<PaperProvider>(context, listen: false);
 
       final String fileId;
+
+      if (widget.isCollab == true) {}
 
       if (widget.isInFolder == true) {
         fileId = fileProvider.addFile(
@@ -77,12 +82,11 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder:
-              (context) => PaperPage(
-                name: nameController.text.trim(),
-                fileId: fileId,
-                onFileUpdated: () => setState(() {}),
-              ),
+          builder: (context) => PaperPage(
+            name: nameController.text.trim(),
+            fileId: fileId,
+            onFileUpdated: () => setState(() {}),
+          ),
         ),
       ).then((_) {
         MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(true);
@@ -215,10 +219,9 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
                                   width: 80,
                                   decoration: BoxDecoration(
                                     border: Border.all(
-                                      color:
-                                          isSelected
-                                              ? Colors.blue
-                                              : Colors.grey.shade300,
+                                      color: isSelected
+                                          ? Colors.blue
+                                          : Colors.grey.shade300,
                                       width: isSelected ? 2.0 : 1.0,
                                     ),
                                     borderRadius: BorderRadius.circular(8),
@@ -230,8 +233,8 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
                                         child: ClipRRect(
                                           borderRadius:
                                               const BorderRadius.vertical(
-                                                top: Radius.circular(8),
-                                              ),
+                                            top: Radius.circular(8),
+                                          ),
                                           child: CustomPaint(
                                             painter: TemplateThumbnailPainter(
                                               template: template,
@@ -249,10 +252,9 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
                                           textAlign: TextAlign.center,
                                           style: TextStyle(
                                             fontSize: 12,
-                                            fontWeight:
-                                                isSelected
-                                                    ? FontWeight.bold
-                                                    : FontWeight.normal,
+                                            fontWeight: isSelected
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
                                           ),
                                         ),
                                       ),
