@@ -4,13 +4,14 @@ import 'package:provider/provider.dart';
 import '../providers/file_provider.dart';
 import '../providers/paper_provider.dart';
 import '../providers/auth_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ShareDialog extends StatefulWidget {
   final String roomId;
   final String roomName;
 
   const ShareDialog({Key? key, required this.roomId, required this.roomName})
-    : super(key: key);
+      : super(key: key);
 
   @override
   _ShareDialogState createState() => _ShareDialogState();
@@ -129,6 +130,9 @@ class _ShareDialogState extends State<ShareDialog> {
                   if (!value.contains('@')) {
                     return 'Please enter a valid email';
                   }
+                  if (value == authProvider.email) {
+                    return "You cannot share a room with yourself!";
+                  }
                   return null;
                 },
                 keyboardType: TextInputType.emailAddress,
@@ -181,14 +185,13 @@ class _ShareDialogState extends State<ShareDialog> {
         ),
         ElevatedButton(
           onPressed: _isSharing ? null : _shareRoom,
-          child:
-              _isSharing
-                  ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                  : const Text('Share'),
+          child: _isSharing
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Share'),
         ),
       ],
     );
