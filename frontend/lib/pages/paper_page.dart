@@ -12,7 +12,7 @@ import 'package:frontend/model/tools.dart';
 import 'package:frontend/services/drawing_service.dart';
 import 'package:frontend/services/pdf_export_service.dart';
 import 'package:frontend/services/paper_service.dart';
-import 'package:frontend/widget/share_dialog.dart';
+import 'package:frontend/widget/sharefile_dialog.dart';
 
 enum DrawingMode { pencil, eraser }
 
