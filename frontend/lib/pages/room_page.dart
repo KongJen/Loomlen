@@ -15,6 +15,7 @@ import '../items/file_item.dart';
 import '../widget/overlay_menu.dart';
 import '../widget/overlay_create_folder.dart';
 import '../widget/overlay_create_file.dart';
+import 'package:frontend/api/socketService.dart';
 import 'paper_page.dart';
 import '../main.dart';
 
@@ -31,11 +32,38 @@ class RoomDetailPage extends StatefulWidget {
 
 class _RoomDetailPageState extends State<RoomDetailPage> {
   late FolderNavigationService _navigationService;
+  String receivedMessage = '';
+  late SocketService _socketService;
+  bool isDB = false;
 
   @override
   void initState() {
     super.initState();
+    _socketService = SocketService();
+    _socketService.initializeSocket('room123', (success, error) {
+      if (success) {
+        print('Successfully joined the room!');
+        // Proceed with further logic (e.g., navigate to the room)
+      } else {
+        print('Failed to join the room: $error');
+        // Show an error message to the user
+      }
+    });
+
+    checkRoom();
     _navigationService = FolderNavigationService(widget.room);
+  }
+
+  @override
+  void dispose() {
+    _socketService.closeSocket(); // Close the socket connection
+    super.dispose();
+  }
+
+  void checkRoom() {
+    if (widget.room['isFavorite'] == null) {
+      isDB = true;
+    }
   }
 
   void showOverlaySelect(BuildContext context, Offset position) {
@@ -151,7 +179,6 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   PreferredSize _buildAppBar(BuildContext context) {
     final roomProvider = Provider.of<RoomProvider>(context, listen: false);
     final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
-    print("navigation: ${_navigationService.currentRoom['isFavorite']}");
     return PreferredSize(
       preferredSize: const Size.fromHeight(kToolbarHeight),
       child: AppBar(
@@ -167,7 +194,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
         backgroundColor: _navigationService.currentColor,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          if (_navigationService.currentRoom['isFavorite'] == null)
+          if (isDB)
             IconButton(
               icon: Icon(
                 _navigationService.currentRoom['is_favorite']
@@ -180,8 +207,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                   _navigationService.currentRoom['id'],
                 );
                 setState(() {
-                  _navigationService.currentRoom['is_favorite'] =
-                      !_navigationService.currentRoom['is_favorite'];
+                  !_navigationService.currentRoom['is_favorite'];
                 });
               },
             )
@@ -198,8 +224,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                   _navigationService.currentRoom['id'],
                 );
                 setState(() {
-                  _navigationService.currentRoom['isFavorite'] =
-                      !_navigationService.currentRoom['isFavorite'];
+                  !_navigationService.currentRoom['isFavorite'];
                 });
               },
             ),
