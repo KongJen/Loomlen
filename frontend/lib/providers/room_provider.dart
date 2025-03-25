@@ -116,10 +116,14 @@ class RoomProvider extends ChangeNotifier {
       // Share the file
       await _apiService.shareRoom(
         roomId: roomId,
-        sharedWith: sharedWith,
-        permission: permission,
         name: room['name'],
         color: room['color'],
+      );
+
+      await _apiService.shareMember(
+        roomId: roomId,
+        sharedWith: sharedWith,
+        permission: permission,
       );
 
       // Update the local file to indicate it's shared

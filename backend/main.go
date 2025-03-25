@@ -34,6 +34,7 @@ func main() {
 	router.HandleFunc("/api/room", handlers.ToggleFavoriteRoom).Methods("PUT")
 	router.HandleFunc("/api/shared", handlers.GetSharedFiles).Methods("GET")
 	router.HandleFunc("/api/shared/{id}/clone", handlers.CloneSharedFile).Methods("GET")
+	router.HandleFunc("/api/roomMember", handlers.RoomMember).Methods("POST")
 
 	log.Printf("Server starting on port 8080...")
 	log.Fatal(http.ListenAndServe(":8080", router))
