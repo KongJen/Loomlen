@@ -20,28 +20,12 @@ class _FavoritesPageState extends State<FavoritesPage>
     with AutomaticKeepAliveClientMixin, RouteAware {
   RouteObserver<PageRoute>? routeObserver;
 
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadRooms();
-  }
-
   Future<void> _loadRooms() async {
-    setState(() {
-      _isLoading = true;
-    });
-
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.refreshAuthState();
 
     final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
     await roomDBProvider.loadRoomsDB();
-
-    setState(() {
-      _isLoading = false;
-    });
   }
 
   //load room when login
@@ -79,7 +63,6 @@ class _FavoritesPageState extends State<FavoritesPage>
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
-    final authProvider = Provider.of<AuthProvider>(context);
     final roomDBProvider = Provider.of<RoomDBProvider>(context);
     final roomProvider = Provider.of<RoomProvider>(context);
 
@@ -137,9 +120,7 @@ class _FavoritesPageState extends State<FavoritesPage>
         title: 'Favorites',
       ),
       body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : combinedFavoriteRooms.isEmpty
+          combinedFavoriteRooms.isEmpty
               ? const Center(child: Text('No favorite rooms yet'))
               : Padding(
                 padding: EdgeInsets.all(

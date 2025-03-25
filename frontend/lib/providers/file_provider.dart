@@ -79,10 +79,9 @@ class FileProvider extends ChangeNotifier {
   Future<void> deleteFile(String fileId, PaperProvider paperProvider) async {
     await paperProvider.loadPapers();
 
-    List<Map<String, dynamic>> papersToDelete =
-        paperProvider.papers
-            .where((paper) => paper['fileId'] == fileId)
-            .toList();
+    List<Map<String, dynamic>> papersToDelete = paperProvider.papers
+        .where((paper) => paper['fileId'] == fileId)
+        .toList();
 
     for (var paper in papersToDelete) {
       await paperProvider.deletePaper(paper['id']);

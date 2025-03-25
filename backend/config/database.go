@@ -18,6 +18,7 @@ var (
 	favoriteCollection *mongo.Collection
 	roomCollection     *mongo.Collection
 	folderCollection   *mongo.Collection
+	paperCollection    *mongo.Collection
 	sharedCollection   *mongo.Collection
 	backlistCollection *mongo.Collection
 )
@@ -55,6 +56,7 @@ func ConnectDB() {
 	favoriteCollection = db.Collection("Favorites")
 	folderCollection = db.Collection("Folders")
 	fileCollection = db.Collection("Files")
+	paperCollection = db.Collection("Papers")
 	sharedCollection = db.Collection("SharedFiles")
 	backlistCollection = db.Collection("Backlist")
 }
@@ -77,6 +79,10 @@ func GetRoomCollection() *mongo.Collection {
 
 func GetFolderCollection() *mongo.Collection {
 	return folderCollection
+}
+
+func GetPaperCollection() *mongo.Collection {
+	return paperCollection
 }
 
 func GetSharedCollection() *mongo.Collection {
