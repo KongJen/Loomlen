@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/api/socketService.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:frontend/services/PDF_import_service.dart';
 import 'package:frontend/services/folder_navigation_service.dart';
@@ -32,11 +33,44 @@ class RoomDetailPage extends StatefulWidget {
 
 class _RoomDetailPageState extends State<RoomDetailPage> {
   late FolderNavigationService _navigationService;
+  late SocketService _socketService;
+  bool isCollab = false;
+  bool isConnected = false;
 
   @override
   void initState() {
     super.initState();
+    _checkisCollab();
     _navigationService = FolderNavigationService(widget.room);
+    if (isCollab == true) {
+      _socketService = SocketService();
+      _connectToSocket();
+    }
+  }
+
+  void _checkisCollab() {
+    if (widget.room['isFavorite'] == null) {
+      isCollab = true;
+    }
+  }
+
+  void _connectToSocket() {
+    _socketService.initializeSocket(widget.room['id'], (success, error) {
+      if (success) {
+        setState(() {
+          isConnected = true;
+        });
+        print("Successfully connected to room: ${widget.room['id']}");
+      } else {
+        print("Socket connection error: $error");
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _socketService.closeSocket();
+    super.dispose();
   }
 
   void showOverlaySelect(BuildContext context, Offset position) {
@@ -88,14 +122,12 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final paperProvider = Provider.of<PaperProvider>(context, listen: false);
 
     PdfService(
-      showError:
-          (message) => ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(message))),
-      showSuccess:
-          (message) => ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(message))),
+      showError: (message) => ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message))),
+      showSuccess: (message) => ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message))),
       onImportComplete: (fileId, name) {
         _navigateToPaperPage(name, fileId);
       },
@@ -124,12 +156,11 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (context) => PaperPage(
-              name: name,
-              fileId: fileId,
-              onFileUpdated: () => setState(() {}),
-            ),
+        builder: (context) => PaperPage(
+          name: name,
+          fileId: fileId,
+          onFileUpdated: () => setState(() {}),
+        ),
       ),
     ).then((_) {
       MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(true);
@@ -210,11 +241,10 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
             onPressed: () {
               showDialog(
                 context: context,
-                builder:
-                    (context) => ShareDialog(
-                      roomId: _navigationService.currentRoom['id'],
-                      roomName: _navigationService.currentRoom['name'],
-                    ),
+                builder: (context) => ShareDialog(
+                  roomId: _navigationService.currentRoom['id'],
+                  roomName: _navigationService.currentRoom['name'],
+                ),
               );
             },
           ),
@@ -229,25 +259,24 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
     if (fullPath.length < 5) {
       return Row(
-        children:
-            fullPath.map((folder) {
-              int index = fullPath.indexOf(folder);
-              return Row(
-                children: [
-                  if (index == 0)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 5),
-                      child: Icon(Icons.home_filled, color: Colors.white),
-                    ),
-                  if (index > 0)
-                    const Icon(Icons.chevron_right, color: Colors.white),
-                  Text(
-                    folder['name'],
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ],
-              );
-            }).toList(),
+        children: fullPath.map((folder) {
+          int index = fullPath.indexOf(folder);
+          return Row(
+            children: [
+              if (index == 0)
+                const Padding(
+                  padding: EdgeInsets.only(left: 5),
+                  child: Icon(Icons.home_filled, color: Colors.white),
+                ),
+              if (index > 0)
+                const Icon(Icons.chevron_right, color: Colors.white),
+              Text(
+                folder['name'],
+                style: const TextStyle(color: Colors.white),
+              ),
+            ],
+          );
+        }).toList(),
       );
     } else {
       // Simplified breadcrumb for deep paths
@@ -292,32 +321,29 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final bool isInFolder = _navigationService.isInFolder;
 
     // Fetch folders for current location
-    final folders =
-        isInFolder
-            ? folderProvider.folders
-                .where((folder) => folder['parentFolderId'] == currentParentId)
-                .toList()
-            : folderProvider.folders
-                .where((folder) => folder['roomId'] == currentParentId)
-                .toList();
+    final folders = isInFolder
+        ? folderProvider.folders
+            .where((folder) => folder['parentFolderId'] == currentParentId)
+            .toList()
+        : folderProvider.folders
+            .where((folder) => folder['roomId'] == currentParentId)
+            .toList();
 
     // Fetch files for current location
-    final files =
-        isInFolder
-            ? fileProvider.files
-                .where((file) => file['parentFolderId'] == currentParentId)
-                .toList()
-            : fileProvider.files
-                .where((file) => file['roomId'] == currentParentId)
-                .toList();
+    final files = isInFolder
+        ? fileProvider.files
+            .where((file) => file['parentFolderId'] == currentParentId)
+            .toList()
+        : fileProvider.files
+            .where((file) => file['roomId'] == currentParentId)
+            .toList();
 
     // Create list of items for the grid
     List<Widget> gridItems = [
       // Add the "New" button
       GestureDetector(
-        onTapDown:
-            (TapDownDetails details) =>
-                showOverlaySelect(context, details.globalPosition),
+        onTapDown: (TapDownDetails details) =>
+            showOverlaySelect(context, details.globalPosition),
         child: UIComponents.createAddButton(
           onPressed: () {}, // Handled by onTapDown instead
           itemSize: itemSize,
@@ -332,10 +358,9 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
             id: folder['id'],
             name: folder['name'],
             createdDate: folder['createdDate'],
-            color:
-                (folder['color'] is int)
-                    ? Color(folder['color'])
-                    : folder['color'],
+            color: (folder['color'] is int)
+                ? Color(folder['color'])
+                : folder['color'],
           ),
         ),
       ),

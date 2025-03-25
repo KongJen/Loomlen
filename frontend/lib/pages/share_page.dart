@@ -71,9 +71,9 @@ class _SharePageState extends State<SharePage> {
         child: Padding(
           padding: EdgeInsets.all(screenSize.width / 10000),
           child:
-              _isLoading
-                  ? Center(child: CircularProgressIndicator())
-                  : isLoggedIn
+              // _isLoading
+              //     ? Center(child: CircularProgressIndicator())
+              isLoggedIn
                   ? rooms.isEmpty
                       ? Center(
                         child: Column(
