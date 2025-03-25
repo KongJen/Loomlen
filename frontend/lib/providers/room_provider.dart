@@ -4,11 +4,13 @@ import 'package:frontend/providers/folder_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../services/storage_service.dart';
+import '../api/apiService.dart';
 
 class RoomProvider extends ChangeNotifier {
   final StorageService _storageService = StorageService();
   final List<Map<String, dynamic>> _rooms = [];
   final Uuid _uuid = Uuid();
+  final ApiService _apiService = ApiService();
 
   List<Map<String, dynamic>> get rooms => List.unmodifiable(_rooms);
 
@@ -97,5 +99,44 @@ class RoomProvider extends ChangeNotifier {
       _saveRooms();
       notifyListeners();
     }
+  }
+
+  Future<void> shareRoom(
+    String roomId,
+    List<String> sharedWith,
+    String permission,
+  ) async {
+    try {
+      final room = _rooms.firstWhere(
+        (f) => f['id'] == roomId,
+        orElse: () => {},
+      );
+      if (room.isEmpty) return;
+
+      // Share the file
+      await _apiService.shareRoom(
+        roomId: roomId,
+        sharedWith: sharedWith,
+        permission: permission,
+        name: room['name'],
+        color: room['color'],
+      );
+
+      // Update the local file to indicate it's shared
+      room['isShared'] = true;
+      await _saveRooms();
+
+      // Refresh shared files
+      await refreshSharedRooms();
+
+      notifyListeners();
+    } catch (e) {
+      print('Error sharing room: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> refreshSharedRooms() async {
+    await _loadRooms();
   }
 }
