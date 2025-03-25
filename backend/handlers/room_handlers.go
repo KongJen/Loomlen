@@ -136,6 +136,8 @@ func GetRooms(w http.ResponseWriter, r *http.Request) {
 	sharedRoomMembersFilter := bson.M{"shared_with": userID}
 	sharedRoomMembersCursor, err := roomMemberCollection.Find(ctx, sharedRoomMembersFilter)
 	if err != nil {
+		log.Println("Database query error:", err)
+		http.Error(w, "Failed to fetch rooms", http.StatusInternalServerError)
 		log.Printf("Error finding shared room members: %v", err)
 		http.Error(w, "Failed to fetch shared room members", http.StatusInternalServerError)
 		return

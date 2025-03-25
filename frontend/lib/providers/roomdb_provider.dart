@@ -13,7 +13,6 @@ class RoomDBProvider extends ChangeNotifier {
       _rooms.clear();
       final roomDBData = await _apiService.getRooms();
       _rooms.addAll(roomDBData); // Ensure _rooms is populated
-      print('Rooms loaded: ${_rooms}');
       notifyListeners();
     } catch (e) {
       print('Error loading rooms: $e');
