@@ -12,7 +12,7 @@ type Folder struct {
 	RoomID      string             `bson:"room_id" json:"room_id"`
 	SubFolderID string             `bson:"sub_folder_id" json:"sub_folder_id"`
 	Name        string             `bson:"name" json:"name"`
-	Color       string             `bson:"Color" json:"Color"`
+	Color       int                `bson:"color" json:"color"`
 	CreatedAt   time.Time          `bson:"createdAt" json:"createdAt"`
 	UpdatedAt   time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
