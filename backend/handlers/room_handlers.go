@@ -98,6 +98,7 @@ func AddRoom(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Add Get shared room with other users
 func GetRooms(w http.ResponseWriter, r *http.Request) {
 	// Verify user is authenticated
 	userID, err := utils.GetUserIDFromToken(r)
