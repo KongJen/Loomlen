@@ -70,6 +70,8 @@ func ToggleFavoriteRoom(w http.ResponseWriter, r *http.Request) {
 		favorite.IsFav = !favorite.IsFav
 		favorite.UpdatedAt = time.Now()
 
+		fmt.Println("change fav")
+
 		// Update the favorite status in the database
 		// Use the correct field name - it's "is_favorite" in the database
 		update := bson.M{"$set": bson.M{"is_favorite": favorite.IsFav, "updated_at": favorite.UpdatedAt}}

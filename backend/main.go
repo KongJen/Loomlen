@@ -27,6 +27,8 @@ func main() {
 	router.HandleFunc("/api/room", handlers.AddRoom).Methods("POST")
 	router.HandleFunc("/api/room", handlers.GetRooms).Methods("GET")
 	router.HandleFunc("/api/room", handlers.ToggleFavoriteRoom).Methods("PUT")
+	router.HandleFunc("/api/folder", handlers.AddFolder).Methods("POST")
+	router.HandleFunc("/api/folder", handlers.GetFolder).Methods("GET")
 	router.HandleFunc("/api/shared", handlers.ShareFile).Methods("POST")
 	router.HandleFunc("/api/shared", handlers.GetSharedFiles).Methods("GET")
 	router.HandleFunc("/api/shared/{id}/clone", handlers.CloneSharedFile).Methods("GET")

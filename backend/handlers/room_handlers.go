@@ -195,7 +195,7 @@ func GetRooms(w http.ResponseWriter, r *http.Request) {
 		json.Unmarshal(roomBytes, &roomData)
 
 		var favorite models.Favorite
-		favFilter := bson.M{"user_id": userID, "room_id": room.OriginalID}
+		favFilter := bson.M{"user_id": userID, "room_id": room.ID.Hex()}
 		err = favoriteCollection.FindOne(ctx, favFilter).Decode(&favorite)
 
 		if err == nil {

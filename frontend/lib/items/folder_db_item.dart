@@ -1,44 +1,36 @@
-// ignore_for_file: non_constant_identifier_names, avoid_types_as_parameter_names
-
 import 'package:flutter/material.dart';
 import 'package:frontend/providers/file_provider.dart';
 import 'package:frontend/providers/folder_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
-import 'package:frontend/providers/room_provider.dart';
-import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:provider/provider.dart';
 import 'base_item.dart';
 import 'item_behaviors.dart';
 import '../services/item_dialog_service.dart';
 
-class RoomDBItem extends BaseItem {
+class FolderItem extends BaseItem {
+  final String? roomId;
+  final String? sub_folder_id;
   final Color color;
-  final bool is_favorite;
-  final VoidCallback onToggleFavorite;
-  final String updatedAt;
 
-  const RoomDBItem({
+  const FolderItem({
     super.key,
     required super.id,
     required super.name,
     required super.createdDate,
+    this.roomId,
+    this.sub_folder_id,
     required this.color,
-    required this.is_favorite,
-    required this.onToggleFavorite,
-    required this.updatedAt,
   });
 
   @override
-  State<RoomDBItem> createState() => _RoomDBItemState();
+  State<FolderItem> createState() => _FolderItemState();
 }
 
-class _RoomDBItemState extends State<RoomDBItem>
-    with Renamable, Deletable, Favoritable {
+class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final iconSize = screenWidth < 600 ? 120.0 : 170.0;
-    final starIconSize = iconSize * 0.3;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
@@ -48,39 +40,18 @@ class _RoomDBItemState extends State<RoomDBItem>
           SizedBox(
             height: iconSize,
             child: Center(
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Icon(Icons.home_filled, size: iconSize, color: widget.color),
-                  Positioned(
-                    right: iconSize * 0.09,
-                    top: iconSize * 0.09,
-                    child: IconButton(
-                      icon: Icon(
-                        Icons.star_rate_rounded,
-                        size: starIconSize,
-                        color: widget.is_favorite
-                            ? Colors.red
-                            : const Color.fromARGB(255, 212, 212, 212),
-                        shadows: const [
-                          BoxShadow(
-                            color: Colors.black,
-                            blurRadius: 2,
-                            offset: Offset(-0.5, 0.5),
-                          ),
-                        ],
-                      ),
-                      onPressed: widget.onToggleFavorite,
-                    ),
-                  ),
-                ],
+              child: Icon(
+                Icons.folder_open,
+                size: iconSize,
+                color: widget.color,
               ),
             ),
           ),
           const SizedBox(height: 4),
           _buildItemNameRow(context, screenWidth),
+          const SizedBox(height: 2.0),
           Text(
-            'Created At: ${widget.createdDate}',
+            widget.createdDate,
             style: TextStyle(
               fontSize: screenWidth < 600 ? 8 : 10,
               color: Colors.grey,
@@ -137,7 +108,7 @@ class _RoomDBItemState extends State<RoomDBItem>
     ItemDialogService.showRenameDialog(
       context: context,
       currentName: widget.name,
-      itemType: 'Room',
+      itemType: 'Folder',
       onRename: (newName) => rename(context, widget.id, newName),
     );
   }
@@ -145,7 +116,7 @@ class _RoomDBItemState extends State<RoomDBItem>
   void _showDeleteConfirmationDialog(BuildContext context) {
     ItemDialogService.showDeleteConfirmationDialog(
       context: context,
-      itemType: 'Room',
+      itemType: 'Folder',
       itemName: widget.name,
       onConfirm: () => delete(context, widget.id),
     );
@@ -153,54 +124,18 @@ class _RoomDBItemState extends State<RoomDBItem>
 
   @override
   void rename(dynamic context, String id, String newName) {
-    final roomProvider = Provider.of<RoomProvider>(context, listen: false);
-    roomProvider.renameRoom(id, newName);
+    final folderProvider = Provider.of<FolderProvider>(context, listen: false);
+    folderProvider.renameFolder(id, newName);
   }
 
   @override
   void delete(dynamic context, String id) {
-    final roomProvider = Provider.of<RoomProvider>(context, listen: false);
-    roomProvider.deleteRoom(
+    final folderProvider = Provider.of<FolderProvider>(context, listen: false);
+    folderProvider.deleteFolder(
       id,
       Provider.of<FolderProvider>(context, listen: false),
       Provider.of<FileProvider>(context, listen: false),
       Provider.of<PaperProvider>(context, listen: false),
     );
   }
-
-  void toggleFavorite(BuildContext context, String id, bool isFavorite) {
-    widget.onToggleFavorite();
-  }
-
-  @override
-  void favorite(BuildContext, String id, bool isFavorite) {
-    final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
-    roomDBProvider.toggleFavorite(id);
-  }
-}
-
-Color parseColor(String? colorString) {
-  if (colorString == null || colorString.isEmpty) {
-    return Colors.grey; // Default color if the color string is empty or null
-  }
-
-  // Remove the leading '#' if present
-  if (colorString.startsWith('#')) {
-    colorString = colorString.substring(1);
-  }
-
-  // Parse the color string to an integer
-  int colorValue;
-  try {
-    colorValue = int.parse(colorString, radix: 16);
-  } catch (e) {
-    return Colors.grey; // Default color if parsing fails
-  }
-
-  // If the color string is in the format #RRGGBB, add the alpha value
-  if (colorString.length == 6) {
-    colorValue = 0xFF000000 | colorValue;
-  }
-
-  return Color(colorValue);
 }

@@ -6,56 +6,51 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
 
 	"backend/config"
 	"backend/models"
-	"backend/utils"
+	"backend/socketio"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func AddFolder(w http.ResponseWriter, r *http.Request) {
-	// Verify user is authenticated
-	_, err := utils.GetUserIDFromToken(r)
-	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	// Read the request body once
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Error reading request body", http.StatusBadRequest)
 		return
 	}
 
-	// Log the raw request for debugging
-	log.Printf("Raw request body: %s\n", string(body))
-
-	// Unmarshal the request into our struct
 	var folderRequest struct {
-		FolderID    string `bson:"folder_id" json:"folder_id"`
-		RoomID      string `bson:"room_id" json:"room_id"`
-		SubFolderID string `bson:"sub_folder_id" json:"sub_folder_id"`
-		Name        string `bson:"name" json:"name"`
-		IsFav       bool   `bson:"is_favorite" json:"is_favorite"`
-		Color       string `bson:"color" json:"color"`
+		FolderID    string `json:"folder_id"`
+		RoomID      string `json:"room_id"`
+		SubFolderID string `json:"sub_folder_id"`
+		Name        string `json:"name"`
+		Color       int    `json:"color"`
 	}
 
 	if err := json.Unmarshal(body, &folderRequest); err != nil {
-		log.Printf("Error decoding request: %v", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, "Invalid request format", http.StatusBadRequest)
 		return
 	}
 
-	log.Printf("Received request: %+v", folderRequest)
+	// roomCollection := config.GetRoomCollection()
+	// roomIDObjID, err := primitive.ObjectIDFromHex(folderRequest.RoomID)
+	// if err != nil {
+	// 	http.Error(w, "Invalid Room ID format", http.StatusBadRequest)
+	// 	return
+	// }
+	// var room models.Room
+	// err = roomCollection.FindOne(context.Background(), bson.M{"id": roomIDObjID}).Decode(&room)
+	// if err != nil {
+	// 	http.Error(w, "Room not found", http.StatusNotFound)
+	// 	return
+	// }
 
-	// Create shared file document
-	Room := models.Folder{
+	folder := models.Folder{
 		ID:          primitive.NewObjectID(),
 		OriginalID:  folderRequest.FolderID,
 		RoomID:      folderRequest.RoomID,
@@ -66,55 +61,69 @@ func AddFolder(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:   time.Now(),
 	}
 
-	// Insert into database
-	FolderCollection := config.GetFolderCollection()
-	result, err := FolderCollection.InsertOne(context.Background(), Room)
+	folderCollection := config.GetFolderCollection()
+	_, err = folderCollection.InsertOne(context.Background(), folder)
 	if err != nil {
-		log.Printf("MongoDB insertion error: %v", err)
-		http.Error(w, fmt.Sprintf("Failed to add folder: %v", err), http.StatusInternalServerError)
+		http.Error(w, "Failed to add folder", http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("Room inserted with ID: %v", result.InsertedID)
+	// 🔥 **Emit to all users in the room**
+	socketServer := socketio.ServerInstance
+	if socketServer != nil {
+		// Fetch updated folder list
+		var folders []models.Folder
+		cursor, _ := folderCollection.Find(context.Background(), bson.M{"room_id": folderRequest.RoomID})
+		cursor.All(context.Background(), &folders)
 
-	// Return success response
+		socketServer.BroadcastToRoom("", folderRequest.RoomID, "folder_list_updated", map[string]interface{}{
+			"roomID":  folderRequest.RoomID,
+			"folders": folders,
+		})
+	}
+
+	// ✅ Send success response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
-		"message": "Room shared successfully",
-		"id":      Room.ID.Hex(),
+		"message":   "Folder added successfully",
+		"folder_id": folder.ID.Hex(),
 	})
 }
 
-// GetSharedRooms returns all rooms shared with the user
 func GetFolder(w http.ResponseWriter, r *http.Request) {
-	// Verify user is authenticated
-	userID, err := utils.GetUserIDFromToken(r)
-	if err != nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	// Set CORS headers
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+
+	// Get room_id from query parameters
+	roomID := r.URL.Query().Get("room_id")
+	if roomID == "" {
+		http.Error(w, "Missing room_id parameter", http.StatusBadRequest)
 		return
 	}
 
-	// Query database for files shared with the user
-	roomCollection := config.GetRoomCollection()
-	filter := bson.M{"$or": []bson.M{
-		{"owner_id": userID},
-	}}
+	// Query database for folders
+	folderCollection := config.GetFolderCollection()
+	filter := bson.M{"room_id": roomID}
 
-	cursor, err := roomCollection.Find(context.Background(), filter)
+	cursor, err := folderCollection.Find(context.Background(), filter)
 	if err != nil {
-		http.Error(w, "Failed to fetch rooms", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to fetch folders: %v", err), http.StatusInternalServerError)
 		return
 	}
 	defer cursor.Close(context.Background())
 
-	// Decode results
-	var Rooms []models.Room
-	if err = cursor.All(context.Background(), &Rooms); err != nil {
-		http.Error(w, "Failed to decode shared rooms", http.StatusInternalServerError)
+	// Decode results into slice
+	var folders []models.Folder
+	if err = cursor.All(context.Background(), &folders); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to decode folders: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Return files
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(Rooms)
+	// Broadcast to socket if needed
+	socketServer := socketio.ServerInstance
+	socketServer.BroadcastToRoom("", roomID, "folder_list_updated", folders)
+
+	// Encode and return folders
+	json.NewEncoder(w).Encode(folders)
 }

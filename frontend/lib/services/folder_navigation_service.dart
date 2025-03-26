@@ -20,14 +20,14 @@ class FolderNavigationService extends ChangeNotifier {
       return (_currentFolder!['color'] is String)
           ? parseColor(_currentFolder!['color'])
           : (_currentFolder!['color'] is int)
-          ? Color(_currentFolder!['color'])
-          : _currentFolder!['color'];
+              ? Color(_currentFolder!['color'])
+              : _currentFolder!['color'];
     } else {
       return (_rootRoom['color'] is String)
           ? parseColor(_rootRoom['color'])
           : (_rootRoom['color'] is int)
-          ? Color(_rootRoom['color'])
-          : _rootRoom['color'];
+              ? Color(_rootRoom['color'])
+              : _rootRoom['color'];
     }
   }
 
