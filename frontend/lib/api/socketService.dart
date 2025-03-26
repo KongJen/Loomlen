@@ -1,16 +1,21 @@
+import 'package:flutter/material.dart';
+import 'package:frontend/providers/folderdb_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:frontend/global.dart';
 
 class SocketService {
   IO.Socket? socket;
   final String baseUrl = baseurl;
+  BuildContext? _context;
 
   void initializeSocket(
     String roomID,
+    BuildContext context,
     Function(bool success, String error) onRoomJoined,
   ) {
+    _context = context;
     print("🌐 Initializing socket connection to: $baseUrl");
-    // Detailed socket configuration
     socket = IO.io(baseUrl, <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': false,
@@ -21,10 +26,23 @@ class SocketService {
       'timeout': 5000,
     });
 
-    // Comprehensive event logging
     socket?.onConnect((_) {
       print('Connected! Socket ID: ${socket?.id}');
       socket?.emit('join_room', {'roomID': roomID, 'socketID': socket?.id});
+    });
+
+    socket?.on('folder_list_updated', (data) {
+      print('Received updated folder list: $data');
+      if (_context != null) {
+        final folderDBProvider =
+            Provider.of<FolderDBProvider>(_context!, listen: false);
+
+        // Ensure data is a list of folders
+        if (data is Map && data['folders'] is List) {
+          folderDBProvider
+              .updateFolders(List<Map<String, dynamic>>.from(data['folders']));
+        }
+      }
     });
 
     socket?.onConnectError((error) {
