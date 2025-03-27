@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/providers/filedb_provider.dart';
 import 'package:frontend/providers/folderdb_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -41,6 +42,20 @@ class SocketService {
         if (data is Map && data['folders'] is List) {
           folderDBProvider
               .updateFolders(List<Map<String, dynamic>>.from(data['folders']));
+        }
+      }
+    });
+
+    socket?.on('file_list_updated', (data) {
+      print('Received updated folder list: $data');
+      if (_context != null) {
+        final fileDBProvider =
+            Provider.of<FileDBProvider>(_context!, listen: false);
+
+        // Ensure data is a list of folders
+        if (data is Map && data['files'] is List) {
+          fileDBProvider
+              .updateFiles(List<Map<String, dynamic>>.from(data['files']));
         }
       }
     });

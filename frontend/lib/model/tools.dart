@@ -16,14 +16,14 @@ class DrawingPainter extends CustomPainter {
     for (final point in drawingPoints) {
       if (point.offsets.isEmpty) continue;
 
-      final paint =
-          Paint()
-            ..color = point.isEraser ? Colors.red : point.color
-            ..strokeWidth = point.width
-            ..strokeCap = StrokeCap.round
-            ..strokeJoin = StrokeJoin.round
-            ..style = PaintingStyle.stroke
-            ..blendMode = point.isEraser ? BlendMode.clear : BlendMode.srcOver;
+      final paint = Paint()
+        ..color = point.tool == 'eraser' ? Colors.red : point.color
+        ..strokeWidth = point.width
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke
+        ..blendMode =
+            point.tool == 'eraser' ? BlendMode.clear : BlendMode.srcOver;
 
       if (point.offsets.length > 1) {
         final path = Path();
@@ -96,7 +96,7 @@ class EraserTool {
 
     final pointsForPage = pageDrawingPoints[currentPaperId] ?? [];
     for (final point in pointsForPage) {
-      if (point.isEraser) continue;
+      if (point.tool == 'eraser') continue;
 
       for (final offset in point.offsets) {
         if ((offset - position).distance <= eraserRadius) {
@@ -114,7 +114,7 @@ class EraserTool {
         offsets: [position],
         color: Colors.transparent,
         width: eraserWidth,
-        isEraser: true,
+        tool: 'eraser',
       );
       pointsForPage.add(eraserPoint);
       pageDrawingPoints[currentPaperId] = pointsForPage;
@@ -132,7 +132,7 @@ class EraserTool {
       offsets: [point],
       color: Colors.transparent,
       width: eraserWidth,
-      isEraser: true,
+      tool: 'eraser',
     );
     pageDrawingPoints[currentPaperId] ??= [];
     pageDrawingPoints[currentPaperId]!.add(eraserPoint);

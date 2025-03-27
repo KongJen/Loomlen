@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend/items/template_item.dart';
 import 'package:frontend/providers/paper_provider.dart';
+import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
 import 'package:frontend/widget/tool_bar.dart';
@@ -17,12 +18,14 @@ import 'package:frontend/widget/sharefile_dialog.dart';
 enum DrawingMode { pencil, eraser }
 
 class PaperPage extends StatefulWidget {
+  final bool collab;
   final String name;
   final String fileId;
   final Function? onFileUpdated;
 
   const PaperPage({
     super.key,
+    required this.collab,
     required this.name,
     required this.fileId,
     this.onFileUpdated,
@@ -73,7 +76,9 @@ class _PaperPageState extends State<PaperPage> {
 
       final papers = _paperService.getPapersForFile(
         context.read<PaperProvider>(),
+        context.read<PaperDBProvider>(),
         widget.fileId,
+        widget.collab,
       );
 
       if (papers.isEmpty) return;
@@ -130,10 +135,11 @@ class _PaperPageState extends State<PaperPage> {
 
   void _addNewPaperPage() {
     _paperService.addNewPage(
-      context.read<PaperProvider>(),
-      widget.fileId,
-      _drawingService.getTemplateForLastPage(),
-    );
+        context.read<PaperProvider>(),
+        context.read<PaperDBProvider>(),
+        widget.fileId,
+        _drawingService.getTemplateForLastPage(),
+        widget.collab);
 
     _reloadPaperData();
 
@@ -201,7 +207,9 @@ class _PaperPageState extends State<PaperPage> {
   @override
   Widget build(BuildContext context) {
     final paperProvider = Provider.of<PaperProvider>(context);
-    final papers = _paperService.getPapersForFile(paperProvider, widget.fileId);
+    final paperDBProvider = Provider.of<PaperDBProvider>(context);
+    final papers = _paperService.getPapersForFile(
+        paperProvider, paperDBProvider, widget.fileId, widget.collab);
 
     if (papers.isNotEmpty && _drawingService.getPageIds().isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -242,7 +250,9 @@ class _PaperPageState extends State<PaperPage> {
                 });
               },
             ),
-          Expanded(child: buildPaperCanvas(totalHeight, papers, paperProvider)),
+          Expanded(
+              child: buildPaperCanvas(
+                  totalHeight, papers, paperProvider, paperDBProvider)),
         ],
       ),
     );
@@ -278,18 +288,16 @@ class _PaperPageState extends State<PaperPage> {
         ),
         IconButton(
           icon: const Icon(Icons.undo),
-          onPressed:
-              _drawingService.canUndo()
-                  ? () => setState(() => _drawingService.undo())
-                  : null,
+          onPressed: _drawingService.canUndo()
+              ? () => setState(() => _drawingService.undo())
+              : null,
           tooltip: 'Undo',
         ),
         IconButton(
           icon: const Icon(Icons.redo),
-          onPressed:
-              _drawingService.canRedo()
-                  ? () => setState(() => _drawingService.redo())
-                  : null,
+          onPressed: _drawingService.canRedo()
+              ? () => setState(() => _drawingService.redo())
+              : null,
           tooltip: 'Redo',
         ),
         IconButton(
@@ -313,9 +321,8 @@ class _PaperPageState extends State<PaperPage> {
           onPressed: () {
             showDialog(
               context: context,
-              builder:
-                  (context) =>
-                      ShareDialog(fileId: widget.fileId, fileName: widget.name),
+              builder: (context) =>
+                  ShareDialog(fileId: widget.fileId, fileName: widget.name),
             );
           },
         ),
@@ -323,11 +330,8 @@ class _PaperPageState extends State<PaperPage> {
     );
   }
 
-  Widget buildPaperCanvas(
-    double totalHeight,
-    List<Map<String, dynamic>> papers,
-    PaperProvider paperProvider,
-  ) {
+  Widget buildPaperCanvas(double totalHeight, List<Map<String, dynamic>> papers,
+      PaperProvider paperProvider, PaperDBProvider paperDBProvider) {
     return Scrollbar(
       controller: _scrollController,
       thumbVisibility: true,
@@ -336,10 +340,9 @@ class _PaperPageState extends State<PaperPage> {
       interactive: true,
       child: SingleChildScrollView(
         controller: _scrollController,
-        physics:
-            _isDrawing
-                ? const NeverScrollableScrollPhysics()
-                : const AlwaysScrollableScrollPhysics(),
+        physics: _isDrawing
+            ? const NeverScrollableScrollPhysics()
+            : const AlwaysScrollableScrollPhysics(),
         child: SizedBox(
           height: totalHeight,
           child: InteractiveViewer(
@@ -367,14 +370,13 @@ class _PaperPageState extends State<PaperPage> {
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.start,
-                  children:
-                      _drawingService
-                          .getPageIds()
-                          .map(
-                            (paperId) =>
-                                _buildPaperPage(paperId, paperProvider),
-                          )
-                          .toList(),
+                  children: _drawingService
+                      .getPageIds()
+                      .map(
+                        (paperId) => _buildPaperPage(
+                            paperId, paperProvider, paperDBProvider),
+                      )
+                      .toList(),
                 ),
               ),
             ),
@@ -384,7 +386,9 @@ class _PaperPageState extends State<PaperPage> {
     );
   }
 
-  Widget _buildPaperPage(String paperId, PaperProvider paperProvider) {
+  Widget _buildPaperPage(String paperId, PaperProvider paperProvider,
+      PaperDBProvider paperDBProvider) {
+    final paperDBData = paperDBProvider.getPaperDBById(paperId);
     final paperData = paperProvider.getPaperById(paperId);
     final template = _drawingService.getTemplateForPage(paperId);
     final double paperWidth = paperData?['width'] as double? ?? 595.0;
@@ -429,20 +433,18 @@ class _PaperPageState extends State<PaperPage> {
               ),
             // Drawing interaction surface
             Listener(
-              onPointerDown:
-                  (details) => _handlePointerDown(
-                    details,
-                    paperId,
-                    paperWidth,
-                    paperHeight,
-                  ),
-              onPointerMove:
-                  (details) => _handlePointerMove(
-                    details,
-                    paperId,
-                    paperWidth,
-                    paperHeight,
-                  ),
+              onPointerDown: (details) => _handlePointerDown(
+                details,
+                paperId,
+                paperWidth,
+                paperHeight,
+              ),
+              onPointerMove: (details) => _handlePointerMove(
+                details,
+                paperId,
+                paperWidth,
+                paperHeight,
+              ),
               onPointerUp: (_) => _handlePointerUp(paperId),
               child: CustomPaint(
                 painter: DrawingPainter(

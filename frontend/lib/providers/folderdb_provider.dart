@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/api/apiService.dart';
 import 'package:uuid/uuid.dart';
-import '../services/storage_service.dart';
 
 class FolderDBProvider extends ChangeNotifier {
   final ApiService _apiService = ApiService();
@@ -36,7 +35,7 @@ class FolderDBProvider extends ChangeNotifier {
     required String roomId,
     required String parentFolderId,
   }) async {
-    await _apiService.AddFolder(
+    await _apiService.addFolder(
         id: _uuid.v4(),
         roomId: roomId,
         subFolderId: parentFolderId,

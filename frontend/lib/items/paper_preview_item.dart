@@ -50,11 +50,10 @@ class PaperPreviewItem extends StatelessWidget {
 
     // Get template
     final template = PaperTemplateFactory.getTemplate(firstPaper['templateId']);
-    print(firstPaper['templateId']);
 
     // Load drawing points
-    final List<DrawingPoint> drawingPoints = paperProvider
-        .getDrawingPointsForPage(firstPaper['id']);
+    final List<DrawingPoint> drawingPoints =
+        paperProvider.getDrawingPointsForPage(firstPaper['id']);
 
     return Center(
       child: Container(

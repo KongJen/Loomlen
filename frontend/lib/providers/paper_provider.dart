@@ -40,6 +40,7 @@ class PaperProvider extends ChangeNotifier {
     String fileId,
   ) {
     final String paperId = _uuid.v4();
+
     final newPaper = {
       'fileId': fileId,
       'id': paperId,
