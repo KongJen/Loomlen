@@ -151,6 +151,7 @@ class DrawingService {
     for (final pageId in pageIds) {
       final paperData = paperProvider.getPaperById(pageId);
       final List<DrawingPoint> pointsForPage = [];
+      print("paperdata: $paperData");
 
       if (paperData?['drawingData'] != null) {
         try {
@@ -185,7 +186,7 @@ class DrawingService {
       offsets: [position],
       color: color,
       width: width,
-      isEraser: false,
+      tool: 'pencil',
     );
 
     _pageDrawingPoints[pageId] ??= [];
@@ -266,16 +267,15 @@ class DrawingService {
   Future<void> saveDrawings(PaperProvider paperProvider) async {
     for (final pageId in _pageIds) {
       final pointsForPage = _pageDrawingPoints[pageId] ?? [];
-      final cleanHistory =
-          pointsForPage
-              .map(
-                (point) => {
-                  'type': 'drawing',
-                  'data': point.toJson(),
-                  'timestamp': DateTime.now().millisecondsSinceEpoch,
-                },
-              )
-              .toList();
+      final cleanHistory = pointsForPage
+          .map(
+            (point) => {
+              'type': 'drawing',
+              'data': point.toJson(),
+              'timestamp': DateTime.now().millisecondsSinceEpoch,
+            },
+          )
+          .toList();
 
       await paperProvider.updatePaperDrawingData(pageId, cleanHistory);
     }

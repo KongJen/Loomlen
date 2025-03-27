@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/api/socketService.dart';
+import 'package:frontend/providers/filedb_provider.dart';
 import 'package:frontend/providers/folderdb_provider.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:frontend/services/PDF_import_service.dart';
@@ -50,6 +51,11 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
       // Load folders for the specific room
       folderDBProvider.loadFoldersDB(widget.room['id']);
+      final fileDBProvider =
+          Provider.of<FileDBProvider>(context, listen: false);
+
+      // Load folders for the specific room
+      fileDBProvider.loadFilesDB(widget.room['id']);
     });
     if (isCollab == true) {
       _socketService = SocketService();
@@ -144,7 +150,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
         context,
       ).showSnackBar(SnackBar(content: Text(message))),
       onImportComplete: (fileId, name) {
-        _navigateToPaperPage(name, fileId);
+        _navigateToPaperPage(name, fileId, isCollab);
       },
       showLoading: () => _showLoadingOverlay(),
       hideLoading: () => OverlayService.hideOverlay(),
@@ -166,12 +172,13 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     );
   }
 
-  void _navigateToPaperPage(String name, String fileId) {
+  void _navigateToPaperPage(String name, String fileId, bool isCollab) {
     MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(false);
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => PaperPage(
+          collab: isCollab,
           name: name,
           fileId: fileId,
           onFileUpdated: () => setState(() {}),
@@ -331,11 +338,14 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final folderProvider = Provider.of<FolderProvider>(context);
     final folderDBProvider = Provider.of<FolderDBProvider>(context);
     final fileProvider = Provider.of<FileProvider>(context);
+    final fileDBProvider = Provider.of<FileDBProvider>(context);
     final String currentParentId = _navigationService.currentParentId;
     final bool isInFolder = _navigationService.isInFolder;
     final folderDBs = folderDBProvider.folders;
+    final fileDBs = fileDBProvider.folders;
 
     final List<Map<String, dynamic>> folders;
+    final List<Map<String, dynamic>> files;
     if (isCollab == true) {
       folders = isInFolder
           ? folderDBs
@@ -344,6 +354,16 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           : folderDBs
               .where((folder) => (folder['room_id'] == currentParentId &&
                   folder['sub_folder_id'] == 'Unknow'))
+              .toList();
+
+      files = isInFolder
+          ? fileDBs
+              .where((file) => file['sub_folder_id'] == currentParentId)
+              .toList()
+          : fileDBs
+              .where((file) =>
+                  file['room_id'] == currentParentId &&
+                  file['sub_folder_id'] == 'Unknow')
               .toList();
     } else {
       // Fetch folders for current location
@@ -354,16 +374,17 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           : folderProvider.folders
               .where((folder) => folder['roomId'] == currentParentId)
               .toList();
+
+      files = isInFolder
+          ? fileProvider.files
+              .where((file) => file['parentFolderId'] == currentParentId)
+              .toList()
+          : fileProvider.files
+              .where((file) => file['roomId'] == currentParentId)
+              .toList();
     }
 
     // Fetch files for current location
-    final files = isInFolder
-        ? fileProvider.files
-            .where((file) => file['parentFolderId'] == currentParentId)
-            .toList()
-        : fileProvider.files
-            .where((file) => file['roomId'] == currentParentId)
-            .toList();
 
     // Create list of items for the grid
     List<Widget> gridItems = [
@@ -392,17 +413,30 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
         ),
       ),
 
-      // Add file items
-      ...files.map(
-        (file) => GestureDetector(
-          onTap: () => _navigateToPaperPage(file['name'], file['id']),
-          child: FileItem(
-            id: file['id'],
-            name: file['name'],
-            createdDate: file['createdDate'],
+      if (isCollab)
+        ...files.map(
+          (file) => GestureDetector(
+            onTap: () =>
+                _navigateToPaperPage(file['name'], file['id'], isCollab),
+            child: FileItem(
+              id: file['id'],
+              name: file['name'],
+              createdDate: file['createdDate'] ?? file['createdAt'],
+            ),
+          ),
+        )
+      else
+        ...files.map(
+          (file) => GestureDetector(
+            onTap: () =>
+                _navigateToPaperPage(file['name'], file['id'], isCollab),
+            child: FileItem(
+              id: file['id'],
+              name: file['name'],
+              createdDate: file['createdDate'] ?? file['createdAt'],
+            ),
           ),
         ),
-      ),
     ];
 
     return ResponsiveGridLayout(children: gridItems);

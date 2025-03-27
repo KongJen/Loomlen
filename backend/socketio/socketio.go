@@ -77,6 +77,28 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 		server.BroadcastToRoom("", roomID, "folder_list_updated", data["folders"])
 	})
 
+	server.OnEvent("/", "file_list_updated", func(s socketio.Conn, data map[string]interface{}) {
+		roomID, ok := data["roomID"].(string)
+		if !ok {
+			fmt.Println("Invalid roomID in file_list_updated")
+			return
+		}
+
+		// Broadcast the updated folder list to all users in the room
+		server.BroadcastToRoom("", roomID, "file_list_updated", data["files"])
+	})
+
+	server.OnEvent("/", "paper_list_updated", func(s socketio.Conn, data map[string]interface{}) {
+		roomID, ok := data["roomID"].(string)
+		if !ok {
+			fmt.Println("Invalid roomID in paper_list_updated")
+			return
+		}
+
+		// Broadcast the updated folder list to all users in the room
+		server.BroadcastToRoom("", roomID, "paper_list_updated", data["papers"])
+	})
+
 	server.OnError("/", func(s socketio.Conn, e error) {
 		fmt.Println("error:", e)
 	})
