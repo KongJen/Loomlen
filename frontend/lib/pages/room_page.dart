@@ -63,6 +63,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     }
   }
 
+//*****Must fixed******
   void _checkisCollab() {
     if (widget.room['isFavorite'] == null) {
       isCollab = true;
