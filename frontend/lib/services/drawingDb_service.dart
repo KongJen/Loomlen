@@ -9,6 +9,7 @@ import 'package:frontend/providers/paperdb_provider.dart';
 
 /// Service responsible for managing drawing operations and state
 class DrawingDBService {
+  Function? onDataChanged;
   final Map<String, List<DrawingPoint>> _pageDrawingPoints = {};
   final List<Map<String, List<DrawingPoint>>> _undoStack = [];
   final List<Map<String, List<DrawingPoint>>> _redoStack = [];
@@ -16,9 +17,8 @@ class DrawingDBService {
   List<String> _pageIds = [];
   Map<String, PaperTemplate> _paperTemplates = {};
   DrawingPoint? _currentDrawingPoint;
-  bool _isCollab = false;
   String _roomId = '';
-  SocketService? _socketService;
+  late SocketService _socketService;
 
   // Eraser configuration
   late EraserTool _eraserTool;
@@ -28,10 +28,9 @@ class DrawingDBService {
   DrawingDBService({
     bool isCollab = false,
     String roomId = '',
-    SocketService? socketService,
+    required SocketService socketService,
   }) {
     _socketService = socketService;
-    _isCollab = isCollab;
     _roomId = roomId;
     _eraserTool = EraserTool(
       eraserWidth: _eraserWidth,
@@ -43,34 +42,24 @@ class DrawingDBService {
       currentPaperId: '',
     );
 
-    if (_isCollab && _socketService != null) {
+    if (_socketService != null) {
       _initializeSocketListeners();
     }
   }
 
   void _initializeSocketListeners() {
     // Listen for drawing updates from other clients
-    _socketService?.on('drawing', (data) {
-      _handleIncomingDrawing(data['drawData'], data['pageId']);
-    });
-
-    // Ensure that the drawing state is shared when a user starts drawing
-    _socketService?.on('drawing_start', (data) {
-      String pageId = data['pageId'];
-      _sendDrawingToServer(
-          pageId,
-          DrawingPoint.fromJson(
-            data['point'],
-          ));
+    _socketService.on('drawing', (data) {
+      _handleIncomingDrawing(data['drawing'], data['pageId']);
     });
   }
 
   void _handleIncomingDrawing(Map<String, dynamic> data, String pageId) {
     print("Received drawing data: $data");
 
-    if (data == null) return;
-
+    // Check if offsets data is properly formatted
     List<dynamic> offsetsData = data['offsets'];
+
     List<Offset> offsets = offsetsData
         .map((e) => Offset(e['x'].toDouble(), e['y'].toDouble()))
         .toList();
@@ -90,6 +79,9 @@ class DrawingDBService {
 
     _pageDrawingPoints[pageId] ??= [];
     _pageDrawingPoints[pageId]!.add(drawingPoint);
+    if (onDataChanged != null) {
+      onDataChanged!();
+    }
   }
 
   void _handleIncomingEraser(List<Offset> offsets, String pageId) {
@@ -100,18 +92,13 @@ class DrawingDBService {
     }
   }
 
-  void _sendDrawingToServer(String pageId, DrawingPoint point) {
-    print("inuse");
-    if (_isCollab && _socketService != null) {
-      print('Sending drawing data to server: $point'); // Debug print
-      _socketService?.emit('drawing', {
-        'roomId': _roomId,
-        'pageId': pageId,
-        'drawData': point.toJson(),
-      });
-    } else {
-      print('Socket is not initialized or collaboration is not enabled');
-    }
+  void _sendDrawingToServer(String pageId, DrawingPoint drawingPoint) {
+    Map<String, dynamic> data = {
+      "roomId": _roomId,
+      "pageId": pageId,
+      "drawing": drawingPoint.toJson(),
+    };
+    _socketService.emit('drawing', data);
   }
 
   // Public getters
@@ -178,7 +165,7 @@ class DrawingDBService {
 
     _pageIds = papers.map((paper) => paper['id'].toString()).toList();
     _loadTemplatesForPapers(_pageIds, provider);
-    // loadDrawingPoints(_pageIds, provider);
+    loadDrawingPoints(_pageIds, provider);
 
     if (onDataLoaded != null) {
       onDataLoaded();
@@ -201,7 +188,6 @@ class DrawingDBService {
           PaperTemplateFactory.getTemplate(templateId);
 
       tempTemplates[pageId] = template;
-      print("temp: $tempTemplates");
     }
 
     _paperTemplates = tempTemplates;
@@ -216,7 +202,6 @@ class DrawingDBService {
     for (final pageId in pageIds) {
       final paperData = paperProvider.getPaperDBById(pageId);
       final List<DrawingPoint> pointsForPage = [];
-      print("paperdata: $paperData");
 
       if (paperData['drawingData'] != null) {
         try {
@@ -242,7 +227,6 @@ class DrawingDBService {
 
   // Drawing operations
   void startDrawing(String pageId, Offset position, Color color, double width) {
-    // Save current state for undo
     _saveStateForUndo();
     _redoStack.clear();
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/api/socketService.dart';
 import 'package:frontend/items/filedb_item.dart';
+import 'package:frontend/pages/paperDB_page.dart';
 import 'package:frontend/providers/filedb_provider.dart';
 import 'package:frontend/providers/folderdb_provider.dart';
 import 'package:frontend/providers/paperdb_provider.dart';
@@ -188,6 +189,24 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
       context,
       MaterialPageRoute(
         builder: (context) => PaperPage(
+          name: name,
+          fileId: fileId,
+          onFileUpdated: () => setState(() {}),
+          roomId: widget.room['id'],
+        ),
+      ),
+    ).then((_) {
+      MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(true);
+    });
+  }
+
+  void _navigateToPaperDBPage(String name, String fileId, bool isCollab) {
+    MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(false);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PaperDBPage(
+          socket: _socketService,
           collab: isCollab,
           name: name,
           fileId: fileId,
@@ -428,7 +447,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
         ...files.map(
           (file) => GestureDetector(
             onTap: () =>
-                _navigateToPaperPage(file['name'], file['id'], isCollab),
+                _navigateToPaperDBPage(file['name'], file['id'], isCollab),
             child: FileDbItem(
               id: file['id'],
               name: file['name'],
