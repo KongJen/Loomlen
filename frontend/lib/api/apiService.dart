@@ -118,10 +118,10 @@ class ApiService {
     }
   }
 
-  Future<dynamic> AddFolder({
+  Future<dynamic> addFolder({
     required String id,
     required String roomId,
-    required String subFolderId,
+    String? subFolderId,
     required String name,
     required int color,
   }) async {
@@ -136,6 +136,8 @@ class ApiService {
       };
 
       final bodyf = jsonEncode(payload);
+
+      print("payload = ${bodyf}");
 
       final response = await http.post(
         Uri.parse('$baseUrl/api/folder'),
@@ -176,6 +178,8 @@ class ApiService {
         'email': sharedWith,
         'role_id': permission,
       };
+
+      print("roomID MEMBER : ${roomId}");
 
       final bodyf = jsonEncode(payload);
 
@@ -239,16 +243,45 @@ class ApiService {
   }
 
   Future<List<Map<String, dynamic>>> getFolders(String roomId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/folder')
-          .replace(queryParameters: {"room_id": roomId}),
-    );
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/folder')
+            .replace(queryParameters: {"room_id": roomId}),
+      );
 
-    if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
-      return data.map((item) => item as Map<String, dynamic>).toList();
-    } else {
-      throw Exception('Failed to get folders: ${response.body}');
+      print('Response status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      print('RoomID Response: ${roomId}');
+
+      if (response.statusCode == 200) {
+        // Handle empty response
+        if (response.body.isEmpty) {
+          print('Received empty response');
+          return []; // Return an empty list if no folders
+        }
+
+        // Attempt to decode JSON
+        try {
+          final List<dynamic> decodedBody = jsonDecode(response.body);
+
+          return decodedBody
+              .map((item) => item is Map<String, dynamic>
+                  ? item
+                  : throw FormatException('Invalid folder item format'))
+              .toList();
+        } on FormatException catch (e) {
+          print('JSON parsing error: $e');
+          return []; // Return empty list if parsing fails
+        }
+      } else {
+        // More informative error handling
+        print('Failed to get folders. Status code: ${response.statusCode}');
+        print('Error body: ${response.body}');
+        throw Exception('Failed to get folders: ${response.body}');
+      }
+    } catch (e) {
+      print('Unexpected error in getFolders: $e');
+      rethrow; // Re-throw to allow caller to handle
     }
   }
 
