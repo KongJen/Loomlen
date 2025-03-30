@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/api/socketService.dart';
 import 'package:frontend/items/template_item.dart';
+import 'package:frontend/pages/paperDB_page.dart';
 import 'package:frontend/pages/paper_page.dart';
 import 'package:frontend/providers/file_provider.dart';
 import 'package:frontend/providers/filedb_provider.dart';
@@ -112,20 +113,37 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
       }
 
       MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(false);
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => PaperPage(
-            collab: widget.isCollab,
-            name: nameController.text.trim(),
-            fileId: fileId,
-            roomId: widget.roomId,
-            onFileUpdated: () => setState(() {}),
+      if (widget.isCollab) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PaperDBPage(
+              collab: widget.isCollab,
+              name: nameController.text.trim(),
+              fileId: fileId,
+              roomId: widget.roomId,
+              onFileUpdated: () => setState(() {}),
+              socket: widget.socketService,
+            ),
           ),
-        ),
-      ).then((_) {
-        MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(true);
-      });
+        ).then((_) {
+          MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(true);
+        });
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PaperPage(
+              name: nameController.text.trim(),
+              fileId: fileId,
+              onFileUpdated: () => setState(() {}),
+              roomId: widget.roomId,
+            ),
+          ),
+        ).then((_) {
+          MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(true);
+        });
+      }
       widget.onClose();
     } catch (e) {
       if (kDebugMode) {

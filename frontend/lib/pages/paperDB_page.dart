@@ -3,9 +3,11 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:frontend/api/socketService.dart';
 import 'package:frontend/items/template_item.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:frontend/providers/paperdb_provider.dart';
+import 'package:frontend/services/drawingDb_service.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
 import 'package:frontend/widget/tool_bar.dart';
@@ -17,26 +19,31 @@ import 'package:frontend/widget/sharefile_dialog.dart';
 
 enum DrawingMode { pencil, eraser }
 
-class PaperPage extends StatefulWidget {
+class PaperDBPage extends StatefulWidget {
+  final bool collab;
   final String name;
   final String fileId;
-  final Function? onFileUpdated;
   final String roomId;
+  final Function? onFileUpdated;
+  final SocketService socket;
 
-  const PaperPage({
+  const PaperDBPage({
     super.key,
+    required this.collab,
     required this.name,
     required this.fileId,
-    this.onFileUpdated,
     required this.roomId,
+    this.onFileUpdated,
+    required this.socket,
   });
 
   @override
-  State<PaperPage> createState() => _PaperPageState();
+  State<PaperDBPage> createState() => _PaperDBPageState();
 }
 
-class _PaperPageState extends State<PaperPage> {
+class _PaperDBPageState extends State<PaperDBPage> {
   late final DrawingService _drawingService;
+  late final DrawingDBService _drawingDBService;
   late final PaperService _paperService;
   late final PDFExportService _pdfExportService;
 
@@ -61,9 +68,13 @@ class _PaperPageState extends State<PaperPage> {
   void initState() {
     super.initState();
     _drawingService = DrawingService();
+    _drawingDBService =
+        DrawingDBService(roomId: widget.roomId, socketService: widget.socket);
     _paperService = PaperService();
     _pdfExportService = PDFExportService();
-
+    _drawingDBService.onDataChanged = () {
+      if (mounted) setState(() {});
+    };
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final paperProvider = Provider.of<PaperProvider>(context, listen: false);
 
@@ -83,7 +94,7 @@ class _PaperPageState extends State<PaperPage> {
         context.read<PaperProvider>(),
         context.read<PaperDBProvider>(),
         widget.fileId,
-        false,
+        widget.collab,
       );
 
       if (papers.isEmpty) return;
@@ -112,17 +123,18 @@ class _PaperPageState extends State<PaperPage> {
   }
 
   void _loadDrawingData() {
-    final paperProvider = context.read<PaperProvider>();
-
-    _drawingService.loadFromProvider(
-      paperProvider,
-      widget.fileId,
-      onDataLoaded: () {
-        setState(() {
-          // Update UI after data is loaded
-        });
-      },
-    );
+    final paperDBProvider = context.read<PaperDBProvider>();
+    if (widget.collab) {
+      _drawingDBService.loadFromProvider(
+        paperDBProvider,
+        widget.fileId,
+        onDataLoaded: () {
+          setState(() {
+            // Update UI after data is loaded
+          });
+        },
+      );
+    }
   }
 
   Future<void> _saveDrawing() async {
@@ -140,14 +152,16 @@ class _PaperPageState extends State<PaperPage> {
   }
 
   void _addNewPaperPage() {
-    _paperService.addNewPage(
-      context.read<PaperProvider>(),
-      context.read<PaperDBProvider>(),
-      widget.fileId,
-      _drawingService.getTemplateForLastPage(),
-      widget.roomId,
-      false,
-    );
+    if (widget.collab) {
+      _paperService.addNewPage(
+        context.read<PaperProvider>(),
+        context.read<PaperDBProvider>(),
+        widget.fileId,
+        _drawingDBService.getTemplateForLastPage(),
+        widget.roomId,
+        widget.collab,
+      );
+    }
 
     _reloadPaperData();
 
@@ -163,8 +177,10 @@ class _PaperPageState extends State<PaperPage> {
 
   void _reloadPaperData() {
     final paperProvider = context.read<PaperProvider>();
+    final paperDBProvider = context.read<PaperDBProvider>();
 
     _drawingService.loadFromProvider(paperProvider, widget.fileId);
+    _drawingDBService.loadFromProvider(paperDBProvider, widget.fileId);
 
     setState(() {
       _hasUnsavedChanges = true;
@@ -217,13 +233,15 @@ class _PaperPageState extends State<PaperPage> {
     final paperProvider = Provider.of<PaperProvider>(context);
     final paperDBProvider = Provider.of<PaperDBProvider>(context);
     final papers = _paperService.getPapersForFile(
-        paperProvider, paperDBProvider, widget.fileId, false);
+        paperProvider, paperDBProvider, widget.fileId, widget.collab);
 
-    if (papers.isNotEmpty && _drawingService.getPageIds().isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _loadDrawingData();
-        _centerContent();
-      });
+    if (widget.collab) {
+      if (papers.isNotEmpty && _drawingDBService.getPageIds().isEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _loadDrawingData();
+          _centerContent();
+        });
+      }
     }
 
     double totalHeight = papers.fold(
@@ -377,15 +395,14 @@ class _PaperPageState extends State<PaperPage> {
                   maxWidth: MediaQuery.of(context).size.width,
                 ),
                 child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: paperProvider
-                      .getPaperIdsByFileId(widget.fileId)
-                      .map(
-                        (paperId) => _buildPaperPage(
-                            paperId, paperProvider, paperDBProvider),
-                      )
-                      .toList(),
-                ),
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: paperDBProvider
+                        .getPaperIdsByFileId(widget.fileId)
+                        .map(
+                          (paperId) => _buildPaperPage(
+                              paperId, paperProvider, paperDBProvider),
+                        )
+                        .toList()),
               ),
             ),
           ),
@@ -396,15 +413,17 @@ class _PaperPageState extends State<PaperPage> {
 
   Widget _buildPaperPage(String paperId, PaperProvider paperProvider,
       PaperDBProvider paperDBProvider) {
+    final paperDBData = paperDBProvider.getPaperDBById(paperId);
     final paperData = paperProvider.getPaperById(paperId);
     final PaperTemplate template;
     final double paperWidth;
     final double paperHeight;
+    template = PaperTemplateFactory.getTemplate(paperDBData['template_id']);
+    paperWidth = (paperDBData['width'] as num?)?.toDouble() ?? 595.0;
+    paperHeight = (paperDBData['height'] as num?)?.toDouble() ?? 595.0;
 
-    template = PaperTemplateFactory.getTemplate(paperData?['templateId']);
-    paperWidth = paperData?['width'] as double? ?? 595.0;
-    paperHeight = paperData?['height'] as double? ?? 842.0;
-
+    final drawingPoints = _drawingDBService.getDrawingPointsForPage(paperId);
+    print('Drawing Points for $paperId: $drawingPoints');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Container(
@@ -459,10 +478,9 @@ class _PaperPageState extends State<PaperPage> {
               onPointerUp: (_) => _handlePointerUp(paperId),
               child: CustomPaint(
                 painter: DrawingPainter(
-                  drawingPoints: _drawingService.getDrawingPointsForPage(
-                    paperId,
-                  ),
-                ),
+                    drawingPoints: _drawingDBService.getDrawingPointsForPage(
+                  paperId,
+                )),
                 size: Size(paperWidth, paperHeight),
               ),
             ),
@@ -487,7 +505,7 @@ class _PaperPageState extends State<PaperPage> {
     });
 
     if (selectedMode == DrawingMode.pencil) {
-      _drawingService.startDrawing(
+      _drawingDBService.startDrawing(
         paperId,
         localPosition,
         selectedColor,
@@ -495,7 +513,7 @@ class _PaperPageState extends State<PaperPage> {
       );
       setState(() {});
     } else if (selectedMode == DrawingMode.eraser) {
-      _drawingService.startErasing(paperId, localPosition);
+      _drawingDBService.startErasing(paperId, localPosition);
       setState(() {});
     }
   }
@@ -510,12 +528,12 @@ class _PaperPageState extends State<PaperPage> {
     if (!_isWithinCanvas(localPosition, paperWidth, paperHeight)) return;
 
     if (selectedMode == DrawingMode.pencil) {
-      _drawingService.continueDrawing(paperId, localPosition);
+      _drawingDBService.continueDrawing(paperId, localPosition);
       setState(() {
         _hasUnsavedChanges = true;
       });
     } else if (selectedMode == DrawingMode.eraser) {
-      _drawingService.continueErasing(paperId, localPosition);
+      _drawingDBService.continueErasing(paperId, localPosition);
       setState(() {
         _hasUnsavedChanges = true;
       });
@@ -528,9 +546,9 @@ class _PaperPageState extends State<PaperPage> {
     });
 
     if (selectedMode == DrawingMode.pencil) {
-      _drawingService.endDrawing();
+      _drawingDBService.endDrawing();
     } else if (selectedMode == DrawingMode.eraser) {
-      _drawingService.endErasing();
+      _drawingDBService.endErasing();
     }
   }
 

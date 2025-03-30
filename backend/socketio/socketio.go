@@ -67,22 +67,23 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 	})
 
 	server.OnEvent("/", "drawing", func(s socketio.Conn, data map[string]interface{}) {
-		// Log received drawing data
-		fmt.Println("Received drawing data: ", data)
+		fmt.Println("📥 Full Received drawing event data: ", data) // 🔍 Debugging log
 
-		// Check if the roomID is present and valid in the drawing event data
+		// Check if the roomId exists and is a string
 		roomID, ok := data["roomId"].(string)
 		if !ok || roomID == "" {
-			fmt.Println("Invalid or missing roomId in drawing event")
+			fmt.Println("⚠️ Invalid or missing roomId in drawing event")
 			return
 		}
 
-		// Broadcast the drawing data to all users in the same room
-		server.BroadcastToRoom("", roomID, "drawing", map[string]interface{}{
-			"drawData": data["drawData"],
-			"pageId":   data["pageId"],
-			"roomId":   data["roomId"],
-		})
+		// Check if pageId is also received (for verification)
+		pageID, pageOk := data["pageId"].(string)
+		if pageOk {
+			fmt.Printf("✅ Received pageId: %s\n", pageID)
+		}
+
+		// Broadcast the drawing data to all users in the room
+		server.BroadcastToRoom("", roomID, "drawing", data)
 	})
 
 	server.OnEvent("/", "folder_list_updated", func(s socketio.Conn, data map[string]interface{}) {
