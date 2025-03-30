@@ -15,7 +15,7 @@ class PaperService {
   ) {
     if (collab) {
       return dbProvider.papers
-          .where((paper) => paper['file_Id'] == fileId)
+          .where((paper) => paper['file_id'] == fileId)
           .toList();
     } else {
       return provider.papers
@@ -30,18 +30,26 @@ class PaperService {
     PaperDBProvider dbProvider,
     String fileId,
     PaperTemplate template,
+    String roomId,
     bool collab,
   ) {
     final papers = getPapersForFile(provider, dbProvider, fileId, collab);
     int newPageNumber = 1;
 
-    if (papers.isNotEmpty) {
-      final lastPaper = papers.last;
-      newPageNumber = (lastPaper['PageNumber'] as int? ?? 0) + 1;
-    }
     if (collab) {
-      dbProvider.addPaper(template, newPageNumber, 595, 842, fileId);
+      if (papers.isNotEmpty) {
+        final lastPaper = papers.last;
+        newPageNumber = (lastPaper['page_number'] as int? ?? 0) + 1;
+      }
+
+      dbProvider.addPaper(
+          template, newPageNumber, 595.0, 842.0, fileId, roomId);
     } else {
+      if (papers.isNotEmpty) {
+        final lastPaper = papers.last;
+        newPageNumber = (lastPaper['PageNumber'] as int? ?? 0) + 1;
+      }
+
       provider.addPaper(
         template,
         newPageNumber,

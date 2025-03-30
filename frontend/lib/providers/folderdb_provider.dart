@@ -19,7 +19,7 @@ class FolderDBProvider extends ChangeNotifier {
       _folders.addAll(folderDBData); // Ensure _rooms is populated
       notifyListeners();
     } catch (e) {
-      print('Error loading rooms: $e');
+      print('Error loading folders: $e');
     }
   }
 

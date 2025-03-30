@@ -209,6 +209,7 @@ class ApiService {
 
   Future<dynamic> addPaper(
       {required String id,
+      required String roomId,
       required String fileId,
       required String templateId,
       required int pageNumber,
@@ -218,6 +219,7 @@ class ApiService {
       // Convert the data to JSON strings
       final Map<String, dynamic> payload = {
         'paper_id': id,
+        'room_id': roomId,
         'file_id': fileId,
         'template_id': templateId,
         'page_number': pageNumber,
@@ -244,7 +246,7 @@ class ApiService {
       // Try to parse the response
       try {
         final data = jsonDecode(response.body);
-        return data["file_id"];
+        return data["paper_id"];
       } catch (e) {
         throw Exception('Invalid response format');
       }
@@ -333,6 +335,28 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> updateDraw(
+    String paperId,
+    List<Map<String, dynamic>> drawingData,
+  ) async {
+    print("Drawing to db: $drawingData");
+    final headers = await _getHeaders();
+    final response = await http.put(
+      Uri.parse('$baseUrl/api/drawing'),
+      headers: headers,
+      body: jsonEncode({
+        'paper_id': paperId,
+        'drawing_data': drawingData,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update drawing: ${response.body}');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getFolders(String roomId) async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/folder')
@@ -382,15 +406,26 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getPaper(String fileId) async {
+  Future<List<Map<String, dynamic>>> getPaper(String roomId) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/api/file')
-          .replace(queryParameters: {"file_id": fileId}),
+      Uri.parse('$baseUrl/api/paper')
+          .replace(queryParameters: {"room_id": roomId}),
     );
 
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
-      return data.map((item) => item as Map<String, dynamic>).toList();
+      // print("data: $data");
+      if (data is List) {
+        return data.map((item) {
+          return Map<String, dynamic>.from(item)
+            ..addAll({
+              "width": (item["width"] as num?)?.toDouble() ?? 595.0,
+              "height": (item["height"] as num?)?.toDouble() ?? 842.0,
+            });
+        }).toList();
+      } else {
+        return []; // Return an empty list if data is not a list
+      }
     } else {
       throw Exception('Failed to get files: ${response.body}');
     }

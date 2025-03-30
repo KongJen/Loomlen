@@ -66,6 +66,25 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 		})
 	})
 
+	server.OnEvent("/", "drawing", func(s socketio.Conn, data map[string]interface{}) {
+		// Log received drawing data
+		fmt.Println("Received drawing data: ", data)
+
+		// Check if the roomID is present and valid in the drawing event data
+		roomID, ok := data["roomId"].(string)
+		if !ok || roomID == "" {
+			fmt.Println("Invalid or missing roomId in drawing event")
+			return
+		}
+
+		// Broadcast the drawing data to all users in the same room
+		server.BroadcastToRoom("", roomID, "drawing", map[string]interface{}{
+			"drawData": data["drawData"],
+			"pageId":   data["pageId"],
+			"roomId":   data["roomId"],
+		})
+	})
+
 	server.OnEvent("/", "folder_list_updated", func(s socketio.Conn, data map[string]interface{}) {
 		roomID, ok := data["roomID"].(string)
 		if !ok {
@@ -83,7 +102,6 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 			fmt.Println("Invalid roomID in file_list_updated")
 			return
 		}
-
 		// Broadcast the updated folder list to all users in the room
 		server.BroadcastToRoom("", roomID, "file_list_updated", data["files"])
 	})
@@ -94,7 +112,6 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 			fmt.Println("Invalid roomID in paper_list_updated")
 			return
 		}
-
 		// Broadcast the updated folder list to all users in the room
 		server.BroadcastToRoom("", roomID, "paper_list_updated", data["papers"])
 	})

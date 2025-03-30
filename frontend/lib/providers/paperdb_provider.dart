@@ -3,7 +3,6 @@ import 'package:frontend/api/apiService.dart';
 import 'package:frontend/items/drawingpoint_item.dart';
 import 'package:frontend/items/template_item.dart';
 import 'package:uuid/uuid.dart';
-import '../services/storage_service.dart';
 
 class PaperDBProvider extends ChangeNotifier {
   final ApiService _apiService = ApiService();
@@ -12,18 +11,18 @@ class PaperDBProvider extends ChangeNotifier {
 
   List<Map<String, dynamic>> get papers => List.unmodifiable(_papers);
 
-  Future<void> loadPapers(String fileId) async {
+  Future<void> loadPapers(String roomId) async {
     try {
       _papers.clear();
-      final folderDBData = await _apiService.getPaper(fileId);
-      _papers.addAll(folderDBData);
+      final paperDBData = await _apiService.getPaper(roomId);
+      _papers.addAll(paperDBData);
       notifyListeners();
     } catch (e) {
-      print('Error loading rooms: $e');
+      print('Error loading papers: $e');
     }
   }
 
-  void updateFiles(List<Map<String, dynamic>> newPapers) {
+  void updatePapers(List<Map<String, dynamic>> newPapers) {
     _papers.clear();
     _papers.addAll(newPapers);
     notifyListeners();
@@ -36,10 +35,12 @@ class PaperDBProvider extends ChangeNotifier {
     double? width,
     double? height,
     String fileId,
+    String roomId,
   ) async {
     final String paperId = _uuid.v4();
     await _apiService.addPaper(
         id: paperId,
+        roomId: roomId,
         fileId: fileId,
         templateId: template.id,
         pageNumber: pageNumber,
@@ -50,7 +51,20 @@ class PaperDBProvider extends ChangeNotifier {
     return paperId;
   }
 
-  void getPaperDBById(String paperId) {}
+  Map<String, dynamic> getPaperDBById(String paperId) {
+    return _papers.firstWhere(
+      (paper) => paper['id'] == paperId,
+      orElse: () => {},
+    );
+  }
+
+  Future<void> updatePaperDrawingData(
+    String paperId,
+    List<Map<String, dynamic>> drawingData,
+  ) async {
+    // Send updated drawing data to the backend
+    await _apiService.updateDraw(paperId, drawingData);
+  }
 
   List<DrawingPoint> getDrawingPointsForPage(String pageId) {
     final paperData = _papers.firstWhere(
@@ -75,5 +89,18 @@ class PaperDBProvider extends ChangeNotifier {
     }
 
     return drawingPoints;
+  }
+
+  List<String> getPaperIdsByFileId(String fileId) {
+    return _papers
+        .where(
+            (paper) => paper['file_id'] == fileId) // Filter papers by file_id
+        .map((paper) =>
+            paper['id'].toString()) // Map filtered papers to their id
+        .toList();
+  }
+
+  PaperTemplate getPaperTemplate(String templateId) {
+    return PaperTemplateFactory.getTemplate(templateId);
   }
 }

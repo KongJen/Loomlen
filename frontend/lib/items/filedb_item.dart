@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:frontend/items/paperDb_preview_item.dart';
 import 'package:frontend/items/paper_preview_item.dart';
 import 'package:frontend/providers/file_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
@@ -9,12 +10,12 @@ import 'base_item.dart';
 import 'item_behaviors.dart';
 import '../services/item_dialog_service.dart';
 
-class FileItem extends BaseItem {
+class FileDbItem extends BaseItem {
   final String? roomId;
   final String? parentFolderId;
   final String? pdfPath;
 
-  const FileItem({
+  const FileDbItem({
     super.key,
     required super.id,
     required super.name,
@@ -25,10 +26,10 @@ class FileItem extends BaseItem {
   });
 
   @override
-  State<FileItem> createState() => _FileItemState();
+  State<FileDbItem> createState() => _FileItemState();
 }
 
-class _FileItemState extends State<FileItem> with Renamable, Deletable {
+class _FileItemState extends State<FileDbItem> with Renamable, Deletable {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -65,7 +66,7 @@ class _FileItemState extends State<FileItem> with Renamable, Deletable {
       child: SizedBox(
         height: 140, // Set the fixed height you want
         width: width, // Use the dynamic width passed as parameter
-        child: PaperPreviewItem(
+        child: PaperDBPreviewItem(
           fileId: widget.id,
           maxWidth: width,
           maxHeight: height,

@@ -12,24 +12,37 @@ class DrawingThumbnailPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final Paint paint =
-        Paint()
-          ..strokeCap = StrokeCap.round
-          ..isAntiAlias = true;
+    // Create a layer to properly handle blending modes
+    canvas.saveLayer(Rect.fromLTWH(0, 0, size.width, size.height), Paint());
 
     for (final point in drawingPoints) {
-      paint
-        ..color =
-            point
-                .color // Reduce opacity in preview
-        ..strokeWidth = point.width * scaleFactor; // Scale stroke width
+      if (point.offsets.isEmpty) continue;
 
-      for (int i = 0; i < point.offsets.length - 1; i++) {
-        final Offset start = point.offsets[i] * scaleFactor;
-        final Offset end = point.offsets[i + 1] * scaleFactor;
-        canvas.drawLine(start, end, paint);
+      final paint = Paint()
+        ..color = point.tool == 'eraser' ? Colors.transparent : point.color
+        ..strokeWidth = point.width * scaleFactor
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke
+        ..blendMode =
+            point.tool == 'eraser' ? BlendMode.clear : BlendMode.srcOver;
+
+      if (point.offsets.length > 1) {
+        final path = Path();
+        path.moveTo(point.offsets.first.dx * scaleFactor,
+            point.offsets.first.dy * scaleFactor);
+        for (int i = 1; i < point.offsets.length; i++) {
+          path.lineTo(point.offsets[i].dx * scaleFactor,
+              point.offsets[i].dy * scaleFactor);
+        }
+        canvas.drawPath(path, paint);
+      } else if (point.offsets.length == 1) {
+        canvas.drawCircle(point.offsets.first * scaleFactor,
+            (point.width / 2) * scaleFactor, paint);
       }
     }
+
+    canvas.restore(); // Restore the canvas state after drawing
   }
 
   @override

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/providers/filedb_provider.dart';
 import 'package:frontend/providers/folderdb_provider.dart';
+import 'package:frontend/providers/paperdb_provider.dart';
+import 'package:frontend/services/drawingDb_service.dart';
 import 'package:provider/provider.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:frontend/global.dart';
@@ -47,7 +49,7 @@ class SocketService {
     });
 
     socket?.on('file_list_updated', (data) {
-      print('Received updated folder list: $data');
+      print('Received updated file list: $data');
       if (_context != null) {
         final fileDBProvider =
             Provider.of<FileDBProvider>(_context!, listen: false);
@@ -56,6 +58,26 @@ class SocketService {
         if (data is Map && data['files'] is List) {
           fileDBProvider
               .updateFiles(List<Map<String, dynamic>>.from(data['files']));
+        }
+      }
+    });
+
+    socket?.on('paper_list_updated', (data) {
+      print('Received updated paper list: $data');
+      if (_context != null) {
+        final paperDBProvider =
+            Provider.of<PaperDBProvider>(_context!, listen: false);
+
+        // Ensure data is a map containing a list of papers
+        if (data is Map && data['papers'] is List) {
+          final papers = List<Map<String, dynamic>>.from(data['papers']);
+
+          for (var paper in papers) {
+            paper["width"] = (paper["width"] as num?)?.toDouble() ?? 595.0;
+            paper["height"] = (paper["height"] as num?)?.toDouble() ?? 842.0;
+          }
+
+          paperDBProvider.updatePapers(papers);
         }
       }
     });
@@ -85,5 +107,15 @@ class SocketService {
   void closeSocket() {
     socket?.disconnect();
     socket?.dispose();
+  }
+
+// Listen for events
+  void on(String event, Function(dynamic) callback) {
+    socket?.on(event, callback);
+  }
+
+  // Emit events to the server
+  void emit(String event, dynamic data) {
+    socket?.emit(event, data);
   }
 }

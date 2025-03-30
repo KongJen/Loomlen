@@ -72,7 +72,7 @@ func AddFile(w http.ResponseWriter, r *http.Request) {
 	socketServer := socketio.ServerInstance
 	if socketServer != nil {
 		// Fetch updated folder list
-		var files []models.Folder
+		var files []models.File
 		cursor, _ := fileCollection.Find(context.Background(), bson.M{"room_id": fileRequest.RoomID})
 		cursor.All(context.Background(), &files)
 
