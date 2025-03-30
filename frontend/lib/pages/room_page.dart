@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/api/socketService.dart';
+import 'package:frontend/items/filedb_item.dart';
 import 'package:frontend/providers/filedb_provider.dart';
 import 'package:frontend/providers/folderdb_provider.dart';
+import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:frontend/services/PDF_import_service.dart';
 import 'package:frontend/services/folder_navigation_service.dart';
@@ -56,6 +58,12 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
       // Load folders for the specific room
       fileDBProvider.loadFilesDB(widget.room['id']);
+
+      final paperDBProvider =
+          Provider.of<PaperDBProvider>(context, listen: false);
+
+      // Load folders for the specific room
+      paperDBProvider.loadPapers(widget.room['id']);
     });
     if (isCollab == true) {
       _socketService = SocketService();
@@ -134,6 +142,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
         parentId: _navigationService.currentParentId,
         isInFolder: _navigationService.isInFolder,
         isCollab: isCollab,
+        socketService: _socketService,
         onClose: OverlayService.hideOverlay,
       ),
     );
@@ -182,6 +191,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           collab: isCollab,
           name: name,
           fileId: fileId,
+          roomId: widget.room['id'],
           onFileUpdated: () => setState(() {}),
         ),
       ),
@@ -419,7 +429,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           (file) => GestureDetector(
             onTap: () =>
                 _navigateToPaperPage(file['name'], file['id'], isCollab),
-            child: FileItem(
+            child: FileDbItem(
               id: file['id'],
               name: file['name'],
               createdDate: file['createdDate'] ?? file['createdAt'],

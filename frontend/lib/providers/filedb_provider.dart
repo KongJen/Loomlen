@@ -18,7 +18,7 @@ class FileDBProvider extends ChangeNotifier {
       _files.addAll(folderDBData);
       notifyListeners();
     } catch (e) {
-      print('Error loading rooms: $e');
+      print('Error loading files: $e');
     }
   }
 

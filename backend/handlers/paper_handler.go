@@ -26,6 +26,7 @@ func AddPaper(w http.ResponseWriter, r *http.Request) {
 
 	var paperRequest struct {
 		PaperID    string  `json:"paper_id"`
+		RoomID     string  `json:"room_id"`
 		FileID     string  `json:"file_id"`
 		TemplateID string  `json:"template_id"`
 		PageNumber int     `json:"page_number"`
@@ -55,6 +56,7 @@ func AddPaper(w http.ResponseWriter, r *http.Request) {
 	paper := models.Paper{
 		ID:         primitive.NewObjectID(),
 		OriginalID: paperRequest.PaperID,
+		RoomID:     paperRequest.RoomID,
 		FileID:     paperRequest.FileID,
 		TemplateID: paperRequest.TemplateID,
 		PageNumber: paperRequest.PageNumber,
@@ -76,11 +78,11 @@ func AddPaper(w http.ResponseWriter, r *http.Request) {
 	if socketServer != nil {
 		// Fetch updated folder list
 		var papers []models.Paper
-		cursor, _ := paperCollection.Find(context.Background(), bson.M{"file_id": paperRequest.FileID})
+		cursor, _ := paperCollection.Find(context.Background(), bson.M{"room_id": paperRequest.RoomID})
 		cursor.All(context.Background(), &papers)
 
-		socketServer.BroadcastToRoom("", paperRequest.FileID, "paper_list_updated", map[string]interface{}{
-			"roomID": paperRequest.FileID,
+		socketServer.BroadcastToRoom("", paperRequest.RoomID, "paper_list_updated", map[string]interface{}{
+			"roomID": paperRequest.RoomID,
 			"papers": papers,
 		})
 	}
@@ -204,6 +206,41 @@ func AddPaper(w http.ResponseWriter, r *http.Request) {
 // }
 
 func GetPaper(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	roomID := r.URL.Query().Get("room_id")
+	if roomID == "" {
+		http.Error(w, "Missing file_id parameter", http.StatusBadRequest)
+		return
+	}
+
+	// Query database for folders
+	paperCollection := config.GetPaperCollection()
+	filter := bson.M{"room_id": roomID}
+
+	cursor, err := paperCollection.Find(context.Background(), filter)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to fetch papers: %v", err), http.StatusInternalServerError)
+		return
+	}
+	defer cursor.Close(context.Background())
+
+	// Decode results into slice
+	var papers []models.Paper
+	if err = cursor.All(context.Background(), &papers); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to decode papers: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Broadcast to socket if needed
+	socketServer := socketio.ServerInstance
+	socketServer.BroadcastToRoom("", roomID, "paper_list_updated", papers)
+
+	// Encode and return folders
+	json.NewEncoder(w).Encode(papers)
+}
+
+func GetPaperByFileID(w http.ResponseWriter, r *http.Request) {
 	// Set CORS headers
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")

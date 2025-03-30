@@ -1,13 +1,14 @@
 // Create file: lib/services/drawing_service.dart
 
 import 'package:flutter/material.dart';
+import 'package:frontend/api/socketService.dart';
 import 'package:frontend/items/drawingpoint_item.dart';
 import 'package:frontend/items/template_item.dart';
 import 'package:frontend/model/tools.dart';
-import 'package:frontend/providers/paper_provider.dart';
+import 'package:frontend/providers/paperdb_provider.dart';
 
 /// Service responsible for managing drawing operations and state
-class DrawingService {
+class DrawingDBService {
   final Map<String, List<DrawingPoint>> _pageDrawingPoints = {};
   final List<Map<String, List<DrawingPoint>>> _undoStack = [];
   final List<Map<String, List<DrawingPoint>>> _redoStack = [];
@@ -15,13 +16,23 @@ class DrawingService {
   List<String> _pageIds = [];
   Map<String, PaperTemplate> _paperTemplates = {};
   DrawingPoint? _currentDrawingPoint;
+  bool _isCollab = false;
+  String _roomId = '';
+  SocketService? _socketService;
 
   // Eraser configuration
   late EraserTool _eraserTool;
   double _eraserWidth = 10.0;
   EraserMode _eraserMode = EraserMode.point;
 
-  DrawingService() {
+  DrawingDBService({
+    bool isCollab = false,
+    String roomId = '',
+    SocketService? socketService,
+  }) {
+    _socketService = socketService;
+    _isCollab = isCollab;
+    _roomId = roomId;
     _eraserTool = EraserTool(
       eraserWidth: _eraserWidth,
       eraserMode: _eraserMode,
@@ -31,6 +42,76 @@ class DrawingService {
       onStateChanged: _onEraserStateChanged,
       currentPaperId: '',
     );
+
+    if (_isCollab && _socketService != null) {
+      _initializeSocketListeners();
+    }
+  }
+
+  void _initializeSocketListeners() {
+    // Listen for drawing updates from other clients
+    _socketService?.on('drawing', (data) {
+      _handleIncomingDrawing(data['drawData'], data['pageId']);
+    });
+
+    // Ensure that the drawing state is shared when a user starts drawing
+    _socketService?.on('drawing_start', (data) {
+      String pageId = data['pageId'];
+      _sendDrawingToServer(
+          pageId,
+          DrawingPoint.fromJson(
+            data['point'],
+          ));
+    });
+  }
+
+  void _handleIncomingDrawing(Map<String, dynamic> data, String pageId) {
+    print("Received drawing data: $data");
+
+    if (data == null) return;
+
+    List<dynamic> offsetsData = data['offsets'];
+    List<Offset> offsets = offsetsData
+        .map((e) => Offset(e['x'].toDouble(), e['y'].toDouble()))
+        .toList();
+
+    if (data['tool'] == 'eraser') {
+      _handleIncomingEraser(offsets, pageId);
+      return;
+    }
+
+    DrawingPoint drawingPoint = DrawingPoint(
+      id: data['id'],
+      offsets: offsets,
+      color: Color(data['color']),
+      width: data['width'].toDouble(),
+      tool: data['tool'],
+    );
+
+    _pageDrawingPoints[pageId] ??= [];
+    _pageDrawingPoints[pageId]!.add(drawingPoint);
+  }
+
+  void _handleIncomingEraser(List<Offset> offsets, String pageId) {
+    if (!_pageDrawingPoints.containsKey(pageId)) return;
+
+    for (var offset in offsets) {
+      _eraserTool.handleErasing(offset);
+    }
+  }
+
+  void _sendDrawingToServer(String pageId, DrawingPoint point) {
+    print("inuse");
+    if (_isCollab && _socketService != null) {
+      print('Sending drawing data to server: $point'); // Debug print
+      _socketService?.emit('drawing', {
+        'roomId': _roomId,
+        'pageId': pageId,
+        'drawData': point.toJson(),
+      });
+    } else {
+      print('Socket is not initialized or collaboration is not enabled');
+    }
   }
 
   // Public getters
@@ -88,15 +169,16 @@ class DrawingService {
 
   // Load drawing data from PaperProvider
   void loadFromProvider(
-    PaperProvider provider,
+    PaperDBProvider provider,
     String fileId, {
     VoidCallback? onDataLoaded,
   }) {
     final papers =
-        provider.papers.where((paper) => paper['fileId'] == fileId).toList();
+        provider.papers.where((paper) => paper['file_id'] == fileId).toList();
+
     _pageIds = papers.map((paper) => paper['id'].toString()).toList();
     _loadTemplatesForPapers(_pageIds, provider);
-    loadDrawingPoints(_pageIds, provider);
+    // loadDrawingPoints(_pageIds, provider);
 
     if (onDataLoaded != null) {
       onDataLoaded();
@@ -105,57 +187,40 @@ class DrawingService {
 
   void _loadTemplatesForPapers(
     List<String> pageIds,
-    PaperProvider paperProvider,
+    PaperDBProvider paperProvider,
   ) {
     final Map<String, PaperTemplate> tempTemplates = {};
 
     for (final pageId in pageIds) {
-      final paperData = paperProvider.getPaperById(pageId);
+      final paperData = paperProvider.getPaperDBById(pageId);
 
-      if (paperData != null) {
-        final String templateId = paperData['templateId'] ?? 'plain';
-        final String typeString =
-            paperData['templateType']?.toString() ?? 'plain';
+      final String templateId = paperData['template_id'] ?? 'plain';
 
-        final TemplateType templateType = switch (typeString) {
-          String s when s.contains('lined') => TemplateType.lined,
-          String s when s.contains('grid') => TemplateType.grid,
-          String s when s.contains('dotted') => TemplateType.dotted,
-          _ => TemplateType.plain,
-        };
+      // Get template directly using templateId
+      final PaperTemplate template =
+          PaperTemplateFactory.getTemplate(templateId);
 
-        tempTemplates[pageId] = PaperTemplate(
-          id: templateId,
-          name: '${templateType.name.capitalize()} Paper',
-          spacing: paperData['spacing']?.toDouble() ?? 30.0,
-        );
-      } else {
-        // If no paper data exists for the pageId, set a default template
-        tempTemplates[pageId] = PaperTemplate(
-          id: 'plain',
-          name: 'Plain Paper',
-          spacing: 30.0,
-        );
-      }
+      tempTemplates[pageId] = template;
+      print("temp: $tempTemplates");
     }
 
     _paperTemplates = tempTemplates;
   }
 
-  void loadDrawingPoints(List<String> pageIds, PaperProvider paperProvider) {
+  void loadDrawingPoints(List<String> pageIds, PaperDBProvider paperProvider) {
     _pageIds = pageIds;
     _pageDrawingPoints.clear();
     _undoStack.clear();
     _redoStack.clear();
 
     for (final pageId in pageIds) {
-      final paperData = paperProvider.getPaperById(pageId);
+      final paperData = paperProvider.getPaperDBById(pageId);
       final List<DrawingPoint> pointsForPage = [];
       print("paperdata: $paperData");
 
-      if (paperData?['drawingData'] != null) {
+      if (paperData['drawingData'] != null) {
         try {
-          final List<dynamic> loadedStrokes = paperData!['drawingData'];
+          final List<dynamic> loadedStrokes = paperData['drawingData'];
           for (final stroke in loadedStrokes) {
             if (stroke['type'] == 'drawing') {
               final point = DrawingPoint.fromJson(stroke['data']);
@@ -191,6 +256,8 @@ class DrawingService {
 
     _pageDrawingPoints[pageId] ??= [];
     _pageDrawingPoints[pageId]!.add(_currentDrawingPoint!);
+
+    _sendDrawingToServer(pageId, _currentDrawingPoint!);
   }
 
   void continueDrawing(String pageId, Offset position) {
@@ -201,12 +268,12 @@ class DrawingService {
     );
 
     _pageDrawingPoints[pageId]!.last = _currentDrawingPoint!;
+
+    _sendDrawingToServer(pageId, _currentDrawingPoint!);
   }
 
   void endDrawing() {
     _currentDrawingPoint = null;
-
-    print("pagedata ${_pageDrawingPoints[_pageIds]}");
   }
 
   // Erasing operations
@@ -266,7 +333,7 @@ class DrawingService {
   }
 
   // Save drawing to persistent storage
-  Future<void> saveDrawings(PaperProvider paperProvider) async {
+  Future<void> saveDrawings(PaperDBProvider paperDBProvider) async {
     for (final pageId in _pageIds) {
       final pointsForPage = _pageDrawingPoints[pageId] ?? [];
       final cleanHistory = pointsForPage
@@ -279,7 +346,7 @@ class DrawingService {
           )
           .toList();
 
-      await paperProvider.updatePaperDrawingData(pageId, cleanHistory);
+      await paperDBProvider.updatePaperDrawingData(pageId, cleanHistory);
     }
   }
 }

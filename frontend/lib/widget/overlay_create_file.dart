@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/api/socketService.dart';
 import 'package:frontend/items/template_item.dart';
 import 'package:frontend/pages/paper_page.dart';
 import 'package:frontend/providers/file_provider.dart';
@@ -14,15 +15,18 @@ class OverlayCreateFile extends StatefulWidget {
   final String parentId;
   final bool isInFolder;
   final bool isCollab;
+  final SocketService socketService;
   final VoidCallback onClose;
 
-  const OverlayCreateFile(
-      {super.key,
-      required this.roomId,
-      required this.onClose,
-      required this.parentId,
-      required this.isInFolder,
-      required this.isCollab});
+  const OverlayCreateFile({
+    super.key,
+    required this.roomId,
+    required this.onClose,
+    required this.parentId,
+    required this.isInFolder,
+    required this.isCollab,
+    required this.socketService,
+  });
 
   @override
   // ignore: library_private_types_in_public_api
@@ -30,6 +34,7 @@ class OverlayCreateFile extends StatefulWidget {
 }
 
 class _OverlayCreateFileState extends State<OverlayCreateFile> {
+  late SocketService _socketService;
   final TextEditingController nameController = TextEditingController();
   late PaperTemplate selectedTemplate;
   List<PaperTemplate> availableTemplates = [
@@ -61,12 +66,7 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
           );
 
           paperDBProvider.addPaper(
-            selectedTemplate,
-            1,
-            595,
-            842,
-            fileId,
-          );
+              selectedTemplate, 1, 595, 842, fileId, widget.roomId);
         } else {
           fileId = await fileDBProvider.addFile(
             nameController.text.trim(),
@@ -76,12 +76,7 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
           ;
 
           paperDBProvider.addPaper(
-            selectedTemplate,
-            1,
-            595,
-            842,
-            fileId,
-          );
+              selectedTemplate, 1, 595, 842, fileId, widget.roomId);
         }
       } else {
         if (widget.isInFolder == true) {
@@ -124,6 +119,7 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
             collab: widget.isCollab,
             name: nameController.text.trim(),
             fileId: fileId,
+            roomId: widget.roomId,
             onFileUpdated: () => setState(() {}),
           ),
         ),
