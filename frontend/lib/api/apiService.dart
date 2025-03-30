@@ -361,11 +361,12 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getFolders(String roomId) async {
+  Future<List<Map<String, dynamic>>> getFolders(
+      String roomId, String originalId) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/folder')
-            .replace(queryParameters: {"room_id": roomId}),
+        Uri.parse('$baseUrl/api/folder').replace(
+            queryParameters: {"room_id": roomId, "original_id": originalId}),
       );
 
       print('Response status code: ${response.statusCode}');

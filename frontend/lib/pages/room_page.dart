@@ -55,7 +55,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           Provider.of<FolderDBProvider>(context, listen: false);
 
       // Load folders for the specific room
-      folderDBProvider.loadFoldersDB(widget.room['id']);
+      folderDBProvider.loadFoldersDB(
+          widget.room['id'], widget.room['original_id']);
       final fileDBProvider =
           Provider.of<FileDBProvider>(context, listen: false);
 
@@ -358,21 +359,45 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final folderDBs = folderDBProvider.folders;
     final fileDBs = fileDBProvider.folders;
 
-    final room_id = folderDBs;
+    final String room_id = widget.room['id'];
+    final String originalId = widget.room['original_id'];
 
     print("Folder Room ID : ${room_id}");
+    print("Folder Room ID : ${originalId}");
+
+    print("Folder Room ID Database : ${originalId}");
 
     final List<Map<String, dynamic>> folders;
     final List<Map<String, dynamic>> files;
+
+    for (var folder in folderDBs) {
+      print(
+          "Folder: ${folder['name']}, room_id: ${folder['room_id']}, sub_folder_id: ${folder['sub_folder_id']}");
+    }
+
     if (isCollab == true) {
       folders = isInFolder
           ? folderDBs
               .where((folder) => folder['sub_folder_id'] == currentParentId)
               .toList()
-          : folderDBs
-              .where((folder) => (folder['room_id'] == currentParentId &&
-                  folder['sub_folder_id'] == 'Unknow'))
-              .toList();
+          : folderDBs.where((folder) {
+              // Convert all to strings and trim to ensure clean comparison
+              String folderRoomId = folder['room_id'].toString().trim();
+              String currentRoomId = room_id.toString().trim();
+              String currentOriginalId = originalId.toString().trim();
+              String subFolderId = folder['sub_folder_id'].toString().trim();
+
+              // Room ID matches AND (subfolder is "Unknow" OR empty)
+              bool roomMatch = folderRoomId == currentRoomId ||
+                  folderRoomId == currentOriginalId;
+              bool subfolderMatch =
+                  subFolderId == 'Unknow' || subFolderId == '';
+
+              print(
+                  "Folder ${folder['name']} room match: $roomMatch, subfolder match: $subfolderMatch");
+
+              return roomMatch && subfolderMatch;
+            }).toList();
 
       files = isInFolder
           ? fileDBs
@@ -380,7 +405,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
               .toList()
           : fileDBs
               .where((file) =>
-                  file['room_id'] == currentParentId &&
+                  (file['room_id'] == room_id ||
+                      file['room_id'] == originalId) &&
                   file['sub_folder_id'] == 'Unknow')
               .toList();
     } else {
