@@ -53,6 +53,7 @@ class EraserTool {
   Offset? lastErasePosition;
   bool isErasing = false;
   List<DrawingPoint> currentEraseStrokes = [];
+  List<int> deletedStrokeIds = [];
 
   // References to external data
   final Map<String, List<DrawingPoint>> pageDrawingPoints;
@@ -93,6 +94,7 @@ class EraserTool {
 
     final eraserRadius = eraserWidth;
     final toRemove = <DrawingPoint>[];
+    deletedStrokeIds = [];
 
     final pointsForPage = pageDrawingPoints[currentPaperId] ?? [];
     for (final point in pointsForPage) {
@@ -102,6 +104,7 @@ class EraserTool {
         if ((offset - position).distance <= eraserRadius) {
           toRemove.add(point);
           currentEraseStrokes.add(point);
+          deletedStrokeIds.add(point.id);
           break;
         }
       }

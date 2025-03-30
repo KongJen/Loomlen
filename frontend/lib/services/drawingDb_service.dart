@@ -52,6 +52,11 @@ class DrawingDBService {
     _socketService.on('drawing', (data) {
       _handleIncomingDrawing(data['drawing'], data['pageId']);
     });
+
+    // Add listener for eraser events
+    _socketService.on('eraser', (data) {
+      _handleIncomingEraser(data['eraserAction'], data['pageId']);
+    });
   }
 
   void _handleIncomingDrawing(Map<String, dynamic> data, String pageId) {
@@ -63,11 +68,6 @@ class DrawingDBService {
     List<Offset> offsets = offsetsData
         .map((e) => Offset(e['x'].toDouble(), e['y'].toDouble()))
         .toList();
-
-    if (data['tool'] == 'eraser') {
-      _handleIncomingEraser(offsets, pageId);
-      return;
-    }
 
     DrawingPoint drawingPoint = DrawingPoint(
       id: data['id'],
@@ -84,11 +84,50 @@ class DrawingDBService {
     }
   }
 
-  void _handleIncomingEraser(List<Offset> offsets, String pageId) {
-    if (!_pageDrawingPoints.containsKey(pageId)) return;
+  void _handleIncomingEraser(Map<String, dynamic> eraserAction, String pageId) {
+    if (!_pageDrawingPoints.containsKey(pageId)) {
+      _pageDrawingPoints[pageId] = [];
+    }
 
-    for (var offset in offsets) {
-      _eraserTool.handleErasing(offset);
+    print("Eraseraction: $eraserAction");
+
+    String type = eraserAction['type'];
+
+    if (type == 'point') {
+      // Handle point eraser
+      Map<String, dynamic> positionData = eraserAction['position'];
+      Offset position =
+          Offset(positionData['x'].toDouble(), positionData['y'].toDouble());
+      double width = eraserAction['width'].toDouble();
+
+      // Create a temporary EraserTool for point erasing
+      EraserTool tempEraserTool = EraserTool(
+        eraserWidth: width,
+        eraserMode: EraserMode.point,
+        pageDrawingPoints: _pageDrawingPoints,
+        undoStack: _undoStack,
+        redoStack: _redoStack,
+        onStateChanged: () {
+          if (onDataChanged != null) {
+            onDataChanged!();
+          }
+        },
+        currentPaperId: pageId,
+      );
+
+      tempEraserTool.handleErasing(position);
+    } else if (type == 'stroke') {
+      // Handle stroke eraser by deleting the specified strokes
+      List<int> deletedIds = List<int>.from(eraserAction['deletedIds']);
+
+      List<DrawingPoint>? pointsForPage = _pageDrawingPoints[pageId];
+      if (pointsForPage != null && pointsForPage.isNotEmpty) {
+        pointsForPage.removeWhere((point) => deletedIds.contains(point.id));
+
+        if (onDataChanged != null) {
+          onDataChanged!();
+        }
+      }
     }
   }
 
@@ -99,6 +138,33 @@ class DrawingDBService {
       "drawing": drawingPoint.toJson(),
     };
     _socketService.emit('drawing', data);
+  }
+
+  // Add this method to DrawingDBService to send eraser stroke deletion data
+  void _sendStrokeEraserToServer(String pageId, List<int> deletedStrokeIds) {
+    Map<String, dynamic> data = {
+      "roomId": _roomId,
+      "pageId": pageId,
+      "eraserAction": {
+        "type": "stroke",
+        "deletedIds": deletedStrokeIds,
+      },
+    };
+    _socketService.emit('eraser', data);
+  }
+
+// Add this method to DrawingDBService to send point eraser data
+  void _sendPointEraserToServer(String pageId, Offset position) {
+    Map<String, dynamic> data = {
+      "roomId": _roomId,
+      "pageId": pageId,
+      "eraserAction": {
+        "type": "point",
+        "position": {"x": position.dx, "y": position.dy},
+        "width": _eraserWidth,
+      },
+    };
+    _socketService.emit('eraser', data);
   }
 
   // Public getters
@@ -273,10 +339,26 @@ class DrawingDBService {
     );
 
     _eraserTool.handleErasing(position);
+
+    if (_eraserMode == EraserMode.point) {
+      _sendPointEraserToServer(pageId, position);
+    } else if (_eraserMode == EraserMode.stroke &&
+        _eraserTool.deletedStrokeIds.isNotEmpty) {
+      _sendStrokeEraserToServer(pageId, _eraserTool.deletedStrokeIds);
+    }
   }
 
   void continueErasing(String pageId, Offset position) {
     _eraserTool.handleErasing(position);
+
+    print(_eraserTool.eraserMode);
+
+    if (_eraserMode == EraserMode.point) {
+      _sendPointEraserToServer(pageId, position);
+    } else if (_eraserMode == EraserMode.stroke &&
+        _eraserTool.deletedStrokeIds.isNotEmpty) {
+      _sendStrokeEraserToServer(pageId, _eraserTool.deletedStrokeIds);
+    }
   }
 
   void endErasing() {

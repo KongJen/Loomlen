@@ -67,23 +67,59 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 	})
 
 	server.OnEvent("/", "drawing", func(s socketio.Conn, data map[string]interface{}) {
-		fmt.Println("📥 Full Received drawing event data: ", data) // 🔍 Debugging log
+		fmt.Println("Full Received drawing event data: ", data)
 
 		// Check if the roomId exists and is a string
 		roomID, ok := data["roomId"].(string)
 		if !ok || roomID == "" {
-			fmt.Println("⚠️ Invalid or missing roomId in drawing event")
+			fmt.Println("Invalid or missing roomId in drawing event")
 			return
 		}
 
 		// Check if pageId is also received (for verification)
 		pageID, pageOk := data["pageId"].(string)
 		if pageOk {
-			fmt.Printf("✅ Received pageId: %s\n", pageID)
+			fmt.Printf("Received pageId: %s\n", pageID)
 		}
 
 		// Broadcast the drawing data to all users in the room
 		server.BroadcastToRoom("", roomID, "drawing", data)
+	})
+
+	server.OnEvent("/", "eraser", func(s socketio.Conn, data map[string]interface{}) {
+		fmt.Println("📥 Received eraser event data: ", data)
+
+		// Check if the roomId exists and is a string
+		roomID, ok := data["roomId"].(string)
+		if !ok || roomID == "" {
+			fmt.Println("⚠️ Invalid or missing roomId in eraser event")
+			return
+		}
+
+		// Check if pageId is also received
+		pageID, pageOk := data["pageId"].(string)
+		if pageOk {
+			fmt.Printf("✅ Received pageId for eraser: %s\n", pageID)
+		}
+
+		// Check if eraserAction is received
+		eraserAction, eraserOk := data["eraserAction"].(map[string]interface{})
+		if !eraserOk {
+			fmt.Println("⚠️ Invalid or missing eraserAction in eraser event")
+			return
+		}
+
+		// Get the eraser type (point or stroke)
+		eraserType, typeOk := eraserAction["type"].(string)
+		if !typeOk {
+			fmt.Println("⚠️ Missing eraser type in eraserAction")
+			return
+		}
+
+		fmt.Printf("🧹 Broadcasting eraser action of type: %s\n", eraserType)
+
+		// Broadcast the eraser data to all users in the room except the sender
+		server.BroadcastToRoom("", roomID, "eraser", data)
 	})
 
 	server.OnEvent("/", "folder_list_updated", func(s socketio.Conn, data map[string]interface{}) {

@@ -263,16 +263,16 @@ class _PaperDBPageState extends State<PaperDBPage> {
             ),
           if (selectedMode == DrawingMode.eraser)
             buildEraserSettingsBar(
-              eraserWidth: _drawingService.getEraserWidth(),
-              eraserMode: _drawingService.getEraserMode(),
+              eraserWidth: _drawingDBService.getEraserWidth(),
+              eraserMode: _drawingDBService.getEraserMode(),
               onWidthChanged: (value) {
                 setState(() {
-                  _drawingService.setEraserWidth(value);
+                  _drawingDBService.setEraserWidth(value);
                 });
               },
               onModeChanged: (mode) {
                 setState(() {
-                  _drawingService.setEraserMode(mode);
+                  _drawingDBService.setEraserMode(mode);
                 });
               },
             ),
@@ -314,15 +314,15 @@ class _PaperDBPageState extends State<PaperDBPage> {
         ),
         IconButton(
           icon: const Icon(Icons.undo),
-          onPressed: _drawingService.canUndo()
-              ? () => setState(() => _drawingService.undo())
+          onPressed: _drawingDBService.canUndo()
+              ? () => setState(() => _drawingDBService.undo())
               : null,
           tooltip: 'Undo',
         ),
         IconButton(
           icon: const Icon(Icons.redo),
-          onPressed: _drawingService.canRedo()
-              ? () => setState(() => _drawingService.redo())
+          onPressed: _drawingDBService.canRedo()
+              ? () => setState(() => _drawingDBService.redo())
               : null,
           tooltip: 'Redo',
         ),
@@ -422,8 +422,6 @@ class _PaperDBPageState extends State<PaperDBPage> {
     paperWidth = (paperDBData['width'] as num?)?.toDouble() ?? 595.0;
     paperHeight = (paperDBData['height'] as num?)?.toDouble() ?? 595.0;
 
-    final drawingPoints = _drawingDBService.getDrawingPointsForPage(paperId);
-    print('Drawing Points for $paperId: $drawingPoints');
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Container(

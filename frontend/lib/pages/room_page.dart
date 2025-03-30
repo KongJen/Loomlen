@@ -50,7 +50,6 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
     print("WidgetID : ${widget.room['original_id']}");
     print("NavigateID : ${widget.room['id']}");
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final folderDBProvider =
           Provider.of<FolderDBProvider>(context, listen: false);
@@ -379,7 +378,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final fileDBs = fileDBProvider.folders;
 
     final String room_id = widget.room['id'];
-    final String originalId = widget.room['original_id'];
+    final String originalId = widget.room['original_id'] ?? '';
 
     print("Folder Room ID : ${room_id}");
     print("Folder Room ID : ${originalId}");
