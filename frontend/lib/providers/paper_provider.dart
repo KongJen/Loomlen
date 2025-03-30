@@ -40,6 +40,7 @@ class PaperProvider extends ChangeNotifier {
     String fileId,
   ) {
     final String paperId = _uuid.v4();
+
     final newPaper = {
       'fileId': fileId,
       'id': paperId,
@@ -123,6 +124,18 @@ class PaperProvider extends ChangeNotifier {
     }
 
     return drawingPoints;
+  }
+
+  List<String> getPaperIdsByFileId(String fileId) {
+    return _papers
+        .where((paper) => paper['fileId'] == fileId) // Filter papers by file_id
+        .map((paper) =>
+            paper['id'].toString()) // Map filtered papers to their id
+        .toList();
+  }
+
+  PaperTemplate getPaperTemplate(String templateId) {
+    return PaperTemplateFactory.getTemplate(templateId);
   }
 
   /// Delete paper

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/providers/filedb_provider.dart';
 import 'package:frontend/providers/folderdb_provider.dart';
+import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend/navigation_menu.dart';
@@ -18,7 +20,9 @@ void main() {
         ChangeNotifierProvider(create: (context) => RoomDBProvider()),
         ChangeNotifierProvider(create: (context) => FolderDBProvider()),
         ChangeNotifierProvider(create: (context) => FileProvider()),
+        ChangeNotifierProvider(create: (context) => FileDBProvider()),
         ChangeNotifierProvider(create: (context) => PaperProvider()),
+        ChangeNotifierProvider(create: (context) => PaperDBProvider()),
         ChangeNotifierProvider(create: (context) => AuthProvider()),
       ],
       child: MyApp(),
