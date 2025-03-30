@@ -73,10 +73,9 @@ class FolderProvider extends ChangeNotifier {
     await fileProvider.loadFiles();
     await paperProvider.loadPapers();
 
-    List<Map<String, dynamic>> subfoldersToDelete =
-        folderProvider_.folders
-            .where((folder) => folder['parentFolderId'] == folderId)
-            .toList();
+    List<Map<String, dynamic>> subfoldersToDelete = folderProvider_.folders
+        .where((folder) => folder['parentFolderId'] == folderId)
+        .toList();
 
     for (var folder in subfoldersToDelete) {
       await folderProvider_.deleteFolder(
@@ -87,10 +86,9 @@ class FolderProvider extends ChangeNotifier {
       );
     }
 
-    List<Map<String, dynamic>> filesToDelete =
-        fileProvider.files
-            .where((file) => file['folderId'] == folderId)
-            .toList();
+    List<Map<String, dynamic>> filesToDelete = fileProvider.files
+        .where((file) => file['folderId'] == folderId)
+        .toList();
 
     for (var file in filesToDelete) {
       await fileProvider.deleteFile(file['id'], paperProvider);
