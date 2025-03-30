@@ -57,7 +57,7 @@ class _SharePageState extends State<SharePage> {
     final screenSize = MediaQuery.of(context).size;
 
     return Scaffold(
-      appBar: ReusableAppBar(title: 'My Room', showActionButtons: true),
+      appBar: ReusableAppBar(title: 'Share', showActionButtons: true),
       body: RefreshIndicator(
         onRefresh: _loadRooms,
         child: Padding(

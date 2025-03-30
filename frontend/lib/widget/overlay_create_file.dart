@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/api/socketService.dart';
 import 'package:frontend/items/template_item.dart';
 import 'package:frontend/pages/paper_page.dart';
 import 'package:frontend/providers/file_provider.dart';
+import 'package:frontend/providers/filedb_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
+import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
 
@@ -12,15 +15,18 @@ class OverlayCreateFile extends StatefulWidget {
   final String parentId;
   final bool isInFolder;
   final bool isCollab;
+  final SocketService socketService;
   final VoidCallback onClose;
 
-  const OverlayCreateFile(
-      {super.key,
-      required this.roomId,
-      required this.onClose,
-      required this.parentId,
-      required this.isInFolder,
-      required this.isCollab});
+  const OverlayCreateFile({
+    super.key,
+    required this.roomId,
+    required this.onClose,
+    required this.parentId,
+    required this.isInFolder,
+    required this.isCollab,
+    required this.socketService,
+  });
 
   @override
   // ignore: library_private_types_in_public_api
@@ -28,6 +34,7 @@ class OverlayCreateFile extends StatefulWidget {
 }
 
 class _OverlayCreateFileState extends State<OverlayCreateFile> {
+  late SocketService _socketService;
   final TextEditingController nameController = TextEditingController();
   late PaperTemplate selectedTemplate;
   List<PaperTemplate> availableTemplates = [
@@ -37,45 +44,71 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
     const PaperTemplate(id: 'dotted', name: 'Dotted Paper', spacing: 30.0),
   ];
 
-  void createFile() {
+  void createFile() async {
     if (nameController.text.trim().isEmpty) return;
     try {
       final fileProvider = Provider.of<FileProvider>(context, listen: false);
       final paperProvider = Provider.of<PaperProvider>(context, listen: false);
 
-      final String fileId;
+      final fileDBProvider =
+          Provider.of<FileDBProvider>(context, listen: false);
+      final paperDBProvider =
+          Provider.of<PaperDBProvider>(context, listen: false);
 
-      if (widget.isCollab == true) {}
+      String fileId;
 
-      if (widget.isInFolder == true) {
-        fileId = fileProvider.addFile(
-          nameController.text.trim(),
-          parentFolderId: widget.parentId,
-        );
+      if (widget.isCollab == true) {
+        if (widget.isInFolder == true) {
+          fileId = await fileDBProvider.addFile(
+            nameController.text.trim(),
+            roomId: widget.roomId,
+            parentFolderId: widget.parentId,
+          );
 
-        paperProvider.addPaper(
-          selectedTemplate,
-          1,
-          null,
-          null,
-          595,
-          842,
-          fileId,
-        );
+          paperDBProvider.addPaper(
+              selectedTemplate, 1, 595, 842, fileId, widget.roomId);
+        } else {
+          fileId = await fileDBProvider.addFile(
+            nameController.text.trim(),
+            roomId: widget.roomId,
+            parentFolderId: 'Unknow',
+          );
+          ;
+
+          paperDBProvider.addPaper(
+              selectedTemplate, 1, 595, 842, fileId, widget.roomId);
+        }
       } else {
-        fileId = fileProvider.addFile(
-          nameController.text.trim(),
-          roomId: widget.parentId,
-        );
-        paperProvider.addPaper(
-          selectedTemplate,
-          1,
-          null,
-          null,
-          595,
-          842,
-          fileId,
-        );
+        if (widget.isInFolder == true) {
+          fileId = fileProvider.addFile(
+            nameController.text.trim(),
+            parentFolderId: widget.parentId,
+          );
+
+          paperProvider.addPaper(
+            selectedTemplate,
+            1,
+            null,
+            null,
+            595,
+            842,
+            fileId,
+          );
+        } else {
+          fileId = fileProvider.addFile(
+            nameController.text.trim(),
+            roomId: widget.parentId,
+          );
+          paperProvider.addPaper(
+            selectedTemplate,
+            1,
+            null,
+            null,
+            595,
+            842,
+            fileId,
+          );
+        }
       }
 
       MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(false);
@@ -83,8 +116,10 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
         context,
         MaterialPageRoute(
           builder: (context) => PaperPage(
+            collab: widget.isCollab,
             name: nameController.text.trim(),
             fileId: fileId,
+            roomId: widget.roomId,
             onFileUpdated: () => setState(() {}),
           ),
         ),

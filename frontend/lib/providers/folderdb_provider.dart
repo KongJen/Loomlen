@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/api/apiService.dart';
 import 'package:uuid/uuid.dart';
-import '../services/storage_service.dart';
 
 class FolderDBProvider extends ChangeNotifier {
   final ApiService _apiService = ApiService();

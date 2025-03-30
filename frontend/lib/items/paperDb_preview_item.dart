@@ -4,16 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:frontend/items/drawingpoint_item.dart';
 import 'dart:io';
 import 'package:frontend/items/template_item.dart';
+import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:frontend/widget/drawing_point_preview.dart';
-import 'package:frontend/providers/paper_provider.dart';
 import 'package:provider/provider.dart';
 
-class PaperPreviewItem extends StatelessWidget {
+class PaperDBPreviewItem extends StatelessWidget {
   final String fileId;
   final double maxWidth;
   final double maxHeight;
 
-  const PaperPreviewItem({
+  const PaperDBPreviewItem({
     super.key,
     required this.fileId,
     this.maxWidth = 120,
@@ -22,20 +22,19 @@ class PaperPreviewItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final paperProvider = Provider.of<PaperProvider>(context);
-    final papers =
-        paperProvider.papers.where((p) => p['fileId'] == fileId).toList();
-
-    if (papers.isEmpty) {
+    final paperProvider = Provider.of<PaperDBProvider>(context);
+    final paper = paperProvider.papers.firstWhere(
+      (p) => p['file_id'] == fileId && p['page_number'] == 1,
+      orElse: () => {},
+    );
+    if (paper.isEmpty) {
       return const Center(
         child: Icon(Icons.insert_drive_file, size: 48, color: Colors.grey),
       );
     }
 
-    final firstPaper = papers.first;
-
-    double originalWidth = firstPaper['width'] as double? ?? 595.0;
-    double originalHeight = firstPaper['height'] as double? ?? 842.0;
+    double originalWidth = (paper['width'] as num?)?.toDouble() ?? 595.0;
+    double originalHeight = (paper['height'] as num?)?.toDouble() ?? 842.0;
 
     // Maintain aspect ratio
     double scaleFactor = maxHeight / originalHeight;
@@ -49,11 +48,11 @@ class PaperPreviewItem extends StatelessWidget {
     }
 
     // Get template
-    final template = PaperTemplateFactory.getTemplate(firstPaper['templateId']);
+    final template = PaperTemplateFactory.getTemplate(paper['template_id']);
 
     // Load drawing points
     final List<DrawingPoint> drawingPoints =
-        paperProvider.getDrawingPointsForPage(firstPaper['id']);
+        paperProvider.getDrawingPointsForPage(paper['id']);
 
     return Center(
       child: Container(
@@ -83,9 +82,9 @@ class PaperPreviewItem extends StatelessWidget {
             ),
 
             // PDF preview if exists
-            if (firstPaper['pdfPath'] != null)
+            if (paper['pdfPath'] != null)
               Image.file(
-                File(firstPaper['pdfPath']!),
+                File(paper['pdfPath']!),
                 width: previewWidth,
                 height: previewHeight,
                 fit: BoxFit.cover,

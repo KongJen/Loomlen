@@ -16,15 +16,15 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:screenshot/screenshot.dart';
 
-class PdfExportResult {
+class PDFExportResult {
   final bool success;
   final String? filePath;
 
-  PdfExportResult({required this.success, this.filePath});
+  PDFExportResult({required this.success, this.filePath});
 }
 
-class PdfExportService {
-  Future<PdfExportResult> exportNotesToPdf({
+class PDFExportService {
+  Future<PDFExportResult> exportNotesToPdf({
     required BuildContext context,
     required String fileName,
     required List<String> pageIds,
@@ -47,18 +47,18 @@ class PdfExportService {
       // Show dialog to get export options from user
       final Map<String, dynamic>? exportOptions =
           await showDialog<Map<String, dynamic>>(
-            context: context,
-            builder: (BuildContext context) {
-              return PdfExportDialog(
-                filename: initialFileName,
-                hasMultiplePages: hasMultiplePages,
-              );
-            },
+        context: context,
+        builder: (BuildContext context) {
+          return PdfExportDialog(
+            filename: initialFileName,
+            hasMultiplePages: hasMultiplePages,
           );
+        },
+      );
 
       // If user cancelled the dialog, return
       if (exportOptions == null) {
-        return PdfExportResult(success: false);
+        return PDFExportResult(success: false);
       }
 
       // Show loading overlay
@@ -105,8 +105,7 @@ class PdfExportService {
         final double paperHeight = paperData['height'] as double? ?? 842.0;
 
         // Get the template for this page
-        final template =
-            paperTemplates[paperId] ??
+        final template = paperTemplates[paperId] ??
             template_model.PaperTemplate(id: 'plain', name: 'Plain Paper');
 
         // Create a widget for this specific page
@@ -139,13 +138,13 @@ class PdfExportService {
         );
 
         // Capture screenshot of this page with the selected quality
-        final Uint8List imageBytes = await screenshotController
-            .captureFromWidget(
-              pageWidget,
-              pixelRatio: quality,
-              targetSize: Size(paperWidth.toDouble(), paperHeight.toDouble()),
-              context: context,
-            );
+        final Uint8List imageBytes =
+            await screenshotController.captureFromWidget(
+          pageWidget,
+          pixelRatio: quality,
+          targetSize: Size(paperWidth.toDouble(), paperHeight.toDouble()),
+          context: context,
+        );
 
         // Add the captured image to the PDF
         final image = pw.MemoryImage(imageBytes);
@@ -183,7 +182,7 @@ class PdfExportService {
       // Hide loading overlay
       loadingOverlay.hide();
 
-      return PdfExportResult(success: true, filePath: filePath);
+      return PDFExportResult(success: true, filePath: filePath);
     } catch (e, stackTrace) {
       // Hide loading overlay in case of error
       loadingOverlay.hide();

@@ -1,63 +1,76 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
+import 'package:frontend/items/paperDb_preview_item.dart';
+import 'package:frontend/items/paper_preview_item.dart';
 import 'package:frontend/providers/file_provider.dart';
-import 'package:frontend/providers/folder_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:provider/provider.dart';
 import 'base_item.dart';
 import 'item_behaviors.dart';
 import '../services/item_dialog_service.dart';
 
-class FolderItem extends BaseItem {
+class FileDbItem extends BaseItem {
   final String? roomId;
-  final String? sub_folder_id;
-  final Color color;
+  final String? parentFolderId;
+  final String? pdfPath;
 
-  const FolderItem({
+  const FileDbItem({
     super.key,
     required super.id,
     required super.name,
     required super.createdDate,
     this.roomId,
-    this.sub_folder_id,
-    required this.color,
+    this.parentFolderId,
+    this.pdfPath,
   });
 
   @override
-  State<FolderItem> createState() => _FolderItemState();
+  State<FileDbItem> createState() => _FileItemState();
 }
 
-class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
+class _FileItemState extends State<FileDbItem> with Renamable, Deletable {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final iconSize = screenWidth < 600 ? 120.0 : 170.0;
+    final containerWidth = screenWidth < 600 ? 90.0 : 120.0;
+    final containerHeight = screenWidth < 600 ? 110.0 : 150.0;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            height: iconSize,
-            child: Center(
-              child: Icon(
-                Icons.folder_open,
-                size: iconSize,
-                color: widget.color,
+    return SizedBox(
+      width: containerWidth,
+      height: containerHeight,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildFilePreview(containerWidth, containerHeight),
+            const SizedBox(height: 34),
+            _buildItemNameRow(context, screenWidth),
+            const SizedBox(height: 2.0),
+            Text(
+              widget.createdDate,
+              style: TextStyle(
+                fontSize: screenWidth < 600 ? 8 : 10,
+                color: Colors.grey,
               ),
             ),
-          ),
-          const SizedBox(height: 4),
-          _buildItemNameRow(context, screenWidth),
-          const SizedBox(height: 2.0),
-          Text(
-            widget.createdDate,
-            style: TextStyle(
-              fontSize: screenWidth < 600 ? 8 : 10,
-              color: Colors.grey,
-            ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilePreview(double width, double height) {
+    return Center(
+      child: SizedBox(
+        height: 140, // Set the fixed height you want
+        width: width, // Use the dynamic width passed as parameter
+        child: PaperDBPreviewItem(
+          fileId: widget.id,
+          maxWidth: width,
+          maxHeight: height,
+        ),
       ),
     );
   }
@@ -108,7 +121,7 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
     ItemDialogService.showRenameDialog(
       context: context,
       currentName: widget.name,
-      itemType: 'Folder',
+      itemType: 'File',
       onRename: (newName) => rename(context, widget.id, newName),
     );
   }
@@ -116,7 +129,7 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
   void _showDeleteConfirmationDialog(BuildContext context) {
     ItemDialogService.showDeleteConfirmationDialog(
       context: context,
-      itemType: 'Folder',
+      itemType: 'File',
       itemName: widget.name,
       onConfirm: () => delete(context, widget.id),
     );
@@ -124,17 +137,15 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
 
   @override
   void rename(dynamic context, String id, String newName) {
-    final folderProvider = Provider.of<FolderProvider>(context, listen: false);
-    folderProvider.renameFolder(id, newName);
+    final fileProvider = Provider.of<FileProvider>(context, listen: false);
+    fileProvider.renameFile(id, newName);
   }
 
   @override
   void delete(dynamic context, String id) {
-    final folderProvider = Provider.of<FolderProvider>(context, listen: false);
-    folderProvider.deleteFolder(
+    final fileProvider = Provider.of<FileProvider>(context, listen: false);
+    fileProvider.deleteFile(
       id,
-      Provider.of<FolderProvider>(context, listen: false),
-      Provider.of<FileProvider>(context, listen: false),
       Provider.of<PaperProvider>(context, listen: false),
     );
   }
