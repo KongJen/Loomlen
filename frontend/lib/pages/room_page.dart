@@ -44,6 +44,9 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     _checkisCollab();
     _navigationService = FolderNavigationService(widget.room);
 
+    print("WidgetID : ${widget.room['original_id']}");
+    print("NavigateID : ${widget.room['id']}");
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final folderDBProvider =
           Provider.of<FolderDBProvider>(context, listen: false);
@@ -335,6 +338,10 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final String currentParentId = _navigationService.currentParentId;
     final bool isInFolder = _navigationService.isInFolder;
     final folderDBs = folderDBProvider.folders;
+
+    final room_id = folderDBs;
+
+    print("Folder Room ID : ${room_id}");
 
     final List<Map<String, dynamic>> folders;
     if (isCollab == true) {

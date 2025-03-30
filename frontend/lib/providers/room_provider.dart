@@ -5,14 +5,18 @@ import 'package:frontend/providers/paper_provider.dart';
 import 'package:uuid/uuid.dart';
 import '../services/storage_service.dart';
 import '../api/apiService.dart';
+import '../providers/folder_provider.dart';
 
 class RoomProvider extends ChangeNotifier {
   final StorageService _storageService = StorageService();
   final List<Map<String, dynamic>> _rooms = [];
+  final List<Map<String, dynamic>> _folders = [];
   final Uuid _uuid = Uuid();
   final ApiService _apiService = ApiService();
 
   List<Map<String, dynamic>> get rooms => List.unmodifiable(_rooms);
+
+  List<Map<String, dynamic>> get folders => List.unmodifiable(_folders);
 
   RoomProvider() {
     _loadRooms();
@@ -63,10 +67,9 @@ class RoomProvider extends ChangeNotifier {
     await paperProvider.loadPapers();
 
     // Delete all folders inside the room
-    List<Map<String, dynamic>> foldersToDelete =
-        folderProvider.folders
-            .where((folder) => folder['roomId'] == roomId)
-            .toList();
+    List<Map<String, dynamic>> foldersToDelete = folderProvider.folders
+        .where((folder) => folder['roomId'] == roomId)
+        .toList();
 
     for (var folder in foldersToDelete) {
       await folderProvider.deleteFolder(
@@ -101,11 +104,8 @@ class RoomProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> shareRoom(
-    String roomId,
-    List<String> sharedWith,
-    String permission,
-  ) async {
+  Future<void> shareRoom(String roomId, List<String> sharedWith,
+      String permission, FolderProvider folderProvider) async {
     try {
       final room = _rooms.firstWhere(
         (f) => f['id'] == roomId,
@@ -125,6 +125,26 @@ class RoomProvider extends ChangeNotifier {
         sharedWith: sharedWith,
         permission: permission,
       );
+
+      print("room ID before lists: ${roomId}");
+
+      List<Map<String, dynamic>> roomFolders = folderProvider.folders
+          .where((folder) => folder['roomId'] == roomId)
+          .toList();
+
+      print("Folder room ID : ${roomFolders}");
+      print("Folder room ID : ${roomId}");
+
+      for (var folder in roomFolders) {
+        await _apiService.addFolder(
+          id: folder['id'],
+          roomId: roomId,
+          subFolderId: folder['parentFolderId'] ?? '',
+          name: folder['name'],
+          color: folder['color'],
+        );
+        print("Folder ID: ${folder['id']}");
+      }
 
       // Update the local file to indicate it's shared
       room['isShared'] = true;

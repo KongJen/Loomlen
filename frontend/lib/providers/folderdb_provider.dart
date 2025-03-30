@@ -15,12 +15,13 @@ class FolderDBProvider extends ChangeNotifier {
   Future<void> loadFoldersDB(String roomId) async {
     try {
       _folders.clear();
+      print("Fetch RoomID : ${roomId}");
       final folderDBData = await _apiService.getFolders(roomId);
-      print(folderDBData);
+      print("Folder Data : ${folderDBData}");
       _folders.addAll(folderDBData); // Ensure _rooms is populated
       notifyListeners();
     } catch (e) {
-      print('Error loading rooms: $e');
+      print('Error loading folders: $e');
     }
   }
 
@@ -33,12 +34,11 @@ class FolderDBProvider extends ChangeNotifier {
   void addFolder(
     String name,
     Color color, {
-    required String roomId,
     required String parentFolderId,
   }) async {
-    await _apiService.AddFolder(
+    await _apiService.addFolder(
         id: _uuid.v4(),
-        roomId: roomId,
+        roomId: "",
         subFolderId: parentFolderId,
         name: name,
         color: color.value);

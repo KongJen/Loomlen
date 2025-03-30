@@ -48,21 +48,6 @@ class _SharePageState extends State<SharePage> {
     });
   }
 
-  // //load room when login
-  // bool _initialLoadComplete = true;
-
-  // @override
-  // void didChangeDependencies() {
-  //   super.didChangeDependencies();
-  //   final authProvider = Provider.of<AuthProvider>(context);
-
-  //   // Only load rooms if authenticated and not already loaded
-  //   if (authProvider.isLoggedIn && !_initialLoadComplete) {
-  //     _initialLoadComplete = true;
-  //     // _loadRooms();
-  //   }
-  // }
-
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -127,6 +112,7 @@ class _SharePageState extends State<SharePage> {
         ),
       ),
     );
+    print("Roomssss: ${rooms}");
 
     return ResponsiveGridLayout(children: gridItems);
   }

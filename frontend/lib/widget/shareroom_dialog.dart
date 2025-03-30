@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/providers/folder_provider.dart';
 import 'package:frontend/providers/room_provider.dart';
 import 'package:provider/provider.dart';
 import '../providers/file_provider.dart';
@@ -61,8 +62,13 @@ class _ShareDialogState extends State<ShareDialog> {
 
     try {
       final roomProvider = Provider.of<RoomProvider>(context, listen: false);
+      final folderProvider =
+          Provider.of<FolderProvider>(context, listen: false);
 
-      await roomProvider.shareRoom(widget.roomId, _sharedWith, _permission);
+      print("Roomid dialog : ${widget.roomId}");
+
+      await roomProvider.shareRoom(
+          widget.roomId, _sharedWith, _permission, folderProvider);
 
       Navigator.of(context).pop(true);
       ScaffoldMessenger.of(context).showSnackBar(
