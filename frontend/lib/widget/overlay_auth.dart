@@ -15,36 +15,100 @@ class OverlayAuth extends StatefulWidget {
   _OverlayAuthState createState() => _OverlayAuthState();
 }
 
+enum AuthState {
+  login,
+  signup,
+  authenticated,
+  loginSuccess,
+  signupSuccess,
+  logoutSuccess
+}
+
 class _OverlayAuthState extends State<OverlayAuth> {
   bool isLogin = true;
   bool isAuthenticated = false; // Track login state
   String userEmail = ""; // Store logged-in email
+
+  Future<void>? _stateTransitionTimer;
+
+  AuthState currentState = AuthState.login;
 
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController =
       TextEditingController();
 
+  @override
+  void dispose() {
+    // Cancel any pending timers
+    _stateTransitionTimer?.ignore();
+
+    // Dispose controllers
+    emailController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+
+    super.dispose();
+  }
+
   Future<void> authenticate() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     try {
       if (isLogin) {
+        print('Attempting to login with email: ${emailController.text}');
         await authProvider.login(emailController.text, passwordController.text);
+
+        print('Login attempt completed');
+        print('AuthProvider isLoggedIn: ${authProvider.isLoggedIn}');
+        print('AuthProvider email: ${authProvider.email}');
+
+        if (!mounted) return;
+        setState(() {
+          isAuthenticated = authProvider.isLoggedIn;
+          userEmail = authProvider.email ?? '';
+          currentState = AuthState.loginSuccess;
+        });
+
+        print('AuthState email: ${currentState}');
+
+        // Use a cancelable timer
+        _stateTransitionTimer = Future.delayed(Duration(seconds: 4), () {
+          if (!mounted) return;
+          setState(() {
+            currentState = AuthState.authenticated;
+          });
+        });
       } else {
         if (passwordController.text != confirmPasswordController.text) {
           throw Exception('Passwords do not match');
         }
+
+        print('Attempting to signup with email: ${emailController.text}');
         await authProvider.signup(
           emailController.text,
           passwordController.text,
         );
-      }
 
-      setState(() {
-        isAuthenticated = authProvider.isLoggedIn;
-        userEmail = authProvider.email ?? '';
-      });
+        print('Signup attempt completed');
+        print('AuthProvider isLoggedIn: ${authProvider.isLoggedIn}');
+        print('AuthProvider email: ${authProvider.email}');
+
+        if (!mounted) return;
+        setState(() {
+          isAuthenticated = authProvider.isLoggedIn;
+          userEmail = authProvider.email ?? '';
+          currentState = AuthState.signupSuccess;
+        });
+
+        // Use a cancelable timer
+        _stateTransitionTimer = Future.delayed(Duration(seconds: 2), () {
+          if (!mounted) return;
+          setState(() {
+            currentState = AuthState.authenticated;
+          });
+        });
+      }
 
       if (isAuthenticated) {
         widget.onClose();
@@ -66,9 +130,32 @@ class _OverlayAuthState extends State<OverlayAuth> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     await authProvider.refreshAuthState();
 
+    if (!mounted) return;
     setState(() {
       isAuthenticated = authProvider.isLoggedIn;
       userEmail = authProvider.email ?? '';
+      currentState =
+          isAuthenticated ? AuthState.authenticated : AuthState.login;
+    });
+  }
+
+  void logout() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.logout();
+
+    if (!mounted) return;
+    setState(() {
+      isAuthenticated = false;
+      userEmail = "";
+      currentState = AuthState.logoutSuccess;
+    });
+
+    // Use a cancelable timer
+    _stateTransitionTimer = Future.delayed(Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() {
+        currentState = AuthState.login;
+      });
     });
   }
 
@@ -98,7 +185,7 @@ class _OverlayAuthState extends State<OverlayAuth> {
                   ),
                 ],
               ),
-              child: isAuthenticated ? buildProfileView() : buildAuthView(),
+              child: buildCurrentView(),
             ),
           ),
         ),
@@ -106,14 +193,49 @@ class _OverlayAuthState extends State<OverlayAuth> {
     );
   }
 
-  void logout() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    await authProvider.logout();
+  Widget buildCurrentView() {
+    print('Building View for State: $currentState');
 
-    setState(() {
-      isAuthenticated = false;
-      userEmail = "";
-    });
+    switch (currentState) {
+      case AuthState.authenticated:
+        return buildProfileView();
+      case AuthState.loginSuccess:
+        return buildSuccessView(
+            'Login Successful!', Icons.check_circle, Colors.green);
+      case AuthState.signupSuccess:
+        return buildSuccessView(
+            'Signup Successful!', Icons.person_add, Colors.blue);
+      case AuthState.logoutSuccess:
+        return buildSuccessView('Logout Successful!', Icons.logout, Colors.red);
+      case AuthState.login:
+      case AuthState.signup:
+      default:
+        return buildAuthView();
+    }
+  }
+
+  Widget buildSuccessView(String message, IconData icon, Color color) {
+    return Padding(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 80, color: color),
+          SizedBox(height: 20),
+          Text(
+            message,
+            style: TextStyle(
+                fontSize: 22, fontWeight: FontWeight.bold, color: color),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 10),
+          Text(
+            'You will be redirected shortly...',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget buildProfileView() {

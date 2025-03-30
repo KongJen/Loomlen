@@ -11,11 +11,12 @@ class FolderDBProvider extends ChangeNotifier {
 
   List<Map<String, dynamic>> get folders => List.unmodifiable(_folders);
 
-  Future<void> loadFoldersDB(String roomId) async {
+  Future<void> loadFoldersDB(String roomId, String originalId) async {
     try {
       _folders.clear();
-      final folderDBData = await _apiService.getFolders(roomId);
-      print(folderDBData);
+      print("Fetch RoomID: $roomId, OriginalID: $originalId");
+      final folderDBData = await _apiService.getFolders(roomId, originalId);
+      print("Folder Data : ${folderDBData}");
       _folders.addAll(folderDBData); // Ensure _rooms is populated
       notifyListeners();
     } catch (e) {
@@ -45,7 +46,7 @@ class FolderDBProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> refreshRooms(String roomId) async {
-    await loadFoldersDB(roomId);
+  Future<void> refreshRooms(String roomId, String originalId) async {
+    await loadFoldersDB(roomId, originalId);
   }
 }
