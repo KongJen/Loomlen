@@ -49,6 +49,7 @@ class _OverlayCreateFolderState extends State<OverlayCreateFolder> {
         folderDBProvider.addFolder(
           nameController.text.trim(),
           selectedColor,
+          roomId: widget.roomId,
           parentFolderId: widget.parentId,
         );
       } else {
@@ -56,6 +57,7 @@ class _OverlayCreateFolderState extends State<OverlayCreateFolder> {
         folderDBProvider.addFolder(
           nameController.text.trim(),
           selectedColor,
+          roomId: widget.roomId,
           parentFolderId: 'Unknow',
         );
       }
