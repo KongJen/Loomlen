@@ -66,6 +66,41 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 		})
 	})
 
+	server.OnEvent("/", "request_canvas_state", func(s socketio.Conn, data map[string]interface{}) {
+		fmt.Println("📥 Canvas state requested")
+
+		roomID, ok := data["roomId"].(string)
+		if !ok || roomID == "" {
+			fmt.Println("⚠️ Invalid or missing roomId in request_canvas_state event")
+			return
+		}
+
+		pageID, pageOk := data["pageId"].(string)
+		if !pageOk || pageID == "" {
+			fmt.Println("⚠️ Invalid or missing pageId in request_canvas_state event")
+			return
+		}
+
+		// Add the requesting client's ID to the data
+		data["clientId"] = s.ID()
+
+		// Broadcast the request to all clients in the room
+		server.BroadcastToRoom("", roomID, "request_canvas_state", data)
+		fmt.Printf("📤 Broadcasted canvas state request for page %s to room %s\n", pageID, roomID)
+	})
+
+	server.OnEvent("/", "canvas_state", func(s socketio.Conn, data map[string]interface{}) {
+		roomID, ok := data["roomId"].(string)
+		if !ok || roomID == "" {
+			fmt.Println("⚠️ Invalid or missing roomId in canvas_state event")
+			return
+		}
+
+		// Broadcast the canvas state to all users in the room
+		server.BroadcastToRoom("", roomID, "canvas_state", data)
+		fmt.Println("📤 Broadcasted canvas state to room:", roomID)
+	})
+
 	server.OnEvent("/", "drawing", func(s socketio.Conn, data map[string]interface{}) {
 		fmt.Println("Full Received drawing event data: ", data)
 
