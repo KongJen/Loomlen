@@ -6,6 +6,7 @@ class DrawingPoint {
   Color color;
   double width;
   String tool;
+  String? userId; // Added userId field
 
   DrawingPoint({
     this.id = -1,
@@ -13,12 +14,13 @@ class DrawingPoint {
     this.color = Colors.black,
     this.width = 2,
     this.tool = 'pencil',
+    this.userId, // Added to constructor
   });
 
   // Override the toString method for better logging
   @override
   String toString() {
-    return 'DrawingPoint(id: $id, offsets: $offsets, color: $color, width: $width,tool: $tool)';
+    return 'DrawingPoint(id: $id, offsets: $offsets, color: $color, width: $width, tool: $tool, userId: $userId)';
   }
 
   DrawingPoint copyWith({
@@ -27,6 +29,7 @@ class DrawingPoint {
     String? tool,
     Color? color,
     double? width,
+    String? userId,
   }) {
     return DrawingPoint(
       id: id,
@@ -34,6 +37,7 @@ class DrawingPoint {
       tool: tool ?? this.tool,
       width: width ?? this.width,
       offsets: offsets ?? this.offsets,
+      userId: userId ?? this.userId,
     );
   }
 
@@ -47,6 +51,7 @@ class DrawingPoint {
       'color': color.value,
       'width': width,
       'tool': tool,
+      'userId': userId,
     };
   }
 
@@ -65,12 +70,16 @@ class DrawingPoint {
     }
 
     return DrawingPoint(
-        id: json['id'] ?? -1, // Provide a default ID if null
-        offsets: offsetsList,
-        color: json['color'] != null
-            ? Color(json['color'])
-            : Colors.black, // Default to black if null
-        width: json['width'] ?? 2.0, // Default width if null
-        tool: json['tool'] ?? 'pencil');
+      id: json['id'] ?? -1, // Provide a default ID if null
+      offsets: offsetsList,
+      color: json['color'] != null
+          ? Color(json['color'])
+          : Colors.black, // Default to black if null
+      width: json['width'] != null
+          ? (json['width'] as num).toDouble() // 👈 FIX: cast to double
+          : 2.0, // Default width if null
+      tool: json['tool'] ?? 'pencil',
+      userId: json['userId'], // Parse userId from JSON
+    );
   }
 }

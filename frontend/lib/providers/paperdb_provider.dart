@@ -28,6 +28,17 @@ class PaperDBProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updatePaper(Map<String, dynamic> paperData) {
+    print("paperData: $paperData");
+    final index = _papers.indexWhere((paper) => paper['id'] == paperData['id']);
+    if (index != -1) {
+      _papers[index] = paperData;
+    } else {
+      _papers.add(paperData);
+    }
+    notifyListeners();
+  }
+
   /// Add a new paper
   Future<String> addPaper(
     PaperTemplate template,
@@ -56,14 +67,6 @@ class PaperDBProvider extends ChangeNotifier {
       (paper) => paper['id'] == paperId,
       orElse: () => {},
     );
-  }
-
-  Future<void> updatePaperDrawingData(
-    String paperId,
-    List<Map<String, dynamic>> drawingData,
-  ) async {
-    // Send updated drawing data to the backend
-    await _apiService.updateDraw(paperId, drawingData);
   }
 
   List<DrawingPoint> getDrawingPointsForPage(String pageId) {
@@ -102,5 +105,9 @@ class PaperDBProvider extends ChangeNotifier {
 
   PaperTemplate getPaperTemplate(String templateId) {
     return PaperTemplateFactory.getTemplate(templateId);
+  }
+
+  void saveDrawingData(String pageId, List<DrawingPoint> points) {
+    _apiService.updateDraw(pageId, points);
   }
 }
