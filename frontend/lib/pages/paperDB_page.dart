@@ -68,8 +68,10 @@ class _PaperDBPageState extends State<PaperDBPage> {
   void initState() {
     super.initState();
     _drawingService = DrawingService();
-    _drawingDBService =
-        DrawingDBService(roomId: widget.roomId, socketService: widget.socket);
+    _drawingDBService = DrawingDBService(
+        roomId: widget.roomId,
+        fileId: widget.fileId,
+        socketService: widget.socket);
     _paperService = PaperService();
     _pdfExportService = PDFExportService();
     _drawingDBService.onDataChanged = () {
@@ -561,6 +563,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _drawingDBService.leavefile();
     if (_hasUnsavedChanges) _saveDrawing();
     super.dispose();
   }

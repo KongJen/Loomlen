@@ -34,8 +34,7 @@ func main() {
 	router.HandleFunc("/api/file/id", handlers.GetFileIDByOriginalID).Methods("GET")
 	router.HandleFunc("/api/paper", handlers.AddPaper).Methods("POST")
 	router.HandleFunc("/api/paper", handlers.GetPaper).Methods("GET")
-	router.HandleFunc("/api/drawing", handlers.AddDrawing).Methods("POST")
-	router.HandleFunc("/api/drawing", handlers.UpdateDrawingData).Methods("PUT")
+	router.HandleFunc("/api/paper/drawing", handlers.AddDrawingPoint).Methods("PUT")
 
 	// router.HandleFunc("/api/paper", handlers.AddDrawing).Methods("PUT")
 	router.HandleFunc("/api/shared", handlers.ShareFile).Methods("POST")

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:frontend/global.dart';
+import 'package:frontend/items/drawingpoint_item.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -341,17 +342,41 @@ class ApiService {
 
   Future<Map<String, dynamic>> updateDraw(
     String paperId,
-    List<Map<String, dynamic>> drawingData,
+    List<DrawingPoint>
+        drawingData, // Assuming drawingData is a List of DrawingPoint objects
   ) async {
     print("Drawing to db: $drawingData");
-    final headers = await _getHeaders();
+
+    // Convert the drawing data to the correct format
+    List<Map<String, dynamic>> formattedDrawingData = drawingData.map((point) {
+      return {
+        'type': 'drawing',
+        'data': {
+          'id': point.id,
+          'offsets': point.offsets
+              .map((offset) => {
+                    'x': offset.dx,
+                    'y': offset.dy,
+                  })
+              .toList(),
+          'color': point.color.value, // Assuming 'color' is a Color object
+          'width': point.width,
+          'tool': point.tool
+              .toString()
+              .split('.')
+              .last, // Get the tool name as a string
+        },
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
+    }).toList();
+
     final response = await http.put(
-      Uri.parse('$baseUrl/api/drawing'),
-      headers: headers,
-      body: jsonEncode({
+      Uri.parse('$baseUrl/api/paper/drawing'),
+      headers: {
+        'Content-Type': 'application/json',
         'paper_id': paperId,
-        'drawing_data': drawingData,
-      }),
+      },
+      body: jsonEncode(formattedDrawingData),
     );
 
     if (response.statusCode == 200) {

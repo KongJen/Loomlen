@@ -4,6 +4,7 @@ import 'package:frontend/providers/folderdb_provider.dart';
 import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:frontend/services/drawingDb_service.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'package:frontend/global.dart';
 
@@ -11,6 +12,11 @@ class SocketService {
   IO.Socket? socket;
   final String baseUrl = baseurl;
   BuildContext? _context;
+
+  Future<String?> getToken() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('token');
+  }
 
   void initializeSocket(
     String roomID,
@@ -29,9 +35,12 @@ class SocketService {
       'timeout': 5000,
     });
 
-    socket?.onConnect((_) {
+    socket?.onConnect((_) async {
+      String? token = await getToken();
+      String? Btoken = 'Bearer $token';
       print('Connected! Socket ID: ${socket?.id}');
-      socket?.emit('join_room', {'roomID': roomID, 'socketID': socket?.id});
+      socket?.emit('join_room',
+          {'roomID': roomID, 'socketID': socket?.id, 'token': token});
     });
 
     socket?.on('folder_list_updated', (data) {
@@ -78,6 +87,25 @@ class SocketService {
           }
 
           paperDBProvider.updatePapers(papers);
+        }
+      }
+    });
+
+    socket?.on('paper_updated', (data) {
+      print('Received updated paper data: $data');
+      if (_context != null) {
+        final paperDBProvider =
+            Provider.of<PaperDBProvider>(_context!, listen: false);
+
+        // Ensure width and height are set correctly
+        data["width"] = (data["width"] as num?)?.toDouble() ?? 595.0;
+        data["height"] = (data["height"] as num?)?.toDouble() ?? 842.0;
+
+        // Cast data to Map<String, dynamic> before passing it to updatePaper
+        if (data is Map<String, dynamic>) {
+          paperDBProvider.updatePaper(data); // Update with new paper data
+        } else {
+          print("Error: Received data is not of type Map<String, dynamic>");
         }
       }
     });

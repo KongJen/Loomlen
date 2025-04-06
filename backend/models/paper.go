@@ -28,6 +28,7 @@ type Offset struct {
 
 type DrawingPoint struct {
 	ID      int      `json:"id" bson:"id"`
+	Type    string   `json:"type" bson:"type"`
 	Offsets []Offset `json:"offsets" bson:"offsets"`
 	Color   int      `json:"color" bson:"color"`
 	Width   float64  `json:"width" bson:"width"`
