@@ -179,9 +179,9 @@ func GetRooms(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		for _, room := range sharedRooms {
-			log.Printf("Found Shared Room - ID: %v, OriginalID: %v", room.ID, room.OriginalID)
-		}
+		// for _, room := range sharedRooms {
+		// 	log.Printf("Found Shared Room - ID: %v, OriginalID: %v", room.ID, room.OriginalID)
+		// }
 
 		allRooms = append(allRooms, sharedRooms...)
 	}
