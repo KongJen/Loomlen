@@ -1,6 +1,7 @@
 package socketio
 
 import (
+	"backend/utils"
 	"fmt"
 	"log"
 	"net/http"
@@ -47,7 +48,7 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 
 	server.OnEvent("/", "join_room", func(s socketio.Conn, data map[string]interface{}) {
 		roomID, ok := data["roomID"].(string)
-		if !ok {
+		if !ok || roomID == "" {
 			fmt.Println("Invalid roomID in join_room")
 			s.Emit("room_joined", map[string]interface{}{
 				"success": false,
@@ -56,18 +57,102 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 			return
 		}
 
-		fmt.Printf("🏠 Client %s joined room %s\n", s.ID(), roomID)
+		token, tokenOk := data["token"].(string)
+		if !tokenOk || token == "" {
+			fmt.Println("❌ Missing or invalid token in join_room")
+			s.Emit("room_joined", map[string]interface{}{
+				"success": false,
+				"error":   "Missing or invalid token",
+			})
+			return
+		}
+
+		userID, err := utils.GetUserIDFromTokenSocket(token)
+		if err != nil {
+			fmt.Println("❌ Unauthorized: Invalid token")
+			s.Emit("room_joined", map[string]interface{}{
+				"success": false,
+				"error":   "Unauthorized: Invalid token",
+			})
+			return
+		}
+
+		s.SetContext(userID)
+
+		fmt.Printf("✅ User %s (Client ID: %s) joined room %s\n", userID, s.ID(), roomID)
 		s.Join(roomID)
 
 		s.Emit("room_joined", map[string]interface{}{
 			"success":  true,
 			"roomID":   roomID,
+			"userID":   userID,
 			"clientID": s.ID(),
 		})
 	})
 
+	server.OnEvent("/", "join_file", func(s socketio.Conn, msg map[string]string) {
+		fileId := msg["fileId"]
+		userId := s.ID()
+
+		server.JoinRoom("/", fileId, s)
+		AddUserToFile(fileId, userId)
+
+		users := GetUsersInFile(fileId)
+		fmt.Printf("User %s joined file %s\n", userId, fileId)
+		server.BroadcastToRoom("/", fileId, "file_users_update", map[string]interface{}{
+			"users": users,
+		})
+	})
+
+	server.OnEvent("/", "leave_file", func(s socketio.Conn, msg map[string]string) {
+		fileId := msg["fileId"]
+		userId := s.ID()
+
+		server.LeaveRoom("/", fileId, s)
+		RemoveUserFromFile(fileId, userId)
+
+		users := GetUsersInFile(fileId)
+		server.BroadcastToRoom("/", fileId, "file_users_update", map[string]interface{}{
+			"users": users,
+		})
+	})
+
+	server.OnEvent("/", "request_canvas_state", func(s socketio.Conn, data map[string]interface{}) {
+		fmt.Println("📥 Canvas state requested")
+
+		roomID, ok := data["roomId"].(string)
+		if !ok || roomID == "" {
+			fmt.Println("⚠️ Invalid or missing roomId in request_canvas_state event")
+			return
+		}
+
+		pageID, pageOk := data["pageId"].(string)
+		if !pageOk || pageID == "" {
+			fmt.Println("⚠️ Invalid or missing pageId in request_canvas_state event")
+			return
+		}
+
+		// Add the requesting client's ID to the data
+		data["clientId"] = s.ID()
+
+		// Broadcast the request to all clients in the room
+		server.BroadcastToRoom("", roomID, "request_canvas_state", data)
+		fmt.Printf("📤 Broadcasted canvas state request for page %s to room %s\n", pageID, roomID)
+	})
+
+	server.OnEvent("/", "canvas_state", func(s socketio.Conn, data map[string]interface{}) {
+		roomID, ok := data["roomId"].(string)
+		if !ok || roomID == "" {
+			fmt.Println("⚠️ Invalid or missing roomId in canvas_state event")
+			return
+		}
+
+		// Broadcast the canvas state to all users in the room
+		server.BroadcastToRoom("", roomID, "canvas_state", data)
+		fmt.Println("📤 Broadcasted canvas state to room:", roomID)
+	})
+
 	server.OnEvent("/", "drawing", func(s socketio.Conn, data map[string]interface{}) {
-		fmt.Println("Full Received drawing event data: ", data)
 
 		// Check if the roomId exists and is a string
 		roomID, ok := data["roomId"].(string)
@@ -158,7 +243,18 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 	})
 
 	server.OnDisconnect("/", func(s socketio.Conn, reason string) {
-		fmt.Println("closed", reason)
+		userID := s.ID() // Get user ID from connection context
+		fmt.Println("closed", reason, "UserID:", userID)
+
+		// Iterate over the files the user is in and remove them
+		for fileID := range fileUsers {
+			if fileUsers[fileID][userID] {
+				RemoveUserFromFile(fileID, userID)
+				server.BroadcastToRoom("/", fileID, "file_users_update", map[string]interface{}{
+					"users": GetUsersInFile(fileID),
+				})
+			}
+		}
 	})
 
 	// Run the server in a goroutine
@@ -172,4 +268,32 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 	ServerInstance = server
 
 	return server
+}
+
+var fileUsers = make(map[string]map[string]bool)
+
+func AddUserToFile(fileID, userID string) {
+	if fileUsers[fileID] == nil {
+		fileUsers[fileID] = make(map[string]bool)
+	}
+	fileUsers[fileID][userID] = true
+}
+
+func RemoveUserFromFile(fileID, userID string) {
+	if users, ok := fileUsers[fileID]; ok {
+		delete(users, userID)
+		if len(users) == 0 {
+			delete(fileUsers, fileID) // Clean up if empty
+		}
+	}
+}
+
+func GetUsersInFile(fileID string) []string {
+	users := []string{}
+	if userSet, ok := fileUsers[fileID]; ok {
+		for userID := range userSet {
+			users = append(users, userID)
+		}
+	}
+	return users
 }

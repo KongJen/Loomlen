@@ -60,7 +60,8 @@ class EraserTool {
   final List<Map<String, List<DrawingPoint>>> undoStack;
   final List<Map<String, List<DrawingPoint>>> redoStack;
   final VoidCallback onStateChanged; // Callback to trigger setState in Paper
-  final String currentPaperId; // Current page being erased
+  final String currentPaperId;
+  String? currentUserId;
 
   EraserTool({
     required this.eraserWidth,
@@ -70,6 +71,7 @@ class EraserTool {
     required this.redoStack,
     required this.onStateChanged,
     required this.currentPaperId,
+    this.currentUserId,
   });
 
   void startErasing(Offset position) {
@@ -108,20 +110,6 @@ class EraserTool {
           break;
         }
       }
-    }
-
-    if (toRemove.isNotEmpty) {
-      pointsForPage.removeWhere((p) => toRemove.contains(p));
-      final eraserPoint = DrawingPoint(
-        id: DateTime.now().microsecondsSinceEpoch,
-        offsets: [position],
-        color: Colors.transparent,
-        width: eraserWidth,
-        tool: 'eraser',
-      );
-      pointsForPage.add(eraserPoint);
-      pageDrawingPoints[currentPaperId] = pointsForPage;
-      onStateChanged(); // Trigger Paper's setState
     }
   }
 

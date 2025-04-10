@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -18,7 +18,7 @@ import (
 )
 
 func AddPaper(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Error reading request body", http.StatusBadRequest)
 		return
@@ -39,19 +39,6 @@ func AddPaper(w http.ResponseWriter, r *http.Request) {
 		return
 
 	}
-
-	// roomCollection := config.GetRoomCollection()
-	// roomIDObjID, err := primitive.ObjectIDFromHex(folderRequest.RoomID)
-	// if err != nil {
-	// 	http.Error(w, "Invalid Room ID format", http.StatusBadRequest)
-	// 	return
-	// }
-	// var room models.Room
-	// err = roomCollection.FindOne(context.Background(), bson.M{"id": roomIDObjID}).Decode(&room)
-	// if err != nil {
-	// 	http.Error(w, "Room not found", http.StatusNotFound)
-	// 	return
-	// }
 
 	paper := models.Paper{
 		ID:         primitive.NewObjectID(),
@@ -95,115 +82,155 @@ func AddPaper(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// func AddDrawing(w http.ResponseWriter, r *http.Request) {
-// 	body, err := io.ReadAll(r.Body)
-// 	if err != nil {
-// 		http.Error(w, "Error reading request body", http.StatusBadRequest)
-// 		return
-// 	}
+func AddDrawingPoint(w http.ResponseWriter, r *http.Request) {
+	paperID := r.Header.Get("paper_id")
+	if paperID == "" {
+		http.Error(w, "Missing paper_id header", http.StatusBadRequest)
+		return
+	}
 
-// 	// Define a struct to match the incoming data structure
-// 	var DrawingRequests []struct {
-// 		Type string `json:"type"`
-// 		Data struct {
-// 			ID      int64 `json:"id"`
-// 			Offsets []struct {
-// 				X float64 `json:"x"`
-// 				Y float64 `json:"y"`
-// 			} `json:"offsets"`
-// 			Color int     `json:"color"`
-// 			Width float64 `json:"width"`
-// 			Tool  string  `json:"tool"`
-// 		} `json:"data"`
-// 		Timestamp int64 `json:"timestamp"`
-// 	}
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
 
-// 	// Unmarshal the JSON data
-// 	if err := json.Unmarshal(body, &DrawingRequests); err != nil {
-// 		http.Error(w, "Invalid request format", http.StatusBadRequest)
-// 		return
-// 	}
+	// Convert paper ID to ObjectID
+	paperObjID, err := primitive.ObjectIDFromHex(paperID)
+	if err != nil {
+		http.Error(w, "Invalid paper ID format", http.StatusBadRequest)
+		return
+	}
 
-// 	// Validate input
-// 	if len(DrawingRequests) == 0 {
-// 		http.Error(w, "No drawing data provided", http.StatusBadRequest)
-// 		return
-// 	}
+	// Define a struct to match the incoming data structure
+	var drawingRequests []struct {
+		Type string `json:"type"`
+		Data struct {
+			ID      int64 `json:"id"`
+			Offsets []struct {
+				X float64 `json:"x"`
+				Y float64 `json:"y"`
+			} `json:"offsets"`
+			Color int     `json:"color"`
+			Width float64 `json:"width"`
+			Tool  string  `json:"tool"`
+		} `json:"data"`
+		Timestamp int64 `json:"timestamp"`
+	}
 
-// 	// Convert ID to string
-// 	fileIDStr := strconv.FormatInt(DrawingRequests[0].Data.ID, 10)
+	// Unmarshal the JSON data
+	if err := json.Unmarshal(body, &drawingRequests); err != nil {
+		http.Error(w, "Invalid request format", http.StatusBadRequest)
+		return
+	}
 
-// 	paperCollection := config.GetPaperCollection()
+	// Validate input
+	if len(drawingRequests) == 0 {
+		// If no drawing data, set the drawing data to null in the database
+		update := bson.M{
+			"$set": bson.M{
+				"drawing_data": nil,
+				"updated_at":   time.Now(),
+			},
+		}
 
-// 	// Try to find existing paper
-// 	var paper models.Paper
-// 	filter := bson.M{"file_id": fileIDStr}
-// 	err = paperCollection.FindOne(context.Background(), filter).Decode(&paper)
+		// Update the paper with null drawing data
+		paperCollection := config.GetPaperCollection()
+		_, err := paperCollection.UpdateOne(context.Background(), bson.M{"_id": paperObjID}, update)
+		if err != nil {
+			http.Error(w, "Failed to update paper", http.StatusInternalServerError)
+			return
+		}
 
-// 	// If paper not found, return an error
-// 	if err == mongo.ErrNoDocuments {
-// 		http.Error(w, "Paper not found", http.StatusNotFound)
-// 		return
-// 	} else if err != nil {
-// 		http.Error(w, "Error finding paper", http.StatusInternalServerError)
-// 		return
-// 	}
+		// Send success response for no drawing data
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"message":   "Drawing data set to null successfully",
+			"paper_id":  paperID,
+			"room_id":   "", // Empty room_id for no data
+			"file_id":   "", // Empty file_id for no data
+			"timestamp": time.Now().Format(time.RFC3339),
+		})
+		return
+	}
 
-// 	// Convert the incoming data to DrawingPoints
-// 	var drawingPoints []models.DrawingPoint
-// 	for _, req := range DrawingRequests {
-// 		if req.Type != "drawing" {
-// 			continue // Skip non-drawing types
-// 		}
+	// If there is drawing data, convert it to DrawingPoints
+	var drawingPoints []models.DrawingPoint
+	for _, req := range drawingRequests {
+		if req.Type != "drawing" {
+			continue // Skip non-drawing types
+		}
 
-// 		// Create offsets
-// 		offsets := make([]models.Offset, len(req.Data.Offsets))
-// 		for i, offset := range req.Data.Offsets {
-// 			offsets[i] = models.Offset{
-// 				X: offset.X,
-// 				Y: offset.Y,
-// 			}
-// 		}
+		// Create offsets
+		offsets := make([]models.Offset, len(req.Data.Offsets))
+		for i, offset := range req.Data.Offsets {
+			offsets[i] = models.Offset{
+				X: offset.X,
+				Y: offset.Y,
+			}
+		}
 
-// 		// Create DrawingPoint
-// 		drawingPoint := models.DrawingPoint{
-// 			Offset: offsets,
-// 			Color:  req.Data.Color,
-// 			Width:  req.Data.Width,
-// 			Tool:   req.Data.Tool,
-// 		}
-// 		drawingPoints = append(drawingPoints, drawingPoint)
-// 	}
+		// Create DrawingPoint
+		drawingPoint := models.DrawingPoint{
+			ID:      int(req.Data.ID),
+			Type:    "drawing",
+			Offsets: offsets,
+			Color:   req.Data.Color,
+			Width:   req.Data.Width,
+			Tool:    req.Data.Tool,
+		}
+		drawingPoints = append(drawingPoints, drawingPoint)
+	}
 
-// 	// Append new drawing points
-// 	paper.DrawingPoint = append(paper.DrawingPoint, drawingPoints...)
-// 	paper.UpdatedAt = time.Now()
+	// Replace drawing points instead of appending
+	paperCollection := config.GetPaperCollection()
+	var paper models.Paper
+	filter := bson.M{"_id": paperObjID}
+	err = paperCollection.FindOne(context.Background(), filter).Decode(&paper)
 
-// 	// Update the paper in the database
-// 	update := bson.M{
-// 		"$set": bson.M{
-// 			"DrawingPoint": paper.DrawingPoint,
-// 			"updated_at":   paper.UpdatedAt,
-// 		},
-// 	}
-// 	_, err = paperCollection.UpdateOne(context.Background(), filter, update)
-// 	if err != nil {
-// 		http.Error(w, "Failed to update paper", http.StatusInternalServerError)
-// 		return
-// 	}
+	// If paper not found, return an error
+	if err != nil {
+		http.Error(w, "Paper not found", http.StatusNotFound)
+		return
+	}
 
-// 	// Broadcast to socket if needed
-// 	socketServer := socketio.ServerInstance
-// 	if socketServer != nil {
-// 		socketServer.BroadcastToRoom("", fileIDStr, "drawing_point_updated", paper)
-// 	}
+	// Update the paper's drawing data and timestamp
+	update := bson.M{
+		"$set": bson.M{
+			"drawing_data": drawingPoints,
+			"updated_at":   time.Now(),
+		},
+	}
 
-// 	// Send success response
-// 	w.Header().Set("Content-Type", "application/json")
-// 	json.NewEncoder(w).Encode(map[string]string{
-// 		"message": "Drawing points added successfully",
-// 	})
-// }
+	_, err = paperCollection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		http.Error(w, "Failed to update paper", http.StatusInternalServerError)
+		return
+	}
+
+	// Broadcast to socket if needed
+	socketServer := socketio.ServerInstance
+	if socketServer != nil {
+		var papers []models.Paper
+		cursor, _ := paperCollection.Find(context.Background(), bson.M{"room_id": paper.RoomID})
+		cursor.All(context.Background(), &papers)
+
+		socketServer.BroadcastToRoom("", paper.RoomID, "paper_list_updated", map[string]interface{}{
+			"roomID": paper.RoomID,
+			"papers": papers,
+		})
+	}
+
+	// Send success response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message":   "Drawing data replaced successfully",
+		"paper_id":  paperID,
+		"room_id":   paper.RoomID,
+		"file_id":   paper.FileID,
+		"timestamp": time.Now().Format(time.RFC3339),
+	})
+}
 
 func GetPaper(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

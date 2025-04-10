@@ -205,8 +205,6 @@ class DrawingService {
 
   void endDrawing() {
     _currentDrawingPoint = null;
-
-    print("pagedata ${_pageDrawingPoints[_pageIds]}");
   }
 
   // Erasing operations

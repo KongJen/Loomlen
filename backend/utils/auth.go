@@ -74,6 +74,43 @@ func GetUserIDFromToken(r *http.Request) (string, error) {
 	return userID, nil
 }
 
+// Update GetUserIDFromToken to accept a token string directly
+func GetUserIDFromTokenSocket(tokenString string) (string, error) {
+	// Parse and validate the token
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		// Validate the algorithm
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
+		}
+		return SECRET_KEY, nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	if !token.Valid {
+		return "", errors.New("invalid token")
+	}
+
+	// Extract user ID from claims
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		return "", errors.New("invalid claims")
+	}
+
+	userID, ok := claims["user_id"].(string)
+	if !ok {
+		// Fallback for the standard "sub" claim
+		userID, ok = claims["sub"].(string)
+		if !ok {
+			return "", errors.New("user ID not found in token")
+		}
+	}
+
+	return userID, nil
+}
+
 // ParseObjectID converts a string ID to MongoDB ObjectID
 func ParseObjectID(id string) (primitive.ObjectID, error) {
 	return primitive.ObjectIDFromHex(id)

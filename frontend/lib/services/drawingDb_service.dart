@@ -1,5 +1,3 @@
-// Create file: lib/services/drawing_service.dart
-
 import 'package:flutter/material.dart';
 import 'package:frontend/api/socketService.dart';
 import 'package:frontend/items/drawingpoint_item.dart';
@@ -18,6 +16,7 @@ class DrawingDBService {
   Map<String, PaperTemplate> _paperTemplates = {};
   DrawingPoint? _currentDrawingPoint;
   String _roomId = '';
+  String _fileId = '';
   late SocketService _socketService;
 
   // Eraser configuration
@@ -25,13 +24,17 @@ class DrawingDBService {
   double _eraserWidth = 10.0;
   EraserMode _eraserMode = EraserMode.point;
 
+  List<String> users = [];
+
   DrawingDBService({
     bool isCollab = false,
     String roomId = '',
+    String fileId = '',
     required SocketService socketService,
   }) {
     _socketService = socketService;
     _roomId = roomId;
+    _fileId = fileId;
     _eraserTool = EraserTool(
       eraserWidth: _eraserWidth,
       eraserMode: _eraserMode,
@@ -42,12 +45,15 @@ class DrawingDBService {
       currentPaperId: '',
     );
 
-    if (_socketService != null) {
-      _initializeSocketListeners();
-    }
+    _initializeSocketListeners();
+    setfile();
   }
 
   void _initializeSocketListeners() {
+    _socketService.on('file_users_update', (data) {
+      users = data['users'].cast<String>();
+    });
+
     // Listen for drawing updates from other clients
     _socketService.on('drawing', (data) {
       _handleIncomingDrawing(data['drawing'], data['pageId']);
@@ -57,11 +63,121 @@ class DrawingDBService {
     _socketService.on('eraser', (data) {
       _handleIncomingEraser(data['eraserAction'], data['pageId']);
     });
+
+    _socketService.on('canvas_state', (data) {
+      if (data['canvasState'] != null && data['pageId'] != null) {
+        _handleIncomingCanvasState(data['canvasState'], data['pageId']);
+      }
+    });
+
+    // Add listener for canvas state requests
+    _socketService.on('request_canvas_state', (data) {
+      String requestingClientId = data['clientId'];
+      String pageId = data['pageId'];
+
+      // Only respond if we have data for this page and we're not the requester
+      if (_pageDrawingPoints.containsKey(pageId) &&
+          _pageDrawingPoints[pageId]!.isNotEmpty &&
+          _socketService.socket?.id != requestingClientId) {
+        _sendCanvasState(pageId, requestingClientId);
+      }
+    });
   }
 
-  void _handleIncomingDrawing(Map<String, dynamic> data, String pageId) {
-    print("Received drawing data: $data");
+//--------------------------
+  void _saveAllDrawingsToDatabase() {
+    // Implement your logic to save all drawings to the database
+    // This could involve iterating over _pageIds and saving each page's data
+    print("Saving all drawings to database...");
+    final paperDBProvider = PaperDBProvider();
+    for (String pageId in _pageIds) {
+      List<DrawingPoint> points = _pageDrawingPoints[pageId] ?? [];
+      paperDBProvider.saveDrawingData(pageId, points);
+      // Save points to the database for the given pageId
+      // Example: paperDBProvider.saveDrawingData(pageId, points);
+    }
+  }
 
+  void setfile() {
+    _socketService.emit('join_file', {
+      'roomId': _roomId,
+      'fileId': _fileId,
+    });
+  }
+
+  void leavefile() {
+    if (users.length == 1) {
+      _saveAllDrawingsToDatabase();
+    }
+    _socketService.emit('leave_file', {
+      'roomId': _roomId,
+      'fileId': _fileId,
+    });
+  }
+
+  void requestCanvasState(String pageId) {
+    _socketService.emit('request_canvas_state', {
+      'roomId': _roomId,
+      'pageId': pageId,
+    });
+  }
+
+// Add to your DrawingDBService class
+  void _sendCanvasState(String pageId, String requestingClientId) {
+    List<DrawingPoint> points = _pageDrawingPoints[pageId] ?? [];
+    List<Map<String, dynamic>> serializedPoints =
+        points.map((point) => point.toJson()).toList();
+
+    Map<String, dynamic> data = {
+      "roomId": _roomId,
+      "pageId": pageId,
+      "clientId": requestingClientId,
+      "canvasState": serializedPoints,
+    };
+
+    _socketService.emit('canvas_state', data);
+  }
+
+  void _handleIncomingCanvasState(List<dynamic> canvasState, String pageId) {
+    _pageDrawingPoints[pageId] = [];
+
+    // Process each drawing point in the canvas state
+    for (var pointData in canvasState) {
+      try {
+        // Ensure x and y are double values
+        List<dynamic> offsetsData = pointData['offsets'];
+
+        // Correctly map the offsets data to Offset objects
+        List<Offset> offsets = offsetsData
+            .map((e) => Offset(e['x'].toDouble(), e['y'].toDouble()))
+            .toList();
+
+        // Create a DrawingPoint instance
+        DrawingPoint point = DrawingPoint(
+          id: pointData['id'],
+          offsets: offsets,
+          color: Color(pointData['color']),
+          tool: pointData['tool'],
+          width: pointData['width'].toDouble(),
+        );
+
+        if (point.offsets.isNotEmpty) {
+          _pageDrawingPoints[pageId]!.add(point);
+        }
+      } catch (e) {
+        print("Error processing drawing point: $e");
+      }
+    }
+
+    if (onDataChanged != null) {
+      onDataChanged!();
+    }
+  }
+
+  void _handleIncomingDrawing(
+    Map<String, dynamic> data,
+    String pageId,
+  ) {
     // Check if offsets data is properly formatted
     List<dynamic> offsetsData = data['offsets'];
 
@@ -84,12 +200,13 @@ class DrawingDBService {
     }
   }
 
-  void _handleIncomingEraser(Map<String, dynamic> eraserAction, String pageId) {
+  void _handleIncomingEraser(
+    Map<String, dynamic> eraserAction,
+    String pageId,
+  ) {
     if (!_pageDrawingPoints.containsKey(pageId)) {
       _pageDrawingPoints[pageId] = [];
     }
-
-    print("Eraseraction: $eraserAction");
 
     String type = eraserAction['type'];
 
@@ -171,6 +288,7 @@ class DrawingDBService {
   List<String> getPageIds() => _pageIds;
   Map<String, PaperTemplate> getPaperTemplates() => _paperTemplates;
   Map<String, List<DrawingPoint>> getPageDrawingPoints() => _pageDrawingPoints;
+  String getId() => _socketService.socket?.id ?? '';
   List<DrawingPoint> getDrawingPointsForPage(String pageId) =>
       _pageDrawingPoints[pageId] ?? [];
   double getEraserWidth() => _eraserWidth;
@@ -264,17 +382,18 @@ class DrawingDBService {
     _pageDrawingPoints.clear();
     _undoStack.clear();
     _redoStack.clear();
-
     for (final pageId in pageIds) {
       final paperData = paperProvider.getPaperDBById(pageId);
       final List<DrawingPoint> pointsForPage = [];
 
-      if (paperData['drawingData'] != null) {
+      // Check if 'drawing_data' is not null and is a list
+      if (paperData['drawing_data'] != null) {
         try {
-          final List<dynamic> loadedStrokes = paperData['drawingData'];
+          final List<dynamic> loadedStrokes = paperData['drawing_data'];
+
           for (final stroke in loadedStrokes) {
             if (stroke['type'] == 'drawing') {
-              final point = DrawingPoint.fromJson(stroke['data']);
+              final point = DrawingPoint.fromJson(stroke);
               if (point.offsets.isNotEmpty) {
                 pointsForPage.add(point);
               }
@@ -286,16 +405,15 @@ class DrawingDBService {
           );
         }
       }
-
       _pageDrawingPoints[pageId] = pointsForPage;
+    }
+    for (String pageId in _pageIds) {
+      requestCanvasState(pageId);
     }
   }
 
   // Drawing operations
   void startDrawing(String pageId, Offset position, Color color, double width) {
-    _saveStateForUndo();
-    _redoStack.clear();
-
     _currentDrawingPoint = DrawingPoint(
       id: DateTime.now().microsecondsSinceEpoch,
       offsets: [position],
@@ -303,9 +421,6 @@ class DrawingDBService {
       width: width,
       tool: 'pencil',
     );
-
-    _pageDrawingPoints[pageId] ??= [];
-    _pageDrawingPoints[pageId]!.add(_currentDrawingPoint!);
 
     _sendDrawingToServer(pageId, _currentDrawingPoint!);
   }
@@ -316,8 +431,6 @@ class DrawingDBService {
     _currentDrawingPoint = _currentDrawingPoint!.copyWith(
       offsets: List.from(_currentDrawingPoint!.offsets)..add(position),
     );
-
-    _pageDrawingPoints[pageId]!.last = _currentDrawingPoint!;
 
     _sendDrawingToServer(pageId, _currentDrawingPoint!);
   }
@@ -350,8 +463,6 @@ class DrawingDBService {
 
   void continueErasing(String pageId, Offset position) {
     _eraserTool.handleErasing(position);
-
-    print(_eraserTool.eraserMode);
 
     if (_eraserMode == EraserMode.point) {
       _sendPointEraserToServer(pageId, position);
@@ -398,23 +509,7 @@ class DrawingDBService {
     );
   }
 
-  // Save drawing to persistent storage
-  Future<void> saveDrawings(PaperDBProvider paperDBProvider) async {
-    for (final pageId in _pageIds) {
-      final pointsForPage = _pageDrawingPoints[pageId] ?? [];
-      final cleanHistory = pointsForPage
-          .map(
-            (point) => {
-              'type': 'drawing',
-              'data': point.toJson(),
-              'timestamp': DateTime.now().millisecondsSinceEpoch,
-            },
-          )
-          .toList();
-
-      await paperDBProvider.updatePaperDrawingData(pageId, cleanHistory);
-    }
-  }
+  getCurrentUserId() {}
 }
 
 extension StringCapitalizeExtension on String {
