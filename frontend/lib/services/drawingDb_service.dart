@@ -39,8 +39,6 @@ class DrawingDBService {
       eraserWidth: _eraserWidth,
       eraserMode: _eraserMode,
       pageDrawingPoints: _pageDrawingPoints,
-      undoStack: _undoStack,
-      redoStack: _redoStack,
       onStateChanged: _onEraserStateChanged,
       currentPaperId: '',
     );
@@ -195,6 +193,7 @@ class DrawingDBService {
 
     _pageDrawingPoints[pageId] ??= [];
     _pageDrawingPoints[pageId]!.add(drawingPoint);
+
     if (onDataChanged != null) {
       onDataChanged!();
     }
@@ -222,8 +221,6 @@ class DrawingDBService {
         eraserWidth: width,
         eraserMode: EraserMode.point,
         pageDrawingPoints: _pageDrawingPoints,
-        undoStack: _undoStack,
-        redoStack: _redoStack,
         onStateChanged: () {
           if (onDataChanged != null) {
             onDataChanged!();
@@ -312,8 +309,6 @@ class DrawingDBService {
       eraserWidth: _eraserWidth,
       eraserMode: _eraserMode,
       pageDrawingPoints: _pageDrawingPoints,
-      undoStack: _undoStack,
-      redoStack: _redoStack,
       onStateChanged: _onEraserStateChanged,
       currentPaperId: _eraserTool.currentPaperId,
     );
@@ -414,6 +409,8 @@ class DrawingDBService {
 
   // Drawing operations
   void startDrawing(String pageId, Offset position, Color color, double width) {
+    _saveStateForUndo();
+    _redoStack.clear();
     _currentDrawingPoint = DrawingPoint(
       id: DateTime.now().microsecondsSinceEpoch,
       offsets: [position],
@@ -445,8 +442,6 @@ class DrawingDBService {
       eraserWidth: _eraserWidth,
       eraserMode: _eraserMode,
       pageDrawingPoints: _pageDrawingPoints,
-      undoStack: _undoStack,
-      redoStack: _redoStack,
       onStateChanged: _onEraserStateChanged,
       currentPaperId: pageId,
     );

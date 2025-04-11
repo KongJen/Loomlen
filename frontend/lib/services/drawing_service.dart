@@ -26,8 +26,6 @@ class DrawingService {
       eraserWidth: _eraserWidth,
       eraserMode: _eraserMode,
       pageDrawingPoints: _pageDrawingPoints,
-      undoStack: _undoStack,
-      redoStack: _redoStack,
       onStateChanged: _onEraserStateChanged,
       currentPaperId: '',
     );
@@ -60,8 +58,6 @@ class DrawingService {
       eraserWidth: _eraserWidth,
       eraserMode: _eraserMode,
       pageDrawingPoints: _pageDrawingPoints,
-      undoStack: _undoStack,
-      redoStack: _redoStack,
       onStateChanged: _onEraserStateChanged,
       currentPaperId: _eraserTool.currentPaperId,
     );
@@ -209,12 +205,12 @@ class DrawingService {
 
   // Erasing operations
   void startErasing(String pageId, Offset position) {
+    _saveStateForUndo();
+    _redoStack.clear();
     _eraserTool = EraserTool(
       eraserWidth: _eraserWidth,
       eraserMode: _eraserMode,
       pageDrawingPoints: _pageDrawingPoints,
-      undoStack: _undoStack,
-      redoStack: _redoStack,
       onStateChanged: _onEraserStateChanged,
       currentPaperId: pageId,
     );
