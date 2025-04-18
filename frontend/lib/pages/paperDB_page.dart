@@ -25,7 +25,7 @@ class PaperDBPage extends StatefulWidget {
   final String fileId;
   final String roomId;
   final Function? onFileUpdated;
-  final SocketService socket;
+  final SocketService? socket;
 
   const PaperDBPage({
     super.key,
@@ -34,7 +34,7 @@ class PaperDBPage extends StatefulWidget {
     required this.fileId,
     required this.roomId,
     this.onFileUpdated,
-    required this.socket,
+    this.socket,
   });
 
   @override

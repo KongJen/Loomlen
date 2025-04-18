@@ -16,7 +16,7 @@ class OverlayCreateFile extends StatefulWidget {
   final String parentId;
   final bool isInFolder;
   final bool isCollab;
-  final SocketService socketService;
+  final SocketService? socketService;
   final VoidCallback onClose;
 
   const OverlayCreateFile({
@@ -26,7 +26,7 @@ class OverlayCreateFile extends StatefulWidget {
     required this.parentId,
     required this.isInFolder,
     required this.isCollab,
-    required this.socketService,
+    this.socketService,
   });
 
   @override

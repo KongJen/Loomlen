@@ -17,7 +17,7 @@ class DrawingDBService {
   DrawingPoint? _currentDrawingPoint;
   String _roomId = '';
   String _fileId = '';
-  late SocketService _socketService;
+  late SocketService? _socketService;
 
   // Eraser configuration
   late EraserTool _eraserTool;
@@ -30,7 +30,7 @@ class DrawingDBService {
     bool isCollab = false,
     String roomId = '',
     String fileId = '',
-    required SocketService socketService,
+    SocketService? socketService,
   }) {
     _socketService = socketService;
     _roomId = roomId;
@@ -48,35 +48,35 @@ class DrawingDBService {
   }
 
   void _initializeSocketListeners() {
-    _socketService.on('file_users_update', (data) {
+    _socketService!.on('file_users_update', (data) {
       users = data['users'].cast<String>();
     });
 
     // Listen for drawing updates from other clients
-    _socketService.on('drawing', (data) {
+    _socketService!.on('drawing', (data) {
       _handleIncomingDrawing(data['drawing'], data['pageId']);
     });
 
     // Add listener for eraser events
-    _socketService.on('eraser', (data) {
+    _socketService!.on('eraser', (data) {
       _handleIncomingEraser(data['eraserAction'], data['pageId']);
     });
 
-    _socketService.on('canvas_state', (data) {
+    _socketService!.on('canvas_state', (data) {
       if (data['canvasState'] != null && data['pageId'] != null) {
         _handleIncomingCanvasState(data['canvasState'], data['pageId']);
       }
     });
 
     // Add listener for canvas state requests
-    _socketService.on('request_canvas_state', (data) {
+    _socketService!.on('request_canvas_state', (data) {
       String requestingClientId = data['clientId'];
       String pageId = data['pageId'];
 
       // Only respond if we have data for this page and we're not the requester
       if (_pageDrawingPoints.containsKey(pageId) &&
           _pageDrawingPoints[pageId]!.isNotEmpty &&
-          _socketService.socket?.id != requestingClientId) {
+          _socketService!.socket?.id != requestingClientId) {
         _sendCanvasState(pageId, requestingClientId);
       }
     });
@@ -97,7 +97,7 @@ class DrawingDBService {
   }
 
   void setfile() {
-    _socketService.emit('join_file', {
+    _socketService!.emit('join_file', {
       'roomId': _roomId,
       'fileId': _fileId,
     });
@@ -107,14 +107,14 @@ class DrawingDBService {
     if (users.length == 1) {
       _saveAllDrawingsToDatabase();
     }
-    _socketService.emit('leave_file', {
+    _socketService!.emit('leave_file', {
       'roomId': _roomId,
       'fileId': _fileId,
     });
   }
 
   void requestCanvasState(String pageId) {
-    _socketService.emit('request_canvas_state', {
+    _socketService!.emit('request_canvas_state', {
       'roomId': _roomId,
       'pageId': pageId,
     });
@@ -133,7 +133,7 @@ class DrawingDBService {
       "canvasState": serializedPoints,
     };
 
-    _socketService.emit('canvas_state', data);
+    _socketService!.emit('canvas_state', data);
   }
 
   void _handleIncomingCanvasState(List<dynamic> canvasState, String pageId) {
@@ -251,7 +251,7 @@ class DrawingDBService {
       "pageId": pageId,
       "drawing": drawingPoint.toJson(),
     };
-    _socketService.emit('drawing', data);
+    _socketService!.emit('drawing', data);
   }
 
   // Add this method to DrawingDBService to send eraser stroke deletion data
@@ -264,7 +264,7 @@ class DrawingDBService {
         "deletedIds": deletedStrokeIds,
       },
     };
-    _socketService.emit('eraser', data);
+    _socketService!.emit('eraser', data);
   }
 
 // Add this method to DrawingDBService to send point eraser data
@@ -278,14 +278,14 @@ class DrawingDBService {
         "width": _eraserWidth,
       },
     };
-    _socketService.emit('eraser', data);
+    _socketService!.emit('eraser', data);
   }
 
   // Public getters
   List<String> getPageIds() => _pageIds;
   Map<String, PaperTemplate> getPaperTemplates() => _paperTemplates;
   Map<String, List<DrawingPoint>> getPageDrawingPoints() => _pageDrawingPoints;
-  String getId() => _socketService.socket?.id ?? '';
+  String getId() => _socketService!.socket?.id ?? '';
   List<DrawingPoint> getDrawingPointsForPage(String pageId) =>
       _pageDrawingPoints[pageId] ?? [];
   double getEraserWidth() => _eraserWidth;

@@ -75,11 +75,33 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     }
   }
 
-//*****Must fixed******
   void _checkisCollab() {
-    if (widget.room['isFavorite'] == null) {
-      isCollab = true;
+    // Look for more reliable indicators of a collaborative room
+    if (widget.room['original_id'] != null &&
+        widget.room['original_id'].toString().isNotEmpty) {
+      // Rooms with original_id are likely shared/collaborative rooms
+      setState(() {
+        isCollab = true;
+      });
+    } else if (widget.room['is_favorite'] != null) {
+      // Rooms from database usually have is_favorite (snake_case)
+      setState(() {
+        isCollab = true;
+      });
+    } else if (widget.room['room_type'] == 'collaborative' ||
+        widget.room['isCollaborative'] == true) {
+      // Direct indicators if available
+      setState(() {
+        isCollab = true;
+      });
+    } else {
+      // Default to non-collaborative
+      setState(() {
+        isCollab = false;
+      });
     }
+
+    print("Room collaboration status: $isCollab");
   }
 
   void _connectToSocket() {
@@ -139,17 +161,31 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   }
 
   void _showCreateFileOverlay() {
-    OverlayService.showOverlay(
-      context,
-      OverlayCreateFile(
-        roomId: widget.room['id'],
-        parentId: _navigationService.currentParentId,
-        isInFolder: _navigationService.isInFolder,
-        isCollab: isCollab,
-        socketService: _socketService,
-        onClose: OverlayService.hideOverlay,
-      ),
-    );
+    if (isCollab) {
+      OverlayService.showOverlay(
+        context,
+        OverlayCreateFile(
+          roomId: widget.room['id'],
+          parentId: _navigationService.currentParentId,
+          isInFolder: _navigationService.isInFolder,
+          isCollab: isCollab,
+          socketService: _socketService,
+          onClose: OverlayService.hideOverlay,
+        ),
+      );
+    } else {
+      OverlayService.showOverlay(
+        context,
+        OverlayCreateFile(
+          roomId: widget.room['id'],
+          parentId: _navigationService.currentParentId,
+          isInFolder: _navigationService.isInFolder,
+          isCollab: isCollab,
+          socketService: null,
+          onClose: OverlayService.hideOverlay,
+        ),
+      );
+    }
   }
 
   void _importPDF() {
