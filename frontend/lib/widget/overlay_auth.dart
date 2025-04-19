@@ -22,7 +22,9 @@ enum AuthState {
   authenticated,
   loginSuccess,
   signupSuccess,
-  logoutSuccess
+  logoutSuccess,
+  signupFailed,
+  loginFailed,
 }
 
 class _OverlayAuthState extends State<OverlayAuth> {
@@ -110,6 +112,25 @@ class _OverlayAuthState extends State<OverlayAuth> {
         print("Exception: $e");
         print("Stack trace: $stackTrace");
       }
+      if (e.toString().contains("Email already registered")) {
+        if (!mounted) return;
+        setState(() {
+          currentState = AuthState.signupFailed;
+        });
+      }
+      _stateTransitionTimer = Future.delayed(Duration(seconds: 2), () {
+        OverlayService.hideOverlay();
+      });
+      if (e.toString().contains("Wrong Password!") ||
+          e.toString().contains("mongo: no documents in result")) {
+        if (!mounted) return;
+        setState(() {
+          currentState = AuthState.loginFailed;
+        });
+      }
+      _stateTransitionTimer = Future.delayed(Duration(seconds: 2), () {
+        OverlayService.hideOverlay();
+      });
     }
   }
 
@@ -200,6 +221,12 @@ class _OverlayAuthState extends State<OverlayAuth> {
             'Signup Successful!', Icons.person_add, Colors.blue);
       case AuthState.logoutSuccess:
         return buildSuccessView('Logout Successful!', Icons.logout, Colors.red);
+      case AuthState.signupFailed:
+        return buildSuccessView('Signup Failed! This Email already Signup',
+            Icons.logout, Colors.red);
+      case AuthState.loginFailed:
+        return buildSuccessView('Login Failed! Email/Password not correct',
+            Icons.logout, Colors.red);
       case AuthState.login:
       case AuthState.signup:
       default:
