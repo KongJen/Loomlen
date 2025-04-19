@@ -9,11 +9,13 @@ class AuthProvider with ChangeNotifier {
   bool _isLoggedIn = false;
   String? _email;
   String? _userId;
+  String? _name;
   String? _token;
 
   bool get isLoggedIn => _isLoggedIn;
   String? get email => _email;
   String? get token => _token;
+  String? get name => _name;
 
   AuthProvider() {
     // Load authentication state from SharedPreferences
@@ -58,18 +60,17 @@ class AuthProvider with ChangeNotifier {
     final response = await http.post(
       Uri.parse('$baseUrl/api/user/signup'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password}),
+      body: jsonEncode({'email': email, 'password': password, 'name': name}),
     );
 
     if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      _token = data['token'];
       _email = email;
+      // _name = name;
       _isLoggedIn = true;
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', _token!);
       await prefs.setString('email', _email!);
+      // await prefs.setString('email', _name!);
 
       notifyListeners();
     } else {

@@ -32,30 +32,28 @@ Widget buildPencilSettingsBar({
         ),
         Row(
           mainAxisAlignment: MainAxisAlignment.start,
-          children:
-              availableColors
-                  .map(
-                    (color) => GestureDetector(
-                      onTap: () => onColorChanged(color),
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color:
-                                selectedColor == color
-                                    ? Colors.white
-                                    : Colors.transparent,
-                            width: 2.0,
-                          ),
-                        ),
+          children: availableColors
+              .map(
+                (color) => GestureDetector(
+                  onTap: () => onColorChanged(color),
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: selectedColor == color
+                            ? Colors.white
+                            : Colors.transparent,
+                        width: 2.0,
                       ),
                     ),
-                  )
-                  .toList(),
+                  ),
+                ),
+              )
+              .toList(),
         ),
       ],
     ),
@@ -91,7 +89,7 @@ Widget buildEraserSettingsBar({
                 onChanged: onWidthChanged,
               ),
             ),
-            Text('${eraserWidth.toInt()}px', style: TextStyle(fontSize: 14)),
+            // Text('${eraserWidth.toInt()}px', style: TextStyle(fontSize: 14)),
           ],
         ),
         const SizedBox(height: 8),

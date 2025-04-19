@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:frontend/providers/auth_provider.dart';
+import 'package:frontend/services/overlay_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,6 +36,7 @@ class _OverlayAuthState extends State<OverlayAuth> {
 
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController nameController = TextEditingController();
   final TextEditingController confirmPasswordController =
       TextEditingController();
 
@@ -86,9 +88,7 @@ class _OverlayAuthState extends State<OverlayAuth> {
 
         print('Attempting to signup with email: ${emailController.text}');
         await authProvider.signup(
-          emailController.text,
-          passwordController.text,
-        );
+            emailController.text, passwordController.text);
 
         print('Signup attempt completed');
         print('AuthProvider isLoggedIn: ${authProvider.isLoggedIn}');
@@ -96,26 +96,19 @@ class _OverlayAuthState extends State<OverlayAuth> {
 
         if (!mounted) return;
         setState(() {
-          isAuthenticated = authProvider.isLoggedIn;
-          userEmail = authProvider.email ?? '';
+          // isAuthenticated = authProvider.isLoggedIn;
+          // userEmail = authProvider.email ?? '';
           currentState = AuthState.signupSuccess;
         });
 
-        // Use a cancelable timer
         _stateTransitionTimer = Future.delayed(Duration(seconds: 2), () {
-          if (!mounted) return;
-          setState(() {
-            currentState = AuthState.authenticated;
-          });
+          OverlayService.hideOverlay();
         });
       }
-
-      if (isAuthenticated) {
-        widget.onClose();
-      }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (kDebugMode) {
         print("Exception: $e");
+        print("Stack trace: $stackTrace");
       }
     }
   }
@@ -318,6 +311,14 @@ class _OverlayAuthState extends State<OverlayAuth> {
                   prefixIcon: Icon(Icons.email_outlined, color: Colors.black),
                 ),
               ),
+              SizedBox(height: 10),
+              // TextField(
+              //   controller: nameController,
+              //   decoration: InputDecoration(
+              //     hintText: 'Enter your name',
+              //     prefixIcon: Icon(Icons.person_outline, color: Colors.black),
+              //   ),
+              // ),
               SizedBox(height: 10),
               TextField(
                 controller: passwordController,

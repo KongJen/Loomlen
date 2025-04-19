@@ -174,6 +174,17 @@ func UserSignup(response http.ResponseWriter, request *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Check if email already exists
+	existingUser := models.User{}
+	err = collection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&existingUser)
+	if err == nil {
+		// User with this email already exists
+		response.WriteHeader(http.StatusConflict)
+		response.Write([]byte(`{"message":"Email already registered"}`))
+		return
+	}
+
+	// If we reach here, the email is unique, so proceed with insertion
 	result, err := collection.InsertOne(ctx, user)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
