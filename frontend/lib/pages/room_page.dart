@@ -41,11 +41,13 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   late SocketService _socketService;
   bool isCollab = false;
   bool isConnected = false;
+  String role = 'viewer';
 
   @override
   void initState() {
     super.initState();
     _checkisCollab();
+    _checkRole();
     _navigationService = FolderNavigationService(widget.room);
 
     print("WidgetID : ${widget.room['original_id']}");
@@ -102,6 +104,20 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     }
 
     print("Room collaboration status: $isCollab");
+  }
+
+  void _checkRole() {
+    // Check the role of the user in the room
+    if (widget.room['role_id'] != null) {
+      setState(() {
+        role = widget.room['role_id'];
+      });
+    } else {
+      setState(() {
+        role = 'viewer'; // Default to viewer if no role is specified
+      });
+    }
+    print("User role in room: $role");
   }
 
   void _connectToSocket() {
@@ -169,6 +185,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           parentId: _navigationService.currentParentId,
           isInFolder: _navigationService.isInFolder,
           isCollab: isCollab,
+          role: role,
           socketService: _socketService,
           onClose: OverlayService.hideOverlay,
         ),
@@ -181,6 +198,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           parentId: _navigationService.currentParentId,
           isInFolder: _navigationService.isInFolder,
           isCollab: isCollab,
+          role: role,
           socketService: null,
           onClose: OverlayService.hideOverlay,
         ),
@@ -250,6 +268,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           name: name,
           fileId: fileId,
           roomId: widget.room['id'],
+          role: role,
           onFileUpdated: () => setState(() {}),
         ),
       ),
@@ -487,14 +506,15 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     // Create list of items for the grid
     List<Widget> gridItems = [
       // Add the "New" button
-      GestureDetector(
-        onTapDown: (TapDownDetails details) =>
-            showOverlaySelect(context, details.globalPosition),
-        child: UIComponents.createAddButton(
-          onPressed: () {}, // Handled by onTapDown instead
-          itemSize: itemSize,
+      if (role == 'owner' || role == 'write')
+        GestureDetector(
+          onTapDown: (TapDownDetails details) =>
+              showOverlaySelect(context, details.globalPosition),
+          child: UIComponents.createAddButton(
+            onPressed: () {}, // Handled by onTapDown instead
+            itemSize: itemSize,
+          ),
         ),
-      ),
 
       // Add folder items
       ...folders.map(

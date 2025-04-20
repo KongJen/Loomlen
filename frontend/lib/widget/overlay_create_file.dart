@@ -16,6 +16,7 @@ class OverlayCreateFile extends StatefulWidget {
   final String parentId;
   final bool isInFolder;
   final bool isCollab;
+  final String role;
   final SocketService? socketService;
   final VoidCallback onClose;
 
@@ -26,6 +27,7 @@ class OverlayCreateFile extends StatefulWidget {
     required this.parentId,
     required this.isInFolder,
     required this.isCollab,
+    required this.role,
     this.socketService,
   });
 
@@ -122,6 +124,7 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
               name: nameController.text.trim(),
               fileId: fileId,
               roomId: widget.roomId,
+              role: widget.role,
               onFileUpdated: () => setState(() {}),
               socket: widget.socketService,
             ),
