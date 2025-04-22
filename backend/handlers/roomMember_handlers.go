@@ -189,8 +189,9 @@ func ChangeRoomMemberRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		RoomID  string                   `json:"room_id"`
-		Members []map[string]interface{} `json:"members"` // Array of member objects with email and role
+		RoomID     string                   `json:"room_id"`
+		OriginalID string                   `json:"original_id"`
+		Members    []map[string]interface{} `json:"members"` // Array of member objects with email and role
 	}
 
 	if err := json.Unmarshal(body, &req); err != nil {
@@ -203,6 +204,7 @@ func ChangeRoomMemberRole(w http.ResponseWriter, r *http.Request) {
 
 	// Counter for successful updates
 	successCount := 0
+	updatedMembers := make([]map[string]interface{}, 0)
 
 	for _, member := range req.Members {
 		email, ok := member["email"].(string)
@@ -237,7 +239,7 @@ func ChangeRoomMemberRole(w http.ResponseWriter, r *http.Request) {
 
 		// Update the role in the database
 		filter := bson.M{
-			"room_id":     req.RoomID,
+			"room_id":     req.OriginalID,
 			"shared_with": emailID,
 		}
 
@@ -253,27 +255,28 @@ func ChangeRoomMemberRole(w http.ResponseWriter, r *http.Request) {
 
 		if result.ModifiedCount > 0 {
 			successCount++
+
+			updatedMembers = append(updatedMembers, map[string]interface{}{
+				"email": email,
+				"role":  role,
+			})
 		}
 	}
 
-	if successCount > 0 {
-		// Broadcast the updated members list to all clients in the room
-		if socketio.ServerInstance != nil {
-			socketio.ServerInstance.BroadcastToRoom("", req.RoomID, "member_roles_updated", map[string]interface{}{
-				"room_id":       req.RoomID,
-				"updated_count": successCount,
-			})
-			log.Printf("Broadcasted member_roles_updated event to room %s", req.RoomID)
-		}
-
-		// Return success response
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"message":       "Member roles updated successfully",
-			"updated_count": successCount,
-		})
-	} else {
+	if successCount == 0 {
 		http.Error(w, "No member roles were updated", http.StatusBadRequest)
+		return
+	}
+
+	socketServer := socketio.ServerInstance
+	if socketServer != nil {
+		socketServer.BroadcastToRoom("", req.RoomID, "room_members_updated", map[string]interface{}{
+			"roomID":  req.RoomID,
+			"members": updatedMembers,
+		})
+		log.Printf("Broadcasted role updates to room %s", req.RoomID)
+	} else {
+		log.Println("⚠️ Socket.IO server instance not available")
 	}
 
 	// Return success response

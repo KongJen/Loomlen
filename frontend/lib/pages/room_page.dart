@@ -44,6 +44,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   bool isConnected = false;
   String role = 'viewer';
 
+  VoidCallback? _roleUpdateListener;
+
   @override
   void initState() {
     super.initState();
@@ -71,6 +73,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
       // Load folders for the specific room
       paperDBProvider.loadPapers(widget.room['id']);
+
+      _subscribeToRoleChanges();
     });
     if (isCollab == true) {
       _socketService = SocketService();
@@ -121,6 +125,40 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     print("User role in room: $role");
   }
 
+  void _subscribeToRoleChanges() {
+    final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
+
+    // Define the update function
+    void updateRoleFromProvider() {
+      if (!mounted)
+        return; // Add this check to prevent setState on unmounted widget
+
+      final updatedRoom = roomDBProvider.rooms.firstWhere(
+        (r) => r['id'] == widget.room['id'],
+        orElse: () => widget.room,
+      );
+
+      if (updatedRoom['role_id'] != role) {
+        if (mounted) {
+          // Double-check we're still mounted
+          setState(() {
+            role = updatedRoom['role_id'] ?? 'viewer';
+          });
+          print("Role updated to: $role");
+        }
+      }
+    }
+
+    // Store reference to our listener so we can remove it later
+    _roleUpdateListener = updateRoleFromProvider;
+
+    // Initial check
+    updateRoleFromProvider();
+
+    // Setup a listener for future changes
+    roomDBProvider.addListener(updateRoleFromProvider);
+  }
+
   void _connectToSocket() {
     _socketService
         .initializeSocket(widget.room['id'], context, // Pass the context
@@ -138,6 +176,11 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
   @override
   void dispose() {
+    if (_roleUpdateListener != null) {
+      final roomDBProvider =
+          Provider.of<RoomDBProvider>(context, listen: false);
+      roomDBProvider.removeListener(_roleUpdateListener!);
+    }
     _socketService.closeSocket();
     super.dispose();
   }
@@ -280,12 +323,16 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: _navigationService,
-      builder: (context, _) {
-        return Scaffold(
-          appBar: _buildAppBar(context),
-          body: _buildBody(context),
+    return Consumer<RoomDBProvider>(
+      builder: (context, roomDBProvider, _) {
+        return ListenableBuilder(
+          listenable: _navigationService,
+          builder: (context, _) {
+            return Scaffold(
+              appBar: _buildAppBar(context),
+              body: _buildBody(context),
+            );
+          },
         );
       },
     );
@@ -344,19 +391,20 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                 });
               },
             ),
-          IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: 'Share this room',
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => ShareDialog(
-                  roomId: _navigationService.currentRoom['id'],
-                  roomName: _navigationService.currentRoom['name'],
-                ),
-              );
-            },
-          ),
+          if (role == 'owner' || role == 'write' || isCollab == false)
+            IconButton(
+              icon: const Icon(Icons.share),
+              tooltip: 'Share this room',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => ShareDialog(
+                    roomId: _navigationService.currentRoom['id'],
+                    roomName: _navigationService.currentRoom['name'],
+                  ),
+                );
+              },
+            ),
           if (role == 'owner')
             IconButton(
               icon: const Icon(Icons.group),
@@ -365,7 +413,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                 showDialog(
                   context: context,
                   builder: (context) => SettingsMember(
-                    roomId: _navigationService.currentRoom['original_id'],
+                    roomId: _navigationService.currentRoom['id'],
+                    originalId: _navigationService.currentRoom['original_id'],
                     roomName: _navigationService.currentRoom['name'],
                   ),
                 );

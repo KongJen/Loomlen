@@ -343,11 +343,12 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> ChangeMemberRole(
+  Future<List<Map<String, dynamic>>> updateMemberRole(String room_id,
       String original_id, List<Map<String, dynamic>> members) async {
     final response = await http.put(
       Uri.parse('$baseUrl/api/roomMember'),
-      body: jsonEncode({"room_id": original_id, "members": members}),
+      body: jsonEncode(
+          {"room_id": room_id, "original_id": original_id, "members": members}),
     );
 
     if (response.statusCode == 200) {
