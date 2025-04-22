@@ -10,9 +10,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsMember extends StatefulWidget {
   final String roomId;
+  final String originalId;
   final String roomName;
 
-  const SettingsMember({Key? key, required this.roomId, required this.roomName})
+  const SettingsMember(
+      {Key? key,
+      required this.roomId,
+      required this.originalId,
+      required this.roomName})
       : super(key: key);
 
   @override
@@ -32,7 +37,7 @@ class _SettingsMemberState extends State<SettingsMember> {
 
   void _loadMembers() async {
     final roomProvider = Provider.of<RoomDBProvider>(context, listen: false);
-    final members = await roomProvider.loadMembers(widget.roomId);
+    final members = await roomProvider.loadMembers(widget.originalId);
     setState(() {
       _members = members.map((m) => Map<String, dynamic>.from(m)).toList();
       _originalMembers =
@@ -59,7 +64,7 @@ class _SettingsMemberState extends State<SettingsMember> {
     // TODO: Send updated _members to the backend
     print("Saving changes: $_members");
     Provider.of<RoomDBProvider>(context, listen: false)
-        .changeMemberRole(widget.roomId, _members);
+        .updateMemberRole(widget.roomId, widget.originalId, _members);
 
     Navigator.of(context).pop(true);
     ScaffoldMessenger.of(context).showSnackBar(

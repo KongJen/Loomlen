@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/providers/filedb_provider.dart';
 import 'package:frontend/providers/folderdb_provider.dart';
 import 'package:frontend/providers/paperdb_provider.dart';
+import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:frontend/services/drawingDb_service.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -41,6 +42,26 @@ class SocketService {
       print('Connected! Socket ID: ${socket?.id}');
       socket?.emit('join_room',
           {'roomID': roomID, 'socketID': socket?.id, 'token': token});
+    });
+
+    socket?.on('room_members_updated', (data) {
+      print('👥 room_members_updated event received: $data');
+
+      if (data is Map<String, dynamic>) {
+        final roomID = data['roomID'];
+        final members = data['members'];
+
+        if (_context != null && members is List) {
+          final roomDBProvider =
+              Provider.of<RoomDBProvider>(_context!, listen: false);
+          roomDBProvider.changeMemberRole(
+              roomID, List<Map<String, dynamic>>.from(members));
+        } else {
+          print("❗Context not found or members is not a list");
+        }
+      } else {
+        print("❗Invalid data format for room_members_updated event");
+      }
     });
 
     socket?.on('folder_list_updated', (data) {

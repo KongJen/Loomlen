@@ -110,7 +110,6 @@ class _SharePageState extends State<SharePage> {
         ),
       ),
     );
-    print("Roomssss: ${rooms}");
 
     return ResponsiveGridLayout(children: gridItems);
   }
