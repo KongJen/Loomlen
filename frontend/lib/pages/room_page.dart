@@ -9,6 +9,7 @@ import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:frontend/services/PDF_import_service.dart';
 import 'package:frontend/services/folder_navigation_service.dart';
 import 'package:frontend/widget/grid_layout.dart';
+import 'package:frontend/widget/settings_member_dialog.dart';
 import 'package:frontend/widget/ui_component.dart';
 import 'package:provider/provider.dart';
 import '../providers/folder_provider.dart';
@@ -356,6 +357,20 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
               );
             },
           ),
+          if (role == 'owner')
+            IconButton(
+              icon: const Icon(Icons.group),
+              tooltip: 'Settings Permissions',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => SettingsMember(
+                    roomId: _navigationService.currentRoom['original_id'],
+                    roomName: _navigationService.currentRoom['name'],
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -506,7 +521,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     // Create list of items for the grid
     List<Widget> gridItems = [
       // Add the "New" button
-      if (role == 'owner' || role == 'write')
+      if (role == 'owner' || role == 'write' || isCollab == false)
         GestureDetector(
           onTapDown: (TapDownDetails details) =>
               showOverlaySelect(context, details.globalPosition),

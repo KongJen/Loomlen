@@ -19,6 +19,27 @@ class RoomDBProvider extends ChangeNotifier {
     }
   }
 
+  Future<List<Map<String, dynamic>>> loadMembers(String roomId) async {
+    try {
+      final members = await _apiService.getMembersInRoom(roomId);
+      notifyListeners();
+      return members;
+    } catch (e) {
+      print('Error loading members: $e');
+      return [];
+    }
+  }
+
+  void changeMemberRole(
+      String roomId, List<Map<String, dynamic>> members) async {
+    try {
+      await _apiService.ChangeMemberRole(roomId, members);
+      notifyListeners();
+    } catch (e) {
+      print('Error updating member role: $e');
+    }
+  }
+
   void toggleFavorite(String roomId) async {
     try {
       await _apiService.toggleFav(roomId);
