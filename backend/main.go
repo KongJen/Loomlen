@@ -42,7 +42,7 @@ func main() {
 	router.HandleFunc("/api/shared/{id}/clone", handlers.CloneSharedFile).Methods("GET")
 	router.HandleFunc("/api/roomMember", handlers.RoomMember).Methods("POST")
 
-	// router.HandleFunc("/api/auth/refresh", handlers.RefreshToken).Methods("POST")
+	router.HandleFunc("/api/auth/refresh", handlers.RefreshToken).Methods("POST")
 
 	socketServer := socketio.SetupSocketIO(router)
 
