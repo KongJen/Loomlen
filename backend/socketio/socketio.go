@@ -207,6 +207,17 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 		server.BroadcastToRoom("", roomID, "eraser", data)
 	})
 
+	server.OnEvent("/", "room_members_updated", func(s socketio.Conn, data map[string]interface{}) {
+		roomID, ok := data["roomID"].(string)
+		if !ok {
+			fmt.Println("Invalid roomID in room_members_updated")
+			return
+		}
+
+		// Broadcast the updated member roles to all users in the room
+		server.BroadcastToRoom("", roomID, "room_members_updated", data)
+	})
+
 	server.OnEvent("/", "folder_list_updated", func(s socketio.Conn, data map[string]interface{}) {
 		roomID, ok := data["roomID"].(string)
 		if !ok {

@@ -41,6 +41,8 @@ func main() {
 	router.HandleFunc("/api/shared", handlers.GetSharedFiles).Methods("GET")
 	router.HandleFunc("/api/shared/{id}/clone", handlers.CloneSharedFile).Methods("GET")
 	router.HandleFunc("/api/roomMember", handlers.RoomMember).Methods("POST")
+	router.HandleFunc("/api/roomMember", handlers.ChangeRoomMemberRole).Methods("PUT")
+	router.HandleFunc("/api/roomMember", handlers.GetRoomMembersInRoom).Methods("GET")
 
 	router.HandleFunc("/api/auth/refresh", handlers.RefreshToken).Methods("POST")
 

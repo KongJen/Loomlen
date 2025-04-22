@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/api/apiService.dart';
 import 'package:frontend/items/room_db_item.dart';
-import 'package:frontend/items/room_item.dart';
 import 'package:frontend/pages/room_page.dart';
 import 'package:frontend/providers/auth_provider.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
@@ -112,7 +110,6 @@ class _SharePageState extends State<SharePage> {
         ),
       ),
     );
-    print("Roomssss: ${rooms}");
 
     return ResponsiveGridLayout(children: gridItems);
   }
