@@ -153,9 +153,13 @@ func GetRooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Create maps to store room_id and role_id for each shared room
 	sharedRoomIDs := make([]string, 0)
+	roleIDMap := make(map[string]string) // Maps room ID to role ID
+
 	for _, member := range sharedRoomMembers {
 		sharedRoomIDs = append(sharedRoomIDs, member.RoomID)
+		roleIDMap[member.RoomID] = member.RoleID // Store the role ID for each room
 	}
 
 	allRooms := ownedRooms
@@ -179,10 +183,6 @@ func GetRooms(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// for _, room := range sharedRooms {
-		// 	log.Printf("Found Shared Room - ID: %v, OriginalID: %v", room.ID, room.OriginalID)
-		// }
-
 		allRooms = append(allRooms, sharedRooms...)
 	}
 
@@ -193,6 +193,16 @@ func GetRooms(w http.ResponseWriter, r *http.Request) {
 
 		roomBytes, _ := json.Marshal(room)
 		json.Unmarshal(roomBytes, &roomData)
+
+		// For owned rooms, set role_id to "owner"
+		if room.OwnerID == userID {
+			roomData["role_id"] = "owner"
+		} else {
+			// For shared rooms, set role_id from the RoomMembers collection
+			if roleID, exists := roleIDMap[room.OriginalID]; exists {
+				roomData["role_id"] = roleID
+			}
+		}
 
 		var favorite models.Favorite
 		favFilter := bson.M{"user_id": userID, "room_id": room.ID.Hex()}

@@ -9,6 +9,7 @@ import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:frontend/services/PDF_import_service.dart';
 import 'package:frontend/services/folder_navigation_service.dart';
 import 'package:frontend/widget/grid_layout.dart';
+import 'package:frontend/widget/settings_member_dialog.dart';
 import 'package:frontend/widget/ui_component.dart';
 import 'package:provider/provider.dart';
 import '../providers/folder_provider.dart';
@@ -41,11 +42,15 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   late SocketService _socketService;
   bool isCollab = false;
   bool isConnected = false;
+  String role = 'viewer';
+
+  VoidCallback? _roleUpdateListener;
 
   @override
   void initState() {
     super.initState();
     _checkisCollab();
+    _checkRole();
     _navigationService = FolderNavigationService(widget.room);
 
     print("WidgetID : ${widget.room['original_id']}");
@@ -68,6 +73,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
       // Load folders for the specific room
       paperDBProvider.loadPapers(widget.room['id']);
+
+      _subscribeToRoleChanges();
     });
     if (isCollab == true) {
       _socketService = SocketService();
@@ -104,6 +111,54 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     print("Room collaboration status: $isCollab");
   }
 
+  void _checkRole() {
+    // Check the role of the user in the room
+    if (widget.room['role_id'] != null) {
+      setState(() {
+        role = widget.room['role_id'];
+      });
+    } else {
+      setState(() {
+        role = 'viewer'; // Default to viewer if no role is specified
+      });
+    }
+    print("User role in room: $role");
+  }
+
+  void _subscribeToRoleChanges() {
+    final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
+
+    // Define the update function
+    void updateRoleFromProvider() {
+      if (!mounted)
+        return; // Add this check to prevent setState on unmounted widget
+
+      final updatedRoom = roomDBProvider.rooms.firstWhere(
+        (r) => r['id'] == widget.room['id'],
+        orElse: () => widget.room,
+      );
+
+      if (updatedRoom['role_id'] != role) {
+        if (mounted) {
+          // Double-check we're still mounted
+          setState(() {
+            role = updatedRoom['role_id'] ?? 'viewer';
+          });
+          print("Role updated to: $role");
+        }
+      }
+    }
+
+    // Store reference to our listener so we can remove it later
+    _roleUpdateListener = updateRoleFromProvider;
+
+    // Initial check
+    updateRoleFromProvider();
+
+    // Setup a listener for future changes
+    roomDBProvider.addListener(updateRoleFromProvider);
+  }
+
   void _connectToSocket() {
     _socketService
         .initializeSocket(widget.room['id'], context, // Pass the context
@@ -121,6 +176,11 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
   @override
   void dispose() {
+    if (_roleUpdateListener != null) {
+      final roomDBProvider =
+          Provider.of<RoomDBProvider>(context, listen: false);
+      roomDBProvider.removeListener(_roleUpdateListener!);
+    }
     _socketService.closeSocket();
     super.dispose();
   }
@@ -169,6 +229,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           parentId: _navigationService.currentParentId,
           isInFolder: _navigationService.isInFolder,
           isCollab: isCollab,
+          role: role,
           socketService: _socketService,
           onClose: OverlayService.hideOverlay,
         ),
@@ -181,6 +242,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           parentId: _navigationService.currentParentId,
           isInFolder: _navigationService.isInFolder,
           isCollab: isCollab,
+          role: role,
           socketService: null,
           onClose: OverlayService.hideOverlay,
         ),
@@ -250,6 +312,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           name: name,
           fileId: fileId,
           roomId: widget.room['id'],
+          role: role,
           onFileUpdated: () => setState(() {}),
         ),
       ),
@@ -260,12 +323,16 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: _navigationService,
-      builder: (context, _) {
-        return Scaffold(
-          appBar: _buildAppBar(context),
-          body: _buildBody(context),
+    return Consumer<RoomDBProvider>(
+      builder: (context, roomDBProvider, _) {
+        return ListenableBuilder(
+          listenable: _navigationService,
+          builder: (context, _) {
+            return Scaffold(
+              appBar: _buildAppBar(context),
+              body: _buildBody(context),
+            );
+          },
         );
       },
     );
@@ -324,19 +391,35 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                 });
               },
             ),
-          IconButton(
-            icon: const Icon(Icons.share),
-            tooltip: 'Share this room',
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => ShareDialog(
-                  roomId: _navigationService.currentRoom['id'],
-                  roomName: _navigationService.currentRoom['name'],
-                ),
-              );
-            },
-          ),
+          if (role == 'owner' || role == 'write' || isCollab == false)
+            IconButton(
+              icon: const Icon(Icons.share),
+              tooltip: 'Share this room',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => ShareDialog(
+                    roomId: _navigationService.currentRoom['id'],
+                    roomName: _navigationService.currentRoom['name'],
+                  ),
+                );
+              },
+            ),
+          if (role == 'owner')
+            IconButton(
+              icon: const Icon(Icons.group),
+              tooltip: 'Settings Permissions',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => SettingsMember(
+                    roomId: _navigationService.currentRoom['id'],
+                    originalId: _navigationService.currentRoom['original_id'],
+                    roomName: _navigationService.currentRoom['name'],
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );
@@ -487,14 +570,15 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     // Create list of items for the grid
     List<Widget> gridItems = [
       // Add the "New" button
-      GestureDetector(
-        onTapDown: (TapDownDetails details) =>
-            showOverlaySelect(context, details.globalPosition),
-        child: UIComponents.createAddButton(
-          onPressed: () {}, // Handled by onTapDown instead
-          itemSize: itemSize,
+      if (role == 'owner' || role == 'write' || isCollab == false)
+        GestureDetector(
+          onTapDown: (TapDownDetails details) =>
+              showOverlaySelect(context, details.globalPosition),
+          child: UIComponents.createAddButton(
+            onPressed: () {}, // Handled by onTapDown instead
+            itemSize: itemSize,
+          ),
         ),
-      ),
 
       // Add folder items
       ...folders.map(

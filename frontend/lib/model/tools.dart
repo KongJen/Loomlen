@@ -33,7 +33,13 @@ class DrawingPainter extends CustomPainter {
         }
         canvas.drawPath(path, paint);
       } else if (point.offsets.length == 1) {
-        canvas.drawCircle(point.offsets.first, point.width / 2, paint);
+        // Draw a tiny line segment instead of a circle
+        final path = Path();
+        final offset = point.offsets.first;
+        path.moveTo(offset.dx, offset.dy);
+        path.lineTo(
+            offset.dx + 0.1, offset.dy + 0.1); // Tiny offset to create a line
+        canvas.drawPath(path, paint);
       }
     }
 

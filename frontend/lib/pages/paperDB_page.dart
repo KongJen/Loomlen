@@ -24,6 +24,7 @@ class PaperDBPage extends StatefulWidget {
   final String name;
   final String fileId;
   final String roomId;
+  final String role;
   final Function? onFileUpdated;
   final SocketService? socket;
 
@@ -33,6 +34,7 @@ class PaperDBPage extends StatefulWidget {
     required this.name,
     required this.fileId,
     required this.roomId,
+    required this.role,
     this.onFileUpdated,
     this.socket,
   });
@@ -55,6 +57,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
   double selectedWidth = 2.0;
   bool _isDrawing = false;
   bool _hasUnsavedChanges = false;
+  bool get isReadOnly => widget.role == 'read';
 
   final List<Color> availableColors = const [
     Colors.black,
@@ -255,7 +258,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
       appBar: buildAppBar(),
       body: Column(
         children: [
-          if (selectedMode == DrawingMode.pencil)
+          if (!isReadOnly && selectedMode == DrawingMode.pencil)
             buildPencilSettingsBar(
               selectedWidth: selectedWidth,
               selectedColor: selectedColor,
@@ -263,7 +266,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
               onWidthChanged: (value) => setState(() => selectedWidth = value),
               onColorChanged: (color) => setState(() => selectedColor = color),
             ),
-          if (selectedMode == DrawingMode.eraser)
+          if (!isReadOnly && selectedMode == DrawingMode.eraser)
             buildEraserSettingsBar(
               eraserWidth: _drawingDBService.getEraserWidth(),
               eraserMode: _drawingDBService.getEraserMode(),
@@ -297,64 +300,70 @@ class _PaperDBPageState extends State<PaperDBPage> {
       ),
       backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       title: Text(widget.name),
-      actions: [
-        IconButton(
-          icon: Icon(
-            Icons.edit,
-            color: selectedMode == DrawingMode.pencil ? Colors.blue : null,
-          ),
-          onPressed: () => setState(() => selectedMode = DrawingMode.pencil),
-          tooltip: 'Pencil',
-        ),
-        IconButton(
-          icon: Icon(
-            Icons.delete,
-            color: selectedMode == DrawingMode.eraser ? Colors.blue : null,
-          ),
-          onPressed: () => setState(() => selectedMode = DrawingMode.eraser),
-          tooltip: 'Eraser',
-        ),
-        IconButton(
-          icon: const Icon(Icons.undo),
-          onPressed: _drawingDBService.canUndo()
-              ? () => setState(() => _drawingDBService.undo())
-              : null,
-          tooltip: 'Undo',
-        ),
-        IconButton(
-          icon: const Icon(Icons.redo),
-          onPressed: _drawingDBService.canRedo()
-              ? () => setState(() => _drawingDBService.redo())
-              : null,
-          tooltip: 'Redo',
-        ),
-        IconButton(
-          icon: const Icon(Icons.save),
-          onPressed: _saveDrawing,
-          tooltip: 'Save Drawing',
-        ),
-        IconButton(
-          icon: const Icon(Icons.add),
-          onPressed: _addNewPaperPage,
-          tooltip: 'Add New Page',
-        ),
-        IconButton(
-          icon: Icon(Icons.picture_as_pdf),
-          onPressed: exportToPdf,
-          tooltip: 'Export to PDF',
-        ),
-        IconButton(
-          icon: const Icon(Icons.share),
-          tooltip: 'Share this file',
-          onPressed: () {
-            showDialog(
-              context: context,
-              builder: (context) =>
-                  ShareDialog(fileId: widget.fileId, fileName: widget.name),
-            );
-          },
-        ),
-      ],
+      actions: isReadOnly
+          ? []
+          : [
+              IconButton(
+                icon: Icon(
+                  Icons.edit,
+                  color:
+                      selectedMode == DrawingMode.pencil ? Colors.blue : null,
+                ),
+                onPressed: () =>
+                    setState(() => selectedMode = DrawingMode.pencil),
+                tooltip: 'Pencil',
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.delete,
+                  color:
+                      selectedMode == DrawingMode.eraser ? Colors.blue : null,
+                ),
+                onPressed: () =>
+                    setState(() => selectedMode = DrawingMode.eraser),
+                tooltip: 'Eraser',
+              ),
+              IconButton(
+                icon: const Icon(Icons.undo),
+                onPressed: _drawingDBService.canUndo()
+                    ? () => setState(() => _drawingDBService.undo())
+                    : null,
+                tooltip: 'Undo',
+              ),
+              IconButton(
+                icon: const Icon(Icons.redo),
+                onPressed: _drawingDBService.canRedo()
+                    ? () => setState(() => _drawingDBService.redo())
+                    : null,
+                tooltip: 'Redo',
+              ),
+              IconButton(
+                icon: const Icon(Icons.save),
+                onPressed: _saveDrawing,
+                tooltip: 'Save Drawing',
+              ),
+              IconButton(
+                icon: const Icon(Icons.add),
+                onPressed: _addNewPaperPage,
+                tooltip: 'Add New Page',
+              ),
+              IconButton(
+                icon: Icon(Icons.picture_as_pdf),
+                onPressed: exportToPdf,
+                tooltip: 'Export to PDF',
+              ),
+              IconButton(
+                icon: const Icon(Icons.share),
+                tooltip: 'Share this file',
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => ShareDialog(
+                        fileId: widget.fileId, fileName: widget.name),
+                  );
+                },
+              ),
+            ],
     );
   }
 
@@ -462,28 +471,28 @@ class _PaperDBPageState extends State<PaperDBPage> {
                 },
               ),
             // Drawing interaction surface
-            Listener(
-              onPointerDown: (details) => _handlePointerDown(
-                details,
-                paperId,
-                paperWidth,
-                paperHeight,
-              ),
-              onPointerMove: (details) => _handlePointerMove(
-                details,
-                paperId,
-                paperWidth,
-                paperHeight,
-              ),
-              onPointerUp: (_) => _handlePointerUp(paperId),
-              child: CustomPaint(
-                painter: DrawingPainter(
-                    drawingPoints: _drawingDBService.getDrawingPointsForPage(
-                  paperId,
-                )),
-                size: Size(paperWidth, paperHeight),
-              ),
-            ),
+            isReadOnly
+                ? CustomPaint(
+                    painter: DrawingPainter(
+                      drawingPoints:
+                          _drawingDBService.getDrawingPointsForPage(paperId),
+                    ),
+                    size: Size(paperWidth, paperHeight),
+                  )
+                : Listener(
+                    onPointerDown: (details) => _handlePointerDown(
+                        details, paperId, paperWidth, paperHeight),
+                    onPointerMove: (details) => _handlePointerMove(
+                        details, paperId, paperWidth, paperHeight),
+                    onPointerUp: (_) => _handlePointerUp(paperId),
+                    child: CustomPaint(
+                      painter: DrawingPainter(
+                        drawingPoints:
+                            _drawingDBService.getDrawingPointsForPage(paperId),
+                      ),
+                      size: Size(paperWidth, paperHeight),
+                    ),
+                  ),
           ],
         ),
       ),
