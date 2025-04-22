@@ -325,6 +325,43 @@ class ApiService {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getMembersInRoom(roomId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/roomMember')
+          .replace(queryParameters: {"original_id": roomId}),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data is List) {
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        return []; // Return an empty list if data is not a list
+      }
+    } else {
+      throw Exception('Failed to get shared rooms: ${response.body}');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> ChangeMemberRole(
+      String original_id, List<Map<String, dynamic>> members) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/api/roomMember'),
+      body: jsonEncode({"room_id": original_id, "members": members}),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data is List) {
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        return []; // Return an empty list if data is not a list
+      }
+    } else {
+      throw Exception('Failed to get shared rooms: ${response.body}');
+    }
+  }
+
   Future<Map<String, dynamic>> toggleFav(roomId) async {
     final headers = await _getHeaders();
     final response = await http.put(
