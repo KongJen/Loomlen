@@ -1,26 +1,113 @@
 import 'dart:convert';
 import 'package:frontend/global.dart';
 import 'package:frontend/items/drawingpoint_item.dart';
+import 'package:frontend/providers/auth_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';
 
 class ApiService {
   final String baseUrl = baseurl;
 
-  // Get the auth token from shared preferences
-  Future<String?> _getToken() async {
+  Future<String?> _getAccessToken() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token');
+    return prefs.getString('access_token');
+  }
+
+  // Get the refresh token from shared preferences
+  Future<String?> _getRefreshToken() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    return prefs.getString('refresh_token');
   }
 
   // Headers with authorization
   Future<Map<String, String>> _getHeaders() async {
-    String? token = await _getToken();
-    print("Token is : $token");
+    String? token = await _getAccessToken();
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer $token',
     };
+  }
+
+  Future<bool> _refreshTokens() async {
+    try {
+      String? refreshToken = await _getRefreshToken();
+      if (refreshToken == null) return false;
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/auth/refresh'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'refresh_token': refreshToken}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        // Save new tokens to shared preferences
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('access_token', data['access_token']);
+
+        // Save new refresh token if provided
+        if (data.containsKey('refresh_token')) {
+          await prefs.setString('refresh_token', data['refresh_token']);
+        }
+
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('Error refreshing token: $e');
+      return false;
+    }
+  }
+
+  // Custom HTTP request with automatic token refresh
+  Future<http.Response> authenticatedRequest(
+    String url, {
+    String method = 'GET',
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
+    headers = headers ?? {};
+    String? token = await _getAccessToken();
+    headers['Authorization'] = 'Bearer $token';
+
+    http.Response response;
+
+    // Function to make the actual request
+    Future<http.Response> makeRequest() async {
+      switch (method) {
+        case 'GET':
+          return await http.get(Uri.parse(url), headers: headers);
+        case 'POST':
+          return await http.post(Uri.parse(url), headers: headers, body: body);
+        case 'PUT':
+          return await http.put(Uri.parse(url), headers: headers, body: body);
+        case 'DELETE':
+          return await http.delete(Uri.parse(url),
+              headers: headers, body: body);
+        default:
+          throw Exception('Unsupported HTTP method: $method');
+      }
+    }
+
+    // Make the initial request
+    response = await makeRequest();
+
+    // If we get a 401 (Unauthorized), try to refresh the token and retry
+    if (response.statusCode == 401) {
+      bool refreshed = await _refreshTokens();
+      if (refreshed) {
+        // Update authorization header with new token
+        token = await _getAccessToken();
+        headers['Authorization'] = 'Bearer $token';
+        // Retry the request
+        response = await makeRequest();
+      }
+    }
+
+    return response;
   }
 
   // Share a file with other users
@@ -47,11 +134,8 @@ class ApiService {
 
       final headers = await _getHeaders();
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/shared'),
-        headers: headers,
-        body: bodyf,
-      );
+      final response = await authenticatedRequest('$baseUrl/api/shared',
+          method: 'POST', headers: headers, body: bodyf);
 
       // Check for error status codes
       if (response.statusCode >= 400) {
@@ -92,8 +176,9 @@ class ApiService {
 
       final headers = await _getHeaders();
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/room'),
+      final response = await authenticatedRequest(
+        '$baseUrl/api/room',
+        method: 'POST',
         headers: headers,
         body: bodyf,
       );
@@ -140,10 +225,10 @@ class ApiService {
 
       print("payload = ${bodyf}");
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/folder'),
-        body: bodyf,
-      );
+      final response = await authenticatedRequest('$baseUrl/api/folder',
+          method: 'POST',
+          body: bodyf,
+          headers: {'Content-Type': 'application/json'});
 
       // Check for error status codes
       if (response.statusCode >= 400) {
@@ -183,8 +268,10 @@ class ApiService {
 
       final bodyf = jsonEncode(payload);
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/file'),
+      final response = await authenticatedRequest(
+        '$baseUrl/api/file',
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
         body: bodyf,
       );
 
@@ -232,10 +319,10 @@ class ApiService {
 
       final bodyf = jsonEncode(payload);
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/paper'),
-        body: bodyf,
-      );
+      final response = await authenticatedRequest('$baseUrl/api/paper',
+          method: 'POST',
+          body: bodyf,
+          headers: {'Content-Type': 'application/json'});
 
       // Check for error status codes
       if (response.statusCode >= 400) {
@@ -279,8 +366,9 @@ class ApiService {
 
       final headers = await _getHeaders();
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/roomMember'),
+      final response = await authenticatedRequest(
+        '$baseUrl/api/roomMember',
+        method: 'POST',
         headers: headers,
         body: bodyf,
       );
@@ -308,8 +396,8 @@ class ApiService {
 
   Future<List<Map<String, dynamic>>> getRooms() async {
     final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/room'),
+    final response = await authenticatedRequest(
+      '$baseUrl/api/room',
       headers: headers,
     );
 
@@ -345,8 +433,8 @@ class ApiService {
 
   Future<List<Map<String, dynamic>>> updateMemberRole(String room_id,
       String original_id, List<Map<String, dynamic>> members) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/api/roomMember'),
+    final response = await authenticatedRequest(
+      '$baseUrl/api/roomMember',
       body: jsonEncode(
           {"room_id": room_id, "original_id": original_id, "members": members}),
     );
@@ -365,8 +453,9 @@ class ApiService {
 
   Future<Map<String, dynamic>> toggleFav(roomId) async {
     final headers = await _getHeaders();
-    final response = await http.put(
-      Uri.parse('$baseUrl/api/room'),
+    final response = await authenticatedRequest(
+      '$baseUrl/api/room',
+      method: 'PUT',
       headers: headers,
       body: jsonEncode({"room_id": roomId}),
     );
@@ -408,8 +497,9 @@ class ApiService {
       };
     }).toList();
 
-    final response = await http.put(
-      Uri.parse('$baseUrl/api/paper/drawing'),
+    final response = await authenticatedRequest(
+      '$baseUrl/api/paper/drawing',
+      method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         'paper_id': paperId,
@@ -560,8 +650,8 @@ class ApiService {
   // Get files shared with the user
   Future<List<Map<String, dynamic>>> getSharedFiles() async {
     final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/shared'),
+    final response = await authenticatedRequest(
+      '$baseUrl/api/shared',
       headers: headers,
     );
 
@@ -576,8 +666,8 @@ class ApiService {
   // Clone a shared file
   Future<Map<String, dynamic>> cloneSharedFile(String sharedFileId) async {
     final headers = await _getHeaders();
-    final response = await http.get(
-      Uri.parse('$baseUrl/shared/$sharedFileId/clone'),
+    final response = await authenticatedRequest(
+      '$baseUrl/shared/$sharedFileId/clone',
       headers: headers,
     );
 
