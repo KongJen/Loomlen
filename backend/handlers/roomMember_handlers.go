@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -232,6 +233,9 @@ func ChangeRoomMemberRole(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 
 		emailID, err := utils.GetUserIDFromEmail(ctx, email)
+		fmt.Print("RoomID=", req.OriginalID, "\n")
+		fmt.Print("emailID=", emailID, "\n")
+		fmt.Print("role=", role, "\n")
 		if err != nil {
 			log.Printf("Error getting user ID for email %s: %v", email, err)
 			continue
