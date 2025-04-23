@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"time"
 
@@ -88,6 +90,105 @@ func AddFile(w http.ResponseWriter, r *http.Request) {
 		"message": "Folder added successfully",
 		"file_id": file.ID.Hex(),
 	})
+}
+
+func DeleteFile(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	var fileRequest struct {
+		FileID string `json:"file_id"`
+	}
+	if err := json.Unmarshal(body, &fileRequest); err != nil {
+		http.Error(w, "Invalid request format", http.StatusBadRequest)
+		return
+	}
+
+	objID, err := primitive.ObjectIDFromHex(fileRequest.FileID)
+	if err != nil {
+		http.Error(w, "Invalid File ID format", http.StatusBadRequest)
+		return
+	}
+
+	// First, check if folder exists
+	var file models.File
+	fileCollection := config.GetFileCollection()
+	err = fileCollection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&file)
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+
+	roomID := file.RoomID
+
+	// Use a recursive function to delete the folder and all its contents
+	deletedStats, err := deleteFileAndContents(file)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	socketServer := socketio.ServerInstance
+	if socketServer != nil {
+		// Fetch updated file list for the room
+		var files []models.File
+		cursor, _ := fileCollection.Find(context.Background(), bson.M{"room_id": roomID})
+		cursor.All(context.Background(), &files)
+
+		socketServer.BroadcastToRoom("", roomID, "file_list_updated", map[string]interface{}{
+			"roomID": roomID,
+			"files":  files,
+		})
+	}
+
+	// Return success response with stats
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "Folder and all its contents deleted successfully",
+		"stats":   deletedStats,
+	})
+}
+
+type FileDeleteStats struct {
+	Files  int64 `json:"files"`
+	Papers int64 `json:"papers"`
+}
+
+// deleteFileAndContents deletes a file and all its associated papers
+func deleteFileAndContents(file models.File) (FileDeleteStats, error) {
+	ctx := context.Background()
+	stats := FileDeleteStats{}
+
+	// Print debugging info
+	log.Printf("Deleting file: ID=%s, OriginalID=%s, Name=%s", file.ID.Hex(), file.OriginalID, file.Name)
+
+	// Delete all papers associated with this file
+	// IMPORTANT: Use the OriginalID field to find papers, not ID.Hex()
+	paperResult, err := config.GetPaperCollection().DeleteMany(ctx, bson.M{"file_id": file.ID.Hex()})
+	if err != nil {
+		return stats, fmt.Errorf("failed to delete papers for file %s: %v", file.ID.Hex(), err)
+	}
+	log.Printf("Deleted %d papers from file %s", paperResult.DeletedCount, file.Name)
+	stats.Papers = paperResult.DeletedCount
+
+	// Delete the file itself
+	// IMPORTANT: Use the correct collection (FileCollection not FolderCollection)
+	fileResult, err := config.GetFileCollection().DeleteOne(ctx, bson.M{"_id": file.ID})
+	if err != nil {
+		return stats, fmt.Errorf("failed to delete file: %v", err)
+	}
+
+	if fileResult.DeletedCount == 0 {
+		return stats, fmt.Errorf("file not found during deletion")
+	}
+	log.Printf("Successfully deleted file: %s", file.Name)
+	stats.Files = fileResult.DeletedCount
+
+	return stats, nil
 }
 
 func GetFile(w http.ResponseWriter, r *http.Request) {

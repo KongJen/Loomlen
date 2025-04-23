@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/providers/file_provider.dart';
+import 'package:frontend/providers/filedb_provider.dart';
 import 'package:frontend/providers/folder_provider.dart';
+import 'package:frontend/providers/folderdb_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
+import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:provider/provider.dart';
 import 'base_item.dart';
 import 'item_behaviors.dart';
@@ -9,6 +12,7 @@ import '../services/item_dialog_service.dart';
 
 class FolderItem extends BaseItem {
   final String? roomId;
+  final String? originalId;
   final String? parentFolderId;
   final Color color;
 
@@ -18,6 +22,7 @@ class FolderItem extends BaseItem {
     required super.name,
     required super.createdDate,
     this.roomId,
+    this.originalId,
     this.parentFolderId,
     required this.color,
   });
@@ -118,7 +123,12 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
       context: context,
       itemType: 'Folder',
       itemName: widget.name,
-      onConfirm: () => delete(context, widget.id),
+      onConfirm: () => {
+        if (widget.originalId != null)
+          {deleteDB(context, widget.id)}
+        else
+          {delete(context, widget.id)}
+      },
     );
   }
 
@@ -131,11 +141,18 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
   @override
   void delete(dynamic context, String id) {
     final folderProvider = Provider.of<FolderProvider>(context, listen: false);
+
     folderProvider.deleteFolder(
       id,
       Provider.of<FolderProvider>(context, listen: false),
       Provider.of<FileProvider>(context, listen: false),
       Provider.of<PaperProvider>(context, listen: false),
     );
+  }
+
+  void deleteDB(dynamic context, String id) {
+    final folderDBProvider =
+        Provider.of<FolderDBProvider>(context, listen: false);
+    folderDBProvider.deleteFolder(id);
   }
 }

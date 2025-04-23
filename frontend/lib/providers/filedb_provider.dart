@@ -57,4 +57,9 @@ class FileDBProvider extends ChangeNotifier {
   Future<void> refreshRooms(String roomId) async {
     await loadFilesDB(roomId);
   }
+
+  Future<void> deleteFile(String fileId) async {
+    await _apiService.deleteFile(fileId);
+    notifyListeners();
+  }
 }

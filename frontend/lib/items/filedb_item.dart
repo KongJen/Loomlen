@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/items/paperDb_preview_item.dart';
 import 'package:frontend/items/paper_preview_item.dart';
 import 'package:frontend/providers/file_provider.dart';
+import 'package:frontend/providers/filedb_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:provider/provider.dart';
 import 'base_item.dart';
@@ -12,6 +13,7 @@ import '../services/item_dialog_service.dart';
 
 class FileDbItem extends BaseItem {
   final String? roomId;
+  final String? originalId;
   final String? parentFolderId;
   final String? pdfPath;
 
@@ -21,6 +23,7 @@ class FileDbItem extends BaseItem {
     required super.name,
     required super.createdDate,
     this.roomId,
+    this.originalId,
     this.parentFolderId,
     this.pdfPath,
   });
@@ -143,10 +146,7 @@ class _FileItemState extends State<FileDbItem> with Renamable, Deletable {
 
   @override
   void delete(dynamic context, String id) {
-    final fileProvider = Provider.of<FileProvider>(context, listen: false);
-    fileProvider.deleteFile(
-      id,
-      Provider.of<PaperProvider>(context, listen: false),
-    );
+    final fileDBProvider = Provider.of<FileDBProvider>(context, listen: false);
+    fileDBProvider.deleteFile(id);
   }
 }

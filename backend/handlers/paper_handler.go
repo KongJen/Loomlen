@@ -232,6 +232,40 @@ func AddDrawingPoint(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func DeletePaper(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	var paperRequest struct {
+		PaperID string `json:"paper_id"`
+		// RoomID   string `json:"room_id"`
+	}
+	if err := json.Unmarshal(body, &paperRequest); err != nil {
+		http.Error(w, "Invalid request format", http.StatusBadRequest)
+		return
+	}
+
+	objID, err := primitive.ObjectIDFromHex(paperRequest.PaperID)
+	if err != nil {
+		http.Error(w, "Invalid Paper ID format", http.StatusBadRequest)
+		return
+	}
+
+	result, err := config.GetPaperCollection().DeleteOne(context.Background(), bson.M{"_id": objID})
+	if err != nil {
+		http.Error(w, "Failed to delete paper", http.StatusInternalServerError)
+		return
+	}
+
+	if result.DeletedCount == 0 {
+		http.Error(w, "Paper not found", http.StatusNotFound)
+		return
+	}
+}
+
 func GetPaper(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
