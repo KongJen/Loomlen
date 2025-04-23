@@ -74,6 +74,8 @@ class SocketService {
         if (data is Map && data['folders'] is List) {
           folderDBProvider
               .updateFolders(List<Map<String, dynamic>>.from(data['folders']));
+        } else {
+          folderDBProvider.updateFolders([]);
         }
       }
     });
@@ -88,6 +90,8 @@ class SocketService {
         if (data is Map && data['files'] is List) {
           fileDBProvider
               .updateFiles(List<Map<String, dynamic>>.from(data['files']));
+        } else {
+          fileDBProvider.updateFiles([]);
         }
       }
     });
@@ -108,6 +112,8 @@ class SocketService {
           }
 
           paperDBProvider.updatePapers(papers);
+        } else {
+          paperDBProvider.updatePapers([]);
         }
       }
     });
