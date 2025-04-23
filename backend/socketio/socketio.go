@@ -1,7 +1,7 @@
 package socketio
 
 import (
-	"backend/utils"
+	// "backend/utils"
 	"fmt"
 	"log"
 	"net/http"
@@ -67,25 +67,25 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 			return
 		}
 
-		userID, err := utils.GetUserIDFromTokenSocket(token)
-		if err != nil {
-			fmt.Println("❌ Unauthorized: Invalid token")
-			s.Emit("room_joined", map[string]interface{}{
-				"success": false,
-				"error":   "Unauthorized: Invalid token",
-			})
-			return
-		}
+		// userID, err := utils.GetUserIDFromTokenSocket(token)
+		// if err != nil {
+		// 	fmt.Println("❌ Unauthorized: Invalid token")
+		// 	s.Emit("room_joined", map[string]interface{}{
+		// 		"success": false,
+		// 		"error":   "Unauthorized: Invalid token",
+		// 	})
+		// 	return
+		// }
 
-		s.SetContext(userID)
+		// s.SetContext(userID)
 
-		fmt.Printf("✅ User %s (Client ID: %s) joined room %s\n", userID, s.ID(), roomID)
+		fmt.Printf("✅ User %s (Client ID: %s) joined room %s\n", s.ID(), roomID)
 		s.Join(roomID)
 
 		s.Emit("room_joined", map[string]interface{}{
-			"success":  true,
-			"roomID":   roomID,
-			"userID":   userID,
+			"success": true,
+			"roomID":  roomID,
+			// "userID":   userID,
 			"clientID": s.ID(),
 		})
 	})
