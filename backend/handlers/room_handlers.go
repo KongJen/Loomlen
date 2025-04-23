@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -96,6 +97,43 @@ func AddRoom(w http.ResponseWriter, r *http.Request) {
 		"message": "Room shared successfully",
 		"id":      Room.ID.Hex(),
 	})
+}
+
+func RenameRoom(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	var requestRename struct {
+		RoomID string `json:"room_id"`
+		Name   string `json:"name"`
+	}
+
+	if err := json.Unmarshal(body, &requestRename); err != nil {
+		log.Printf("Error decoding request: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	roomCollection := config.GetRoomCollection()
+
+	roomID, err := primitive.ObjectIDFromHex(requestRename.RoomID)
+	if err != nil {
+		http.Error(w, "Invalid room ID", http.StatusBadRequest)
+		return
+	}
+	filter := bson.M{"_id": roomID}
+	update := bson.M{"$set": bson.M{"name": requestRename.Name, "updated_at": time.Now()}}
+
+	_, err = roomCollection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		log.Printf("Error updating room: %v", err)
+		http.Error(w, "Failed to update room name", http.StatusInternalServerError)
+		return
+	}
+
 }
 
 // Add Get shared room with other users
