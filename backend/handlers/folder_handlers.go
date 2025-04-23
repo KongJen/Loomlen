@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"time"
 
@@ -88,6 +90,166 @@ func AddFolder(w http.ResponseWriter, r *http.Request) {
 		"message":   "Folder added successfully",
 		"folder_id": folder.ID.Hex(),
 	})
+}
+
+func DeleteFolder(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	var folderRequest struct {
+		FolderID string `json:"folder_id"`
+	}
+	if err := json.Unmarshal(body, &folderRequest); err != nil {
+		http.Error(w, "Invalid request format", http.StatusBadRequest)
+		return
+	}
+
+	objID, err := primitive.ObjectIDFromHex(folderRequest.FolderID)
+	if err != nil {
+		http.Error(w, "Invalid Folder ID format", http.StatusBadRequest)
+		return
+	}
+
+	// First, check if folder exists
+	var folder models.Folder
+	folderCollection := config.GetFolderCollection()
+	err = folderCollection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&folder)
+	if err != nil {
+		http.Error(w, "Folder not found", http.StatusNotFound)
+		return
+	}
+
+	roomID := folder.RoomID
+
+	// Use a recursive function to delete the folder and all its contents
+	deletedStats, err := deleteFolderAndContents(folder)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	socketServer := socketio.ServerInstance
+	if socketServer != nil {
+		// Fetch updated folder list for the room
+		var folders []models.Folder
+		cursor, _ := folderCollection.Find(context.Background(), bson.M{"room_id": roomID})
+		cursor.All(context.Background(), &folders)
+
+		socketServer.BroadcastToRoom("", roomID, "folder_list_updated", map[string]interface{}{
+			"roomID":  roomID,
+			"folders": folders,
+		})
+	}
+
+	// Return success response with stats
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "Folder and all its contents deleted successfully",
+		"stats":   deletedStats,
+	})
+}
+
+// DeletionStats keeps track of the number of deleted items
+type DeletionStats struct {
+	Folders int64 `json:"folders"`
+	Files   int64 `json:"files"`
+	Papers  int64 `json:"papers"`
+}
+
+// deleteFolderAndContents recursively deletes a folder, its sub-folders, files, and papers
+func deleteFolderAndContents(folder models.Folder) (DeletionStats, error) {
+	ctx := context.Background()
+	stats := DeletionStats{}
+
+	// Print debugging info to help diagnose the issue
+	log.Printf("Deleting folder: ID=%s, OriginalID=%s, Name=%s", folder.ID.Hex(), folder.OriginalID, folder.Name)
+
+	// CRITICAL: Find all sub-folders using the correct field relationship
+	// We need to find folders where the current folder's OriginalID is the parent folder ID
+	subFolderFilter := bson.M{"sub_folder_id": folder.ID.Hex()}
+	log.Printf("Looking for subfolders with filter: %v", subFolderFilter)
+
+	subFolderCursor, err := config.GetFolderCollection().Find(ctx, subFolderFilter)
+	if err != nil {
+		return stats, fmt.Errorf("failed to query sub-folders: %v", err)
+	}
+	defer subFolderCursor.Close(ctx)
+
+	// Process each sub-folder recursively
+	var subFolders []models.Folder
+	if err = subFolderCursor.All(ctx, &subFolders); err != nil {
+		return stats, fmt.Errorf("failed to process sub-folders: %v", err)
+	}
+
+	log.Printf("Found %d subfolders within folder %s", len(subFolders), folder.Name)
+
+	// Recursively delete each subfolder and its contents
+	for _, subFolder := range subFolders {
+		log.Printf("Processing subfolder: %s (ID: %s)", subFolder.Name, subFolder.ID.Hex())
+		subStats, err := deleteFolderAndContents(subFolder)
+		if err != nil {
+			return stats, err
+		}
+		// Accumulate deletion statistics
+		stats.Folders += subStats.Folders
+		stats.Files += subStats.Files
+		stats.Papers += subStats.Papers
+	}
+
+	// Find all files directly in this folder
+	fileFilter := bson.M{"sub_folder_id": folder.ID.Hex()}
+	log.Printf("Looking for files with filter: %v", fileFilter)
+
+	fileCursor, err := config.GetFileCollection().Find(ctx, fileFilter)
+	if err != nil {
+		return stats, fmt.Errorf("failed to query files: %v", err)
+	}
+	defer fileCursor.Close(ctx)
+
+	// Collect all files to delete
+	var files []models.File
+	if err = fileCursor.All(ctx, &files); err != nil {
+		return stats, fmt.Errorf("failed to process files: %v", err)
+	}
+
+	log.Printf("Found %d files to delete in folder %s", len(files), folder.Name)
+
+	// Delete all papers associated with these files
+	for _, file := range files {
+		log.Printf("Deleting papers for file: %s (ID: %s)", file.Name, file.ID.Hex())
+		paperResult, err := config.GetPaperCollection().DeleteMany(ctx, bson.M{"file_id": file.ID.Hex()})
+		if err != nil {
+			return stats, fmt.Errorf("failed to delete papers for file %s: %v", file.ID.Hex(), err)
+		}
+		log.Printf("Deleted %d papers from file %s", paperResult.DeletedCount, file.Name)
+		stats.Papers += paperResult.DeletedCount
+	}
+
+	// Delete all files in the folder
+	fileResult, err := config.GetFileCollection().DeleteMany(ctx, fileFilter)
+	if err != nil {
+		return stats, fmt.Errorf("failed to delete files in folder: %v", err)
+	}
+	log.Printf("Deleted %d files from folder %s", fileResult.DeletedCount, folder.Name)
+	stats.Files += fileResult.DeletedCount
+
+	// Finally, delete the folder itself
+	folderResult, err := config.GetFolderCollection().DeleteOne(ctx, bson.M{"_id": folder.ID})
+	if err != nil {
+		return stats, fmt.Errorf("failed to delete folder: %v", err)
+	}
+
+	if folderResult.DeletedCount == 0 {
+		return stats, fmt.Errorf("folder not found during deletion")
+	}
+	log.Printf("Successfully deleted folder: %s", folder.Name)
+	stats.Folders++
+
+	return stats, nil
 }
 
 func GetFolder(w http.ResponseWriter, r *http.Request) {

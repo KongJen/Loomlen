@@ -588,6 +588,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
             id: folder['id'],
             name: folder['name'],
             createdDate: folder['createdDate'] ?? folder['createdAt'],
+            roomId: folder['room_id'],
+            originalId: folder['original_id'],
             color: (folder['color'] is int)
                 ? Color(folder['color'])
                 : folder['color'],
@@ -603,6 +605,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
             child: FileDbItem(
               id: file['id'],
               name: file['name'],
+              originalId: file['original_id'],
               createdDate: file['createdDate'] ?? file['createdAt'],
             ),
           ),

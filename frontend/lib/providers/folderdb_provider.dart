@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:frontend/api/apiService.dart';
+import 'package:frontend/providers/filedb_provider.dart';
+import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:uuid/uuid.dart';
 
 class FolderDBProvider extends ChangeNotifier {
@@ -48,5 +50,10 @@ class FolderDBProvider extends ChangeNotifier {
 
   Future<void> refreshRooms(String roomId, String originalId) async {
     await loadFoldersDB(roomId, originalId);
+  }
+
+  Future<void> deleteFolder(String folderId) async {
+    await _apiService.deleteFolder(folderId);
+    notifyListeners();
   }
 }

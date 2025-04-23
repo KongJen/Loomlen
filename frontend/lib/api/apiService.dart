@@ -524,6 +524,39 @@ class ApiService {
     }
   }
 
+  Future<void> deleteFolder(String folderId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/api/folder'),
+      body: jsonEncode({"folder_id": folderId}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete folder: ${response.body}');
+    }
+  }
+
+  Future<void> deleteFile(String fileId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/api/file'),
+      body: jsonEncode({"file_id": fileId}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete file: ${response.body}');
+    }
+  }
+
+  Future<void> deletePaper(String paperId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/api/paper'),
+      body: jsonEncode({"paper_id": paperId}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete paper: ${response.body}');
+    }
+  }
+
   // Get files shared with the user
   Future<List<Map<String, dynamic>>> getSharedFiles() async {
     final headers = await _getHeaders();
