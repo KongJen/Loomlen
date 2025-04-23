@@ -301,7 +301,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     });
   }
 
-  void _navigateToPaperDBPage(String name, String fileId, bool isCollab) {
+  void _navigateToPaperDBPage(
+      String name, String fileId, bool isCollab, String isRole) {
     MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(false);
     Navigator.push(
       context,
@@ -312,7 +313,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           name: name,
           fileId: fileId,
           roomId: widget.room['id'],
-          role: role,
+          role: isRole,
           onFileUpdated: () => setState(() {}),
         ),
       ),
@@ -600,8 +601,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
       if (isCollab)
         ...files.map(
           (file) => GestureDetector(
-            onTap: () =>
-                _navigateToPaperDBPage(file['name'], file['id'], isCollab),
+            onTap: () => _navigateToPaperDBPage(
+                file['name'], file['id'], isCollab, role),
             child: FileDbItem(
               id: file['id'],
               name: file['name'],

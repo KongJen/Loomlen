@@ -7,6 +7,7 @@ import 'package:frontend/api/socketService.dart';
 import 'package:frontend/items/template_item.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:frontend/providers/paperdb_provider.dart';
+import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:frontend/services/drawingDb_service.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
@@ -52,12 +53,15 @@ class _PaperDBPageState extends State<PaperDBPage> {
   final TransformationController _controller = TransformationController();
   final ScrollController _scrollController = ScrollController();
 
+  late String role;
+  VoidCallback? _roleUpdateListener;
+
   DrawingMode selectedMode = DrawingMode.pencil;
   Color selectedColor = Colors.black;
   double selectedWidth = 2.0;
   bool _isDrawing = false;
   bool _hasUnsavedChanges = false;
-  bool get isReadOnly => widget.role == 'read';
+  bool get isReadOnly => role == 'read';
 
   final List<Color> availableColors = const [
     Colors.black,
@@ -68,9 +72,10 @@ class _PaperDBPageState extends State<PaperDBPage> {
   ];
 
   @override
+  @override
   void initState() {
     super.initState();
-    _drawingService = DrawingService();
+    role = widget.role;
     _drawingDBService = DrawingDBService(
         roomId: widget.roomId,
         fileId: widget.fileId,
@@ -85,10 +90,43 @@ class _PaperDBPageState extends State<PaperDBPage> {
 
       // Load folders for the specific room
       paperProvider.loadPapers();
-
+      _subscribeToRoleChanges();
       _loadDrawingData();
       _centerContent();
     });
+  }
+
+  void _subscribeToRoleChanges() {
+    final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
+
+    // Define the update function
+    void updateRoleFromProvider() {
+      if (!mounted)
+        return; // Add this check to prevent setState on unmounted widget
+
+      final updatedRoom = roomDBProvider.rooms.firstWhere(
+        (r) => r['id'] == widget.roomId,
+      );
+
+      if (updatedRoom['role_id'] != role) {
+        if (mounted) {
+          // Double-check we're still mounted
+          setState(() {
+            role = updatedRoom['role_id'] ?? 'viewer';
+          });
+          print("Role updated to: $role");
+        }
+      }
+    }
+
+    // Store reference to our listener so we can remove it later
+    _roleUpdateListener = updateRoleFromProvider;
+
+    // Initial check
+    updateRoleFromProvider();
+
+    // Setup a listener for future changes
+    roomDBProvider.addListener(updateRoleFromProvider);
   }
 
   void _centerContent() {
@@ -570,6 +608,11 @@ class _PaperDBPageState extends State<PaperDBPage> {
 
   @override
   void dispose() {
+    if (_roleUpdateListener != null) {
+      final roomDBProvider =
+          Provider.of<RoomDBProvider>(context, listen: false);
+      roomDBProvider.removeListener(_roleUpdateListener!);
+    }
     _controller.dispose();
     _scrollController.dispose();
     _drawingDBService.leavefile();
