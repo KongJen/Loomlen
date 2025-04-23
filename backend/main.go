@@ -47,7 +47,7 @@ func main() {
 	router.HandleFunc("/api/roomMember", handlers.ChangeRoomMemberRole).Methods("PUT")
 	router.HandleFunc("/api/roomMember", handlers.GetRoomMembersInRoom).Methods("GET")
 
-	// router.HandleFunc("/api/auth/refresh", handlers.RefreshToken).Methods("POST")
+	router.HandleFunc("/api/auth/refresh", handlers.RefreshToken).Methods("POST")
 
 	socketServer := socketio.SetupSocketIO(router)
 
