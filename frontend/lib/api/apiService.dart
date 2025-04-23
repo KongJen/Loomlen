@@ -433,8 +433,10 @@ class ApiService {
 
   Future<List<Map<String, dynamic>>> updateMemberRole(String room_id,
       String original_id, List<Map<String, dynamic>> members) async {
+    print('original_id   ffffffffffffffff: $original_id');
     final response = await authenticatedRequest(
       '$baseUrl/api/roomMember',
+      method: 'PUT',
       body: jsonEncode(
           {"room_id": room_id, "original_id": original_id, "members": members}),
     );
