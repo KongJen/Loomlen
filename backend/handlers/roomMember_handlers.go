@@ -246,10 +246,12 @@ func ChangeRoomMemberRole(w http.ResponseWriter, r *http.Request) {
 			"room_id":     req.OriginalID,
 			"shared_with": emailID,
 		}
+		fmt.Print("filter=", filter, "\n")
 
 		update := bson.M{
 			"$set": bson.M{"role_id": role},
 		}
+		fmt.Print("role_id=", role, "\n")
 
 		result, err := roomMemberCollection.UpdateOne(context.Background(), filter, update)
 		if err != nil {
