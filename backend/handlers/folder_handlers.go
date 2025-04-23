@@ -92,6 +92,50 @@ func AddFolder(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func RenameFolder(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	var requestRename struct {
+		FolderID string `json:"folder_id"`
+		Name     string `json:"name"`
+	}
+
+	if err := json.Unmarshal(body, &requestRename); err != nil {
+		log.Printf("Error decoding request: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	folderCollection := config.GetFolderCollection()
+
+	FolderID, err := primitive.ObjectIDFromHex(requestRename.FolderID)
+	if err != nil {
+		http.Error(w, "Invalid folder ID", http.StatusBadRequest)
+		return
+	}
+	filter := bson.M{"_id": FolderID}
+	update := bson.M{"$set": bson.M{"name": requestRename.Name, "updated_at": time.Now()}}
+
+	_, err = folderCollection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		log.Printf("Error updating folder: %v", err)
+		http.Error(w, "Failed to update folder name", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success response with stats
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":  "Rename room successfully",
+		"folderId": FolderID.Hex(),
+	})
+}
+
 func DeleteFolder(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {

@@ -134,6 +134,13 @@ func RenameRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Return success response with stats
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "Rename room successfully",
+		"roomId":  roomID.Hex(),
+	})
 }
 
 // Add Get shared room with other users

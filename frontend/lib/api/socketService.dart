@@ -74,7 +74,7 @@ class SocketService {
         if (data is Map && data['folders'] is List) {
           folderDBProvider
               .updateFolders(List<Map<String, dynamic>>.from(data['folders']));
-        } else {
+        } else if (data['roomID'] != null) {
           folderDBProvider.updateFolders([]);
         }
       }
@@ -90,7 +90,7 @@ class SocketService {
         if (data is Map && data['files'] is List) {
           fileDBProvider
               .updateFiles(List<Map<String, dynamic>>.from(data['files']));
-        } else {
+        } else if (data['roomID'] != null) {
           fileDBProvider.updateFiles([]);
         }
       }
@@ -112,7 +112,7 @@ class SocketService {
           }
 
           paperDBProvider.updatePapers(papers);
-        } else {
+        } else if (data['roomID'] != null) {
           paperDBProvider.updatePapers([]);
         }
       }
