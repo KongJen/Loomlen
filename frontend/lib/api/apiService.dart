@@ -33,6 +33,7 @@ class ApiService {
   Future<bool> _refreshTokens() async {
     try {
       String? refreshToken = await _getRefreshToken();
+      print("object refreshToken: $refreshToken");
       if (refreshToken == null) return false;
 
       final response = await http.post(
@@ -54,6 +55,10 @@ class ApiService {
         }
 
         return true;
+      }
+      if (response.statusCode == 401) {
+        // Handle token expiration or invalid refresh token
+        print('Refresh token expired or invalid');
       }
       return false;
     } catch (e) {
@@ -673,6 +678,17 @@ class ApiService {
       }
     } else {
       throw Exception('Failed to get files: ${response.body}');
+    }
+  }
+
+  Future<void> deleteRoom(String roomId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/api/room'),
+      body: jsonEncode({"room_id": roomId}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete room: ${response.body}');
     }
   }
 

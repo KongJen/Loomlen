@@ -28,6 +28,7 @@ func main() {
 	router.HandleFunc("/api/room/name", handlers.RenameRoom).Methods("PUT")
 	router.HandleFunc("/api/room", handlers.GetRooms).Methods("GET")
 	router.HandleFunc("/api/room", handlers.ToggleFavoriteRoom).Methods("PUT")
+	router.HandleFunc("/api/room", handlers.DeleteRoom).Methods("DELETE")
 	router.HandleFunc("/api/folder", handlers.AddFolder).Methods("POST")
 	router.HandleFunc("/api/folder", handlers.GetFolder).Methods("GET")
 	router.HandleFunc("/api/folder/name", handlers.RenameFolder).Methods("PUT")

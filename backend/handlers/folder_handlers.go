@@ -204,6 +204,8 @@ func DeleteFolder(w http.ResponseWriter, r *http.Request) {
 		var folders []models.Folder
 		cursor, _ := folderCollection.Find(context.Background(), bson.M{"room_id": roomID})
 		cursor.All(context.Background(), &folders)
+		log.Printf("Broadcasting folder list update to room %s", roomID)
+		log.Printf("Updated folder list: %v", folders)
 
 		socketServer.BroadcastToRoom("", roomID, "folder_list_updated", map[string]interface{}{
 			"roomID":  roomID,
