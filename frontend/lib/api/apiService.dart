@@ -346,6 +346,66 @@ class ApiService {
     }
   }
 
+  Future<void> renameRoom(String roomId, String name) async {
+    try {
+      final response = await authenticatedRequest(
+        '$baseUrl/api/room/name',
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({"room_id": roomId, "name": name}),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to rename room: ${response.body}');
+      }
+    } catch (e) {
+      print('Error in renameRoom: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> renameFolder(
+    String folderId,
+    String name,
+  ) async {
+    try {
+      final response = await authenticatedRequest(
+        '$baseUrl/api/folder/name',
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({"folder_id": folderId, "name": name}),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to rename folder: ${response.body}');
+      }
+    } catch (e) {
+      print('Error in renameFolder: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> renameFile(
+    String fileId,
+    String name,
+  ) async {
+    try {
+      final response = await authenticatedRequest(
+        '$baseUrl/api/file/name',
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({"file_id": fileId, "name": name}),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to rename file: ${response.body}');
+      }
+    } catch (e) {
+      print('Error in renameFile: $e');
+      rethrow;
+    }
+  }
+
   // Share a file with other users
   Future<dynamic> shareMember({
     required String roomId,

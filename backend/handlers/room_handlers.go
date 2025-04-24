@@ -125,7 +125,7 @@ func RenameRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	filter := bson.M{"_id": roomID}
-	update := bson.M{"$set": bson.M{"name": requestRename.Name, "updated_at": time.Now()}}
+	update := bson.M{"$set": bson.M{"name": requestRename.Name, "updatedAT": time.Now()}}
 
 	_, err = roomCollection.UpdateOne(context.Background(), filter, update)
 	if err != nil {

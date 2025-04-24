@@ -80,4 +80,15 @@ class RoomDBProvider extends ChangeNotifier {
   Future<void> refreshRooms() async {
     await loadRoomsDB();
   }
+
+  // Future<void> deleteRoom(String roomId) async {
+  //   await _apiService.deleteRoom(roomId);
+  //   notifyListeners();
+  // }
+
+  Future<void> renameRoom(String roomId, String newName) async {
+    await _apiService.renameRoom(roomId, newName);
+    loadRoomsDB();
+    notifyListeners();
+  }
 }

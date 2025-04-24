@@ -92,6 +92,74 @@ func AddFile(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func RenameFile(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	var requestRename struct {
+		FileID string `json:"file_id"`
+		Name   string `json:"name"`
+	}
+
+	if err := json.Unmarshal(body, &requestRename); err != nil {
+		log.Printf("Error decoding request: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	fileCollection := config.GetFileCollection()
+
+	FileID, err := primitive.ObjectIDFromHex(requestRename.FileID)
+	if err != nil {
+		http.Error(w, "Invalid file ID", http.StatusBadRequest)
+		return
+	}
+
+	var file models.File
+
+	err = fileCollection.FindOne(context.Background(), bson.M{"_id": FileID}).Decode(&file)
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+
+	roomID := file.RoomID
+
+	filter := bson.M{"_id": FileID}
+	update := bson.M{"$set": bson.M{"name": requestRename.Name, "updatedAT": time.Now()}}
+
+	_, err = fileCollection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		log.Printf("Error updating file: %v", err)
+		http.Error(w, "Failed to update file name", http.StatusInternalServerError)
+		return
+	}
+
+	socketServer := socketio.ServerInstance
+	if socketServer != nil {
+		// Fetch updated file list for the room
+		var files []models.File
+		cursor, _ := fileCollection.Find(context.Background(), bson.M{"room_id": roomID})
+		cursor.All(context.Background(), &files)
+
+		socketServer.BroadcastToRoom("", roomID, "file_list_updated", map[string]interface{}{
+			"roomID": roomID,
+			"files":  files,
+		})
+	}
+
+	// Return success response with stats
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message":  "Rename room successfully",
+		"folderId": FileID.Hex(),
+	})
+}
+
 func DeleteFile(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
