@@ -14,7 +14,9 @@ import '../services/item_dialog_service.dart';
 class RoomDBItem extends BaseItem {
   final Color color;
   final bool is_favorite;
+  final String role;
   final VoidCallback onToggleFavorite;
+
   final String updatedAt;
 
   const RoomDBItem({
@@ -24,6 +26,7 @@ class RoomDBItem extends BaseItem {
     required super.createdDate,
     required this.color,
     required this.is_favorite,
+    required this.role,
     required this.onToggleFavorite,
     required this.updatedAt,
   });
@@ -108,14 +111,15 @@ class _RoomDBItemState extends State<RoomDBItem>
           ),
         ),
         const SizedBox(width: 5),
-        InkWell(
-          onTap: () => _showOptionsOverlay(context),
-          child: Icon(
-            Icons.keyboard_control_key,
-            size: screenWidth < 600 ? 12 : 15,
-            color: Colors.blueAccent,
+        if (widget.role == 'owner')
+          InkWell(
+            onTap: () => _showOptionsOverlay(context),
+            child: Icon(
+              Icons.keyboard_control_key,
+              size: screenWidth < 600 ? 12 : 15,
+              color: Colors.blueAccent,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -153,8 +157,9 @@ class _RoomDBItemState extends State<RoomDBItem>
 
   @override
   void rename(dynamic context, String id, String newName) {
-    final roomProvider = Provider.of<RoomProvider>(context, listen: false);
-    roomProvider.renameRoom(id, newName);
+    print("Renaming room with ID: $id to new name: $newName");
+    final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
+    roomDBProvider.renameRoom(id, newName);
   }
 
   @override

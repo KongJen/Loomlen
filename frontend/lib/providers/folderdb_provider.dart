@@ -56,4 +56,12 @@ class FolderDBProvider extends ChangeNotifier {
     await _apiService.deleteFolder(folderId);
     notifyListeners();
   }
+
+  Future<void> renameFolder(
+    String folderId,
+    String newName,
+  ) async {
+    await _apiService.renameFolder(folderId, newName);
+    notifyListeners();
+  }
 }

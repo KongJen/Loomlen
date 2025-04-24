@@ -103,6 +103,7 @@ class _SharePageState extends State<SharePage> {
             name: room['name'],
             color: Color(room['color']),
             is_favorite: room['is_favorite'],
+            role: room['role_id'],
             onToggleFavorite: () => roomDBProvider.toggleFavorite(room['id']),
             createdDate: room['createdAt'] ?? 'Unknown',
             updatedAt: room['updatedAt'] ?? 'Unknown',

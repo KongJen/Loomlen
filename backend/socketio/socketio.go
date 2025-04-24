@@ -79,7 +79,7 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 
 		// s.SetContext(userID)
 
-		fmt.Printf("✅ User %s (Client ID: %s) joined room %s\n", s.ID(), roomID)
+		fmt.Printf("✅ User %s  joined room %s\n", s.ID(), roomID)
 		s.Join(roomID)
 
 		s.Emit("room_joined", map[string]interface{}{
