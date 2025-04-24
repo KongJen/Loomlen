@@ -143,6 +143,122 @@ func RenameRoom(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func DeleteRoom(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	var requestDelete struct {
+		RoomID string `json:"room_id"`
+	}
+	if err := json.Unmarshal(body, &requestDelete); err != nil {
+		log.Printf("Error decoding request: %v", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	objID, err := primitive.ObjectIDFromHex(requestDelete.RoomID)
+	if err != nil {
+		http.Error(w, "Invalid room ID", http.StatusBadRequest)
+		return
+	}
+
+	var room models.Room
+	roomCollection := config.GetRoomCollection()
+	err = roomCollection.FindOne(context.Background(), bson.M{"_id": objID}).Decode(&room)
+	if err != nil {
+		log.Printf("Error finding room: %v", err)
+		http.Error(w, "Room not found", http.StatusNotFound)
+		return
+	}
+
+	deletedStats, err := DeleteRoomAndContent(room)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "Room and all its contents deleted successfully",
+		"stats":   deletedStats,
+	})
+
+}
+
+type DeletionRoomStats struct {
+	Rooms   int64 `json:"rooms"`
+	Folders int64 `json:"folders"`
+	Files   int64 `json:"files"`
+	Papers  int64 `json:"papers"`
+}
+
+func DeleteRoomAndContent(room models.Room) (DeletionRoomStats, error) {
+	ctx := context.Background()
+	stats := DeletionRoomStats{}
+
+	FolderFilter := bson.M{"room_id": room.ID.Hex()}
+
+	FolderCursor, err := config.GetFolderCollection().Find(ctx, FolderFilter)
+	if err != nil {
+		return stats, fmt.Errorf("failed to query sub-folders: %v", err)
+	}
+	defer FolderCursor.Close(ctx)
+
+	var folders []models.Folder
+	if err = FolderCursor.All(ctx, &folders); err != nil {
+		return stats, fmt.Errorf("failed to process sub-folders: %v", err)
+	}
+
+	for _, folder := range folders {
+		substats, err := deleteFolderAndContents(folder)
+		if err != nil {
+			return stats, err
+		}
+
+		stats.Folders += substats.Folders
+		stats.Files += substats.Files
+		stats.Papers += substats.Papers
+	}
+
+	fileFileter := bson.M{"room_id": room.ID.Hex()}
+	fileCursor, err := config.GetFileCollection().Find(ctx, fileFileter)
+	if err != nil {
+		return stats, fmt.Errorf("failed to query files: %v", err)
+	}
+	defer fileCursor.Close(ctx)
+
+	var files []models.File
+	if err = fileCursor.All(ctx, &files); err != nil {
+		return stats, fmt.Errorf("failed to process files: %v", err)
+	}
+
+	for _, file := range files {
+		substats, err := deleteFileAndContents(file)
+		if err != nil {
+			return stats, err
+		}
+		stats.Files += substats.Files
+		stats.Papers += substats.Papers
+	}
+
+	roomResult, err := config.GetRoomCollection().DeleteOne(ctx, bson.M{"_id": room.ID})
+	if err != nil {
+		return stats, fmt.Errorf("failed to delete folder: %v", err)
+	}
+
+	if roomResult.DeletedCount == 0 {
+		return stats, fmt.Errorf("folder not found during deletion")
+	}
+	log.Printf("Successfully deleted folder: %s", room.Name)
+	stats.Rooms++
+
+	return stats, nil
+}
+
 // Add Get shared room with other users
 func GetRooms(w http.ResponseWriter, r *http.Request) {
 	// Verify user is authenticated

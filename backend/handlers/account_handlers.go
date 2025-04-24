@@ -106,7 +106,7 @@ func GenerateTokenPair(userID string) (TokenPair, error) {
 	accessToken := jwt.New(jwt.SigningMethodHS256)
 	accessClaims := accessToken.Claims.(jwt.MapClaims)
 	accessClaims["user_id"] = userID
-	accessClaims["exp"] = time.Now().Add(1 * time.Hour).Unix() // 1 hour expiration
+	accessClaims["exp"] = time.Now().Add(1 * 24 * time.Hour).Unix() // 1 hour expiration
 	accessClaims["type"] = "access"
 
 	accessTokenString, err := accessToken.SignedString(SECRET_KEY)
@@ -410,18 +410,17 @@ func RefreshToken(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	refreshCollection := config.GetRefreshTokenCollection()
-	result := refreshCollection.FindOne(ctx, bson.M{
-		"user_id":    userID,
-		"token":      requestBody.RefreshToken,
-		"expires_at": bson.M{"$gt": time.Now()},
-	})
+	// refreshCollection := config.GetRefreshTokenCollection()
+	// result := refreshCollection.FindOne(ctx, bson.M{
+	// 	"user_id": userID,
+	// 	"token":   requestBody.RefreshToken,
+	// })
 
-	if result.Err() != nil {
-		response.WriteHeader(http.StatusUnauthorized)
-		response.Write([]byte(`{"message":"Refresh token not found or expired"}`))
-		return
-	}
+	// if result.Err() != nil {
+	// 	response.WriteHeader(http.StatusUnauthorized)
+	// 	response.Write([]byte(`{"message":"Refresh token not found or expired"}`))
+	// 	return
+	// }
 
 	newTokenPair, err := GenerateTokenPair(userID)
 	if err != nil {
