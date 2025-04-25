@@ -406,10 +406,24 @@ class ApiService {
       if (data is List) {
         return data.cast<Map<String, dynamic>>();
       } else {
-        return []; // Return an empty list if data is not a list
+        return [];
       }
     } else {
       throw Exception('Failed to get shared rooms: ${response.body}');
+    }
+  }
+
+  Future<String> getRoomID(String originalID) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/api/room/id')
+          .replace(queryParameters: {"original_id": originalID}),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data["room_id"];
+    } else {
+      throw Exception('Failed to get roomID: ${response.body}');
     }
   }
 
