@@ -131,7 +131,7 @@ class RoomProvider extends ChangeNotifier {
       print("room ID from Database: ${roomID}");
 
       List<Map<String, dynamic>> roomFolders = folderProvider.folders
-          .where((folder) => folder['roomId'] == roomID)
+          .where((folder) => folder['roomId'] == roomId)
           .toList();
 
       print("Folder room ID : ${roomFolders}");

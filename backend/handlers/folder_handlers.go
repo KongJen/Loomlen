@@ -328,25 +328,14 @@ func GetFolder(w http.ResponseWriter, r *http.Request) {
 
 	// Get room_id from query parameters
 	roomID := r.URL.Query().Get("room_id")
-	originalID := r.URL.Query().Get("original_id")
 	if roomID == "" {
 		http.Error(w, "Missing room_id parameter", http.StatusBadRequest)
 		return
 	}
 
-	if originalID == "" {
-		http.Error(w, "Missing originalID parameter", http.StatusBadRequest)
-		return
-	}
-
 	// Query database for folders
 	folderCollection := config.GetFolderCollection()
-	filter := bson.M{
-		"$or": []bson.M{
-			{"room_id": roomID},
-			{"room_id": originalID},
-		},
-	}
+	filter := bson.M{"room_id": roomID}
 
 	cursor, err := folderCollection.Find(context.Background(), filter)
 	if err != nil {
