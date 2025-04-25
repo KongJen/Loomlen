@@ -292,6 +292,7 @@ class ApiService {
       // Try to parse the response
       try {
         final data = jsonDecode(response.body);
+        print("File_id : ${data["file_id"]} Shared!");
         return data["file_id"];
       } catch (e) {
         throw Exception('Invalid response format');

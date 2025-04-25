@@ -493,11 +493,13 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final String currentParentId = _navigationService.currentParentId;
     final bool isInFolder = _navigationService.isInFolder;
     final folderDBs = folderDBProvider.folders;
-    final fileDBs = fileDBProvider.folders;
+    final fileDBs = fileDBProvider.files;
 
     final String room_id = widget.room['id'];
 
     print("Folder Room ID : ${room_id}");
+
+    print("CurrentParentID = ${currentParentId}");
 
     final List<Map<String, dynamic>> folders;
     final List<Map<String, dynamic>> files;
@@ -505,6 +507,11 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     for (var folder in folderDBs) {
       print(
           "Folder: ${folder['name']}, room_id: ${folder['room_id']}, sub_folder_id: ${folder['sub_folder_id']}");
+    }
+
+    for (var file in fileDBs) {
+      print(
+          "File: ${file['id']}, room_id: ${file['room_id']}, sub_folder_id: ${file['sub_folder_id']}, ${file['name']}");
     }
 
     if (isCollab == true) {
@@ -535,8 +542,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
               .toList()
           : fileDBs
               .where((file) =>
-                  (file['room_id'] == room_id) &&
-                  file['sub_folder_id'] == 'Unknow')
+                  (file['room_id'] == room_id) && file['sub_folder_id'] == '')
               .toList();
     } else {
       // Fetch folders for current location
