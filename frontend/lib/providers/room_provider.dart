@@ -120,25 +120,27 @@ class RoomProvider extends ChangeNotifier {
         color: room['color'],
       );
 
+      final roomID = await _apiService.getRoomID(roomId);
+
       await _apiService.shareMember(
-        roomId: roomId,
+        roomId: roomID,
         sharedWith: sharedWith,
         permission: permission,
       );
 
-      print("room ID before lists: ${roomId}");
+      print("room ID from Database: ${roomID}");
 
       List<Map<String, dynamic>> roomFolders = folderProvider.folders
-          .where((folder) => folder['roomId'] == roomId)
+          .where((folder) => folder['roomId'] == roomID)
           .toList();
 
       print("Folder room ID : ${roomFolders}");
-      print("Folder room ID : ${roomId}");
+      print("Folder room ID : ${roomID}");
 
       for (var folder in roomFolders) {
         await _apiService.addFolder(
           id: folder['id'],
-          roomId: roomId,
+          roomId: roomID,
           subFolderId: folder['parentFolderId'] ?? '',
           name: folder['name'],
           color: folder['color'],

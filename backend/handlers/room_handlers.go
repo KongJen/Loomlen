@@ -17,6 +17,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // AddShareRoom handles the sharing of a room with other users
@@ -265,6 +266,39 @@ func GetRooms(w http.ResponseWriter, r *http.Request) {
 	// Return rooms
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(roomsWithFav)
+}
+
+func GetSharedRoomID(w http.ResponseWriter, r *http.Request) {
+
+	originalID := r.URL.Query().Get("original_id")
+	if originalID == "" {
+		http.Error(w, "Missing originalID parameter", http.StatusBadRequest)
+		return
+	}
+	roomCollection := config.GetRoomCollection()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	filter := bson.M{"original_id": originalID}
+
+	var room models.Room
+
+	err := roomCollection.FindOne(ctx, filter).Decode(&room)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			http.Error(w, "Room not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Error finding room: "+err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	roomID := room.ID.Hex()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"room_id": roomID})
+
 }
 
 // // GetSharedRooms returns all rooms shared with the user
