@@ -6,6 +6,7 @@ import 'package:frontend/providers/folder_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:frontend/providers/room_provider.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
+import 'package:frontend/services/roomDB_dialog_service.dart';
 import 'package:provider/provider.dart';
 import 'base_item.dart';
 import 'item_behaviors.dart';
@@ -14,7 +15,10 @@ import '../services/item_dialog_service.dart';
 class RoomDBItem extends BaseItem {
   final Color color;
   final bool is_favorite;
+  final String originalId;
+  final String role;
   final VoidCallback onToggleFavorite;
+
   final String updatedAt;
 
   const RoomDBItem({
@@ -22,8 +26,10 @@ class RoomDBItem extends BaseItem {
     required super.id,
     required super.name,
     required super.createdDate,
+    required this.originalId,
     required this.color,
     required this.is_favorite,
+    required this.role,
     required this.onToggleFavorite,
     required this.updatedAt,
   });
@@ -124,17 +130,19 @@ class _RoomDBItemState extends State<RoomDBItem>
     final RenderBox renderBox = context.findRenderObject() as RenderBox;
     final Offset position = renderBox.localToGlobal(Offset.zero);
 
-    await ItemDialogService.showOptionsOverlay(
+    await ItemRoomDialogService.showRoomOptionsOverlay(
       context: context,
       position: position,
       itemName: widget.name,
       onRename: () => _showRenameDialog(context),
       onDelete: () => _showDeleteConfirmationDialog(context),
+      originalId: widget.originalId,
+      role: widget.role,
     );
   }
 
   void _showRenameDialog(BuildContext context) {
-    ItemDialogService.showRenameDialog(
+    ItemRoomDialogService.showRenameDialog(
       context: context,
       currentName: widget.name,
       itemType: 'Room',
@@ -143,7 +151,7 @@ class _RoomDBItemState extends State<RoomDBItem>
   }
 
   void _showDeleteConfirmationDialog(BuildContext context) {
-    ItemDialogService.showDeleteConfirmationDialog(
+    ItemRoomDialogService.showDeleteConfirmationDialog(
       context: context,
       itemType: 'Room',
       itemName: widget.name,
@@ -153,19 +161,15 @@ class _RoomDBItemState extends State<RoomDBItem>
 
   @override
   void rename(dynamic context, String id, String newName) {
-    final roomProvider = Provider.of<RoomProvider>(context, listen: false);
-    roomProvider.renameRoom(id, newName);
+    print("Renaming room with ID: $id to new name: $newName");
+    final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
+    roomDBProvider.renameRoom(id, newName);
   }
 
   @override
   void delete(dynamic context, String id) {
-    final roomProvider = Provider.of<RoomProvider>(context, listen: false);
-    roomProvider.deleteRoom(
-      id,
-      Provider.of<FolderProvider>(context, listen: false),
-      Provider.of<FileProvider>(context, listen: false),
-      Provider.of<PaperProvider>(context, listen: false),
-    );
+    final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
+    roomDBProvider.deleteRoom(id);
   }
 
   void toggleFavorite(BuildContext context, String id, bool isFavorite) {

@@ -14,6 +14,7 @@ class FolderItem extends BaseItem {
   final String? roomId;
   final String? originalId;
   final String? parentFolderId;
+  final String? role;
   final Color color;
 
   const FolderItem({
@@ -24,6 +25,7 @@ class FolderItem extends BaseItem {
     this.roomId,
     this.originalId,
     this.parentFolderId,
+    this.role,
     required this.color,
   });
 
@@ -84,14 +86,17 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
           ),
         ),
         const SizedBox(width: 5),
-        InkWell(
-          onTap: () => _showOptionsOverlay(context),
-          child: Icon(
-            Icons.keyboard_control_key,
-            size: screenWidth < 600 ? 12 : 15,
-            color: Colors.blueAccent,
+        if (widget.role == 'owner' ||
+            widget.role == 'write' ||
+            widget.originalId == null)
+          InkWell(
+            onTap: () => _showOptionsOverlay(context),
+            child: Icon(
+              Icons.keyboard_control_key,
+              size: screenWidth < 600 ? 12 : 15,
+              color: Colors.blueAccent,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -114,7 +119,12 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
       context: context,
       currentName: widget.name,
       itemType: 'Folder',
-      onRename: (newName) => rename(context, widget.id, newName),
+      onRename: (newName) => {
+        if (widget.originalId != null)
+          renameDB(context, widget.id, newName)
+        else
+          rename(context, widget.id, newName)
+      },
     );
   }
 
@@ -136,6 +146,12 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
   void rename(dynamic context, String id, String newName) {
     final folderProvider = Provider.of<FolderProvider>(context, listen: false);
     folderProvider.renameFolder(id, newName);
+  }
+
+  void renameDB(dynamic context, String id, String newName) {
+    final folderDBProvider =
+        Provider.of<FolderDBProvider>(context, listen: false);
+    folderDBProvider.renameFolder(id, newName);
   }
 
   @override

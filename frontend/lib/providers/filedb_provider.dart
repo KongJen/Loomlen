@@ -62,4 +62,12 @@ class FileDBProvider extends ChangeNotifier {
     await _apiService.deleteFile(fileId);
     notifyListeners();
   }
+
+  Future<void> renameFile(
+    String fileId,
+    String newName,
+  ) async {
+    await _apiService.renameFile(fileId, newName);
+    notifyListeners();
+  }
 }
