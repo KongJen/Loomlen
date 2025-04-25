@@ -247,7 +247,9 @@ class ApiService {
 
       // Try to parse the response
       try {
-        return jsonDecode(response.body);
+        final responseData = jsonDecode(response.body);
+        print("reponse Add file ID : ${responseData['folder_id']}");
+        return responseData['folder_id'];
       } catch (e) {
         throw Exception('Invalid response format');
       }

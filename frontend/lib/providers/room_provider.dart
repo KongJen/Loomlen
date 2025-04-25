@@ -132,49 +132,45 @@ class RoomProvider extends ChangeNotifier {
 
       print("room ID from Database: ${roomID}");
 
-      List<Map<String, dynamic>> roomFolders = folderProvider.folders
-          .where((folder) => folder['roomId'] == roomId)
+      List<Map<String, dynamic>> rootFolders = folderProvider.folders
+          .where((folder) =>
+              folder['roomId'] == roomId &&
+              (folder['parentFolderId'] == null ||
+                  folder['parentFolderId'] == ''))
           .toList();
 
-      print("Folder room ID : ${roomFolders}");
-      print("Folder room ID : ${roomID}");
+      print("RootFolders : ${rootFolders}");
 
-      for (var folder in roomFolders) {
-        await _apiService.addFolder(
-          id: folder['id'],
-          roomId: roomID,
-          subFolderId: folder['parentFolderId'] ?? '',
-          name: folder['name'],
-          color: folder['color'],
+      Map<String, String> folderIdMapping = {};
+
+      for (var folder in rootFolders) {
+        print("Folders : ${folder}");
+        print("roomID : ${roomID}");
+        print("folderIDMapping : ${folderIdMapping}");
+        await _processFolder(
+          folder,
+          roomID,
+          '',
+          folderProvider,
+          fileProvider,
+          folderIdMapping,
         );
-        print("Folder ID: ${folder['id']}");
-
-        List<Map<String, dynamic>> filesInFolder = fileProvider.files
-            .where((file) => file['parentFolderId'] == folder["id"])
-            .toList();
-
-        for (var file in filesInFolder) {
-          await _apiService.addFile(
-            id: file['id'],
-            roomId: roomID,
-            subFolderId: file['parentFolderId'] ?? '',
-            name: file['name'],
-          );
-          print("File ID: ${file['id']}");
-        }
       }
 
-      List<Map<String, dynamic>> filesInFolder =
-          fileProvider.files.where((file) => file['roomId'] == roomId).toList();
+      List<Map<String, dynamic>> rootFiles = fileProvider.files
+          .where((file) =>
+              file['roomId'] == roomId &&
+              (file['parentFolderId'] == null || file['parentFolderId'] == ''))
+          .toList();
 
-      for (var file in filesInFolder) {
+      for (var file in rootFiles) {
         await _apiService.addFile(
           id: file['id'],
           roomId: roomID,
-          subFolderId: file['parentFolderId'] ?? '',
+          subFolderId: '',
           name: file['name'],
         );
-        print("File ID: ${file['id']}");
+        print("Root File ID: ${file['id']}");
       }
 
       // Update the local file to indicate it's shared
@@ -189,6 +185,67 @@ class RoomProvider extends ChangeNotifier {
       print('Error sharing room: $e');
       rethrow;
     }
+  }
+
+  Future<String> _processFolder(
+    Map<String, dynamic> folder,
+    String sharedRoomId,
+    String parentFolderId,
+    FolderProvider folderProvider,
+    FileProvider fileProvider,
+    Map<String, String> folderIdMapping,
+  ) async {
+    // Add the folder
+    final newFolderId = await _apiService.addFolder(
+      id: folder['id'],
+      roomId: sharedRoomId,
+      subFolderId: parentFolderId,
+      name: folder['name'],
+      color: folder['color'],
+    );
+
+    print("Created folder ID: ${folder['id']} -> $newFolderId");
+
+    // Store the mapping between original and new folder ID
+    folderIdMapping[folder['id']] = newFolderId;
+
+    // Find and process child folders
+    List<Map<String, dynamic>> childFolders = folderProvider.folders
+        .where((f) => f['parentFolderId'] == folder['id'])
+        .toList();
+
+    print("Child folders of ${folder['id']}: ${childFolders.length}");
+
+    // Process each child folder recursively
+    for (var childFolder in childFolders) {
+      await _processFolder(
+        childFolder,
+        sharedRoomId,
+        newFolderId, // This folder is the parent
+        folderProvider,
+        fileProvider,
+        folderIdMapping,
+      );
+    }
+
+    // Process files in this folder
+    List<Map<String, dynamic>> filesInFolder = fileProvider.files
+        .where((file) => file['parentFolderId'] == folder['id'])
+        .toList();
+
+    print("Files in folder ${folder['id']}: ${filesInFolder.length}");
+
+    for (var file in filesInFolder) {
+      await _apiService.addFile(
+        id: file['id'],
+        roomId: sharedRoomId,
+        subFolderId: newFolderId,
+        name: file['name'],
+      );
+      print("Added file: ${file['id']} to folder: $newFolderId");
+    }
+
+    return newFolderId;
   }
 
   Future<void> refreshSharedRooms() async {
