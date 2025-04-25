@@ -53,15 +53,13 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     _checkRole();
     _navigationService = FolderNavigationService(widget.room);
 
-    print("WidgetID : ${widget.room['original_id']}");
     print("NavigateID : ${widget.room['id']}");
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final folderDBProvider =
           Provider.of<FolderDBProvider>(context, listen: false);
 
       // Load folders for the specific room
-      folderDBProvider.loadFoldersDB(
-          widget.room['id'], widget.room['original_id']);
+      folderDBProvider.loadFoldersDB(widget.room['id']);
       final fileDBProvider =
           Provider.of<FileDBProvider>(context, listen: false);
 
@@ -498,12 +496,8 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     final fileDBs = fileDBProvider.folders;
 
     final String room_id = widget.room['id'];
-    final String originalId = widget.room['original_id'] ?? '';
 
     print("Folder Room ID : ${room_id}");
-    print("Folder Room ID : ${originalId}");
-
-    print("Folder Room ID Database : ${originalId}");
 
     final List<Map<String, dynamic>> folders;
     final List<Map<String, dynamic>> files;
@@ -522,12 +516,10 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
               // Convert all to strings and trim to ensure clean comparison
               String folderRoomId = folder['room_id'].toString().trim();
               String currentRoomId = room_id.toString().trim();
-              String currentOriginalId = originalId.toString().trim();
               String subFolderId = folder['sub_folder_id'].toString().trim();
 
               // Room ID matches AND (subfolder is "Unknow" OR empty)
-              bool roomMatch = folderRoomId == currentRoomId ||
-                  folderRoomId == currentOriginalId;
+              bool roomMatch = folderRoomId == currentRoomId;
               bool subfolderMatch =
                   subFolderId == 'Unknow' || subFolderId == '';
 
@@ -543,8 +535,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
               .toList()
           : fileDBs
               .where((file) =>
-                  (file['room_id'] == room_id ||
-                      file['room_id'] == originalId) &&
+                  (file['room_id'] == room_id) &&
                   file['sub_folder_id'] == 'Unknow')
               .toList();
     } else {

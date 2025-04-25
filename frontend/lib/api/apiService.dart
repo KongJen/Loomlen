@@ -595,12 +595,11 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getFolders(
-      String roomId, String originalId) async {
+  Future<List<Map<String, dynamic>>> getFolders(String roomId) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/api/folder').replace(
-            queryParameters: {"room_id": roomId, "original_id": originalId}),
+        Uri.parse('$baseUrl/api/folder')
+            .replace(queryParameters: {"room_id": roomId}),
       );
 
       print('Response status code: ${response.statusCode}');
@@ -608,13 +607,11 @@ class ApiService {
       print('RoomID Response: ${roomId}');
 
       if (response.statusCode == 200) {
-        // Handle empty response
         if (response.body.isEmpty) {
           print('Received empty response');
-          return []; // Return an empty list if no folders
+          return [];
         }
 
-        // Attempt to decode JSON
         try {
           final List<dynamic> decodedBody = jsonDecode(response.body);
 
@@ -625,7 +622,7 @@ class ApiService {
               .toList();
         } on FormatException catch (e) {
           print('JSON parsing error: $e');
-          return []; // Return empty list if parsing fails
+          return [];
         }
       } else {
         // More informative error handling
@@ -635,7 +632,7 @@ class ApiService {
       }
     } catch (e) {
       print('Unexpected error in getFolders: $e');
-      rethrow; // Re-throw to allow caller to handle
+      rethrow;
     }
   }
 
