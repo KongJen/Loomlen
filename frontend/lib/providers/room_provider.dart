@@ -104,8 +104,12 @@ class RoomProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> shareRoom(String roomId, List<String> sharedWith,
-      String permission, FolderProvider folderProvider) async {
+  Future<void> shareRoom(
+      String roomId,
+      List<String> sharedWith,
+      String permission,
+      FolderProvider folderProvider,
+      FileProvider fileProvider) async {
     try {
       final room = _rooms.firstWhere(
         (f) => f['id'] == roomId,
@@ -146,6 +150,33 @@ class RoomProvider extends ChangeNotifier {
           color: folder['color'],
         );
         print("Folder ID: ${folder['id']}");
+
+        List<Map<String, dynamic>> filesInFolder = fileProvider.files
+            .where((file) => file['parentFolderId'] == folder["id"])
+            .toList();
+
+        for (var file in filesInFolder) {
+          await _apiService.addFile(
+            id: file['id'],
+            roomId: roomID,
+            subFolderId: file['parentFolderId'] ?? '',
+            name: file['name'],
+          );
+          print("File ID: ${file['id']}");
+        }
+      }
+
+      List<Map<String, dynamic>> filesInFolder =
+          fileProvider.files.where((file) => file['roomId'] == roomId).toList();
+
+      for (var file in filesInFolder) {
+        await _apiService.addFile(
+          id: file['id'],
+          roomId: roomID,
+          subFolderId: file['parentFolderId'] ?? '',
+          name: file['name'],
+        );
+        print("File ID: ${file['id']}");
       }
 
       // Update the local file to indicate it's shared

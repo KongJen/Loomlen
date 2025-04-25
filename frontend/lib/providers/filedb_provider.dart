@@ -9,7 +9,7 @@ class FileDBProvider extends ChangeNotifier {
   final List<Map<String, dynamic>> _files = [];
   final Uuid _uuid = Uuid();
 
-  List<Map<String, dynamic>> get folders => List.unmodifiable(_files);
+  List<Map<String, dynamic>> get files => List.unmodifiable(_files);
 
   Future<void> loadFilesDB(String roomId) async {
     try {
