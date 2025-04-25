@@ -591,6 +591,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
             createdDate: folder['createdDate'] ?? folder['createdAt'],
             roomId: folder['room_id'],
             originalId: folder['original_id'],
+            role: role,
             color: (folder['color'] is int)
                 ? Color(folder['color'])
                 : folder['color'],
@@ -607,6 +608,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
               id: file['id'],
               name: file['name'],
               originalId: file['original_id'],
+              role: role,
               createdDate: file['createdDate'] ?? file['createdAt'],
             ),
           ),

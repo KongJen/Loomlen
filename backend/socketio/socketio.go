@@ -79,7 +79,7 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 
 		// s.SetContext(userID)
 
-		fmt.Printf("✅ User %s (Client ID: %s) joined room %s\n", s.ID(), roomID)
+		fmt.Printf("✅ User %s  joined room %s\n", s.ID(), roomID)
 		s.Join(roomID)
 
 		s.Emit("room_joined", map[string]interface{}{
@@ -219,6 +219,7 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 	})
 
 	server.OnEvent("/", "folder_list_updated", func(s socketio.Conn, data map[string]interface{}) {
+		log.Println("folder_list_updated event received:", data)
 		roomID, ok := data["roomID"].(string)
 		if !ok {
 			fmt.Println("Invalid roomID in folder_list_updated")

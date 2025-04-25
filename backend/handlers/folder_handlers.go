@@ -117,14 +117,37 @@ func RenameFolder(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid folder ID", http.StatusBadRequest)
 		return
 	}
+
+	var folder models.Folder
+	err = folderCollection.FindOne(context.Background(), bson.M{"_id": FolderID}).Decode(&folder)
+	if err != nil {
+		http.Error(w, "Folder not found", http.StatusNotFound)
+		return
+	}
+
+	roomID := folder.RoomID
+
 	filter := bson.M{"_id": FolderID}
-	update := bson.M{"$set": bson.M{"name": requestRename.Name, "updated_at": time.Now()}}
+	update := bson.M{"$set": bson.M{"name": requestRename.Name, "updatedAT": time.Now()}}
 
 	_, err = folderCollection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
 		log.Printf("Error updating folder: %v", err)
 		http.Error(w, "Failed to update folder name", http.StatusInternalServerError)
 		return
+	}
+
+	socketServer := socketio.ServerInstance
+	if socketServer != nil {
+		// Fetch updated folder list for the room
+		var folders []models.Folder
+		cursor, _ := folderCollection.Find(context.Background(), bson.M{"room_id": roomID})
+		cursor.All(context.Background(), &folders)
+
+		socketServer.BroadcastToRoom("", roomID, "folder_list_updated", map[string]interface{}{
+			"roomID":  roomID,
+			"folders": folders,
+		})
 	}
 
 	// Return success response with stats
@@ -181,6 +204,8 @@ func DeleteFolder(w http.ResponseWriter, r *http.Request) {
 		var folders []models.Folder
 		cursor, _ := folderCollection.Find(context.Background(), bson.M{"room_id": roomID})
 		cursor.All(context.Background(), &folders)
+		log.Printf("Broadcasting folder list update to room %s", roomID)
+		log.Printf("Updated folder list: %v", folders)
 
 		socketServer.BroadcastToRoom("", roomID, "folder_list_updated", map[string]interface{}{
 			"roomID":  roomID,

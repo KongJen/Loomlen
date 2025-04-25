@@ -65,8 +65,7 @@ class AuthProvider with ChangeNotifier {
   Future<void> signup(String email, String password) async {
     final response = await http.post(
       Uri.parse('$baseUrl/api/user/signup'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email, 'password': password, 'name': name}),
+      body: jsonEncode({'email': email, 'password': password, 'name': ""}),
     );
 
     if (response.statusCode == 200) {

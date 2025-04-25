@@ -14,6 +14,7 @@ import '../services/item_dialog_service.dart';
 class FileDbItem extends BaseItem {
   final String? roomId;
   final String? originalId;
+  final String? role;
   final String? parentFolderId;
   final String? pdfPath;
 
@@ -24,6 +25,7 @@ class FileDbItem extends BaseItem {
     required super.createdDate,
     this.roomId,
     this.originalId,
+    this.role,
     this.parentFolderId,
     this.pdfPath,
   });
@@ -95,14 +97,15 @@ class _FileItemState extends State<FileDbItem> with Renamable, Deletable {
           ),
         ),
         const SizedBox(width: 5),
-        InkWell(
-          onTap: () => _showOptionsOverlay(context),
-          child: Icon(
-            Icons.keyboard_control_key,
-            size: screenWidth < 600 ? 12 : 15,
-            color: Colors.blueAccent,
+        if (widget.role == 'owner' || widget.role == 'write')
+          InkWell(
+            onTap: () => _showOptionsOverlay(context),
+            child: Icon(
+              Icons.keyboard_control_key,
+              size: screenWidth < 600 ? 12 : 15,
+              color: Colors.blueAccent,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -140,8 +143,8 @@ class _FileItemState extends State<FileDbItem> with Renamable, Deletable {
 
   @override
   void rename(dynamic context, String id, String newName) {
-    final fileProvider = Provider.of<FileProvider>(context, listen: false);
-    fileProvider.renameFile(id, newName);
+    final fileDBProvider = Provider.of<FileDBProvider>(context, listen: false);
+    fileDBProvider.renameFile(id, newName);
   }
 
   @override
