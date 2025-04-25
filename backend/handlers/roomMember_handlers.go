@@ -190,9 +190,8 @@ func ChangeRoomMemberRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		RoomID     string                   `json:"room_id"`
-		OriginalID string                   `json:"original_id"`
-		Members    []map[string]interface{} `json:"members"` // Array of member objects with email and role
+		RoomID  string                   `json:"room_id"`
+		Members []map[string]interface{} `json:"members"` // Array of member objects with email and role
 	}
 
 	if err := json.Unmarshal(body, &req); err != nil {
@@ -233,7 +232,7 @@ func ChangeRoomMemberRole(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 
 		emailID, err := utils.GetUserIDFromEmail(ctx, email)
-		fmt.Print("RoomID=", req.OriginalID, "\n")
+		fmt.Print("RoomID=", req.RoomID, "\n")
 		fmt.Print("emailID=", emailID, "\n")
 		fmt.Print("role=", role, "\n")
 		if err != nil {
@@ -243,7 +242,7 @@ func ChangeRoomMemberRole(w http.ResponseWriter, r *http.Request) {
 
 		// Update the role in the database
 		filter := bson.M{
-			"room_id":     req.OriginalID,
+			"room_id":     req.RoomID,
 			"shared_with": emailID,
 		}
 		fmt.Print("filter=", filter, "\n")
@@ -293,25 +292,120 @@ func ChangeRoomMemberRole(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func RemoveRoomMember(w http.ResponseWriter, r *http.Request) {
+
+	userID, err := utils.GetUserIDFromToken(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	var req struct {
+		RoomID string `json:"room_id"`
+		Email  string `json:"email"`
+	}
+
+	if err := json.Unmarshal(body, &req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.RoomID == "" {
+		http.Error(w, "Room ID is required", http.StatusBadRequest)
+		return
+	}
+
+	roomMemberCollection := config.GetRoomMemberCollection()
+
+	// Variable to store the user ID that will be used in the deletion query
+	var memberID string
+
+	// Case 1: Email is provided
+	if req.Email != "" {
+		// Get userID from email
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		var err error
+		memberID, err = utils.GetUserIDFromEmail(ctx, req.Email)
+		if err != nil {
+			log.Printf("Error getting user ID from email: %v", err)
+			http.Error(w, "User not found with provided email", http.StatusNotFound)
+			return
+		}
+
+		log.Printf("Using email %s to remove user with ID: %s", req.Email, memberID)
+	} else if userID != "" {
+		// Case 2: UserToken is provided
+		memberID = userID
+		log.Printf("Using provided user token: %s", memberID)
+	} else {
+		// Neither email nor user_token provided
+		http.Error(w, "Either email or user_token must be provided", http.StatusBadRequest)
+		return
+	}
+
+	log.Printf("Using userID %s to remove member from room %s", memberID, req.RoomID)
+
+	filter := bson.M{
+		"room_id":     req.RoomID,
+		"shared_with": memberID,
+	}
+
+	result, err := roomMemberCollection.DeleteOne(context.Background(), filter)
+	if err != nil {
+		log.Printf("MongoDB deletion error: %v", err)
+		http.Error(w, "Failed to remove room member", http.StatusInternalServerError)
+		return
+	}
+
+	if result.DeletedCount == 0 {
+		http.Error(w, "No room member found", http.StatusNotFound)
+		return
+	}
+
+	// socketServer := socketio.ServerInstance
+	// if socketServer != nil {
+	// 	socketServer.BroadcastToRoom("", req.RoomID, "room_member_removed", map[string]interface{}{
+	// 		"roomID": req.RoomID,
+	// 		"userID": userID,
+	// 	})
+	// 	log.Printf("Broadcasted member removal from room %s", req.RoomID)
+	// }
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"message": "Successfully removed from the room",
+		"roomID":  req.RoomID,
+		"userID":  memberID,
+	})
+}
+
 func GetRoomMembersInRoom(w http.ResponseWriter, r *http.Request) {
 
 	// Read the request body once
 	// roomID := r.URL.Query().Get("room_id")
-	originalID := r.URL.Query().Get("original_id")
+	roomID := r.URL.Query().Get("room_id")
 	// if roomID == "" {
 	// 	http.Error(w, "Missing room_id parameter", http.StatusBadRequest)
 	// 	return
 	// }
 
-	if originalID == "" {
-		http.Error(w, "Missing originalID parameter", http.StatusBadRequest)
+	if roomID == "" {
+		http.Error(w, "Missing roomID parameter", http.StatusBadRequest)
 		return
 	}
 
 	roomMemberCollection := config.GetRoomMemberCollection()
 	userCollection := config.GetUserCollection()
 
-	filter := bson.M{"room_id": originalID}
+	filter := bson.M{"room_id": roomID}
 	cursor, err := roomMemberCollection.Find(context.Background(), filter)
 	if err != nil {
 		log.Printf("MongoDB find error: %v", err)
@@ -330,14 +424,14 @@ func GetRoomMembersInRoom(w http.ResponseWriter, r *http.Request) {
 	roomCollection := config.GetRoomCollection()
 	var room models.Room
 
-	// roomObjectId, err := primitive.ObjectIDFromHex(roomMemberRequest.RoomID)
-	// if err != nil {
-	// 	log.Printf("Error converting RoomID to ObjectID: %v", err)
-	// 	http.Error(w, "Invalid Room ID format", http.StatusBadRequest)
-	// 	return
-	// }
+	roomObjectId, err := primitive.ObjectIDFromHex(roomID)
+	if err != nil {
+		log.Printf("Error converting RoomID to ObjectID: %v", err)
+		http.Error(w, "Invalid Room ID format", http.StatusBadRequest)
+		return
+	}
 
-	err = roomCollection.FindOne(context.Background(), bson.M{"original_id": originalID}).Decode(&room)
+	err = roomCollection.FindOne(context.Background(), bson.M{"_id": roomObjectId}).Decode(&room)
 	if err != nil {
 		log.Printf("Error finding room: %v", err)
 		http.Error(w, "Room not found", http.StatusNotFound)
