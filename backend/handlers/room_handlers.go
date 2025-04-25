@@ -326,9 +326,19 @@ func GetRooms(w http.ResponseWriter, r *http.Request) {
 
 	allRooms := ownedRooms
 
+	sharedRoomObjIDs := make([]primitive.ObjectID, 0, len(sharedRoomIDs))
+	for _, idStr := range sharedRoomIDs {
+		objID, err := primitive.ObjectIDFromHex(idStr)
+		if err != nil {
+			log.Printf("Invalid ObjectID format: %s, error: %v", idStr, err)
+			continue // Skip invalid IDs
+		}
+		sharedRoomObjIDs = append(sharedRoomObjIDs, objID)
+	}
+
 	// Find shared rooms details
 	if len(sharedRoomIDs) > 0 {
-		sharedRoomsFilter := bson.M{"original_id": bson.M{"$in": sharedRoomIDs}}
+		sharedRoomsFilter := bson.M{"_id": bson.M{"$in": sharedRoomObjIDs}}
 
 		sharedRoomsCursor, err := roomCollection.Find(ctx, sharedRoomsFilter)
 		if err != nil {
@@ -361,7 +371,7 @@ func GetRooms(w http.ResponseWriter, r *http.Request) {
 			roomData["role_id"] = "owner"
 		} else {
 			// For shared rooms, set role_id from the RoomMembers collection
-			if roleID, exists := roleIDMap[room.OriginalID]; exists {
+			if roleID, exists := roleIDMap[room.ID.Hex()]; exists {
 				roomData["role_id"] = roleID
 			}
 		}

@@ -1,6 +1,7 @@
 // ignore_for_file: non_constant_identifier_names, avoid_types_as_parameter_names
 
 import 'package:flutter/material.dart';
+import 'package:frontend/api/apiService.dart';
 import 'package:frontend/providers/file_provider.dart';
 import 'package:frontend/providers/folder_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
@@ -155,7 +156,9 @@ class _RoomDBItemState extends State<RoomDBItem>
       context: context,
       itemType: 'Room',
       itemName: widget.name,
-      onConfirm: () => delete(context, widget.id),
+      onConfirm: () => widget.role == "owner"
+          ? delete(context, widget.id)
+          : exitRoom(context, widget.id),
     );
   }
 
@@ -170,6 +173,11 @@ class _RoomDBItemState extends State<RoomDBItem>
   void delete(dynamic context, String id) {
     final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
     roomDBProvider.deleteRoom(id);
+  }
+
+  void exitRoom(BuildContext context, String id) {
+    final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
+    roomDBProvider.exitRoom(id);
   }
 
   void toggleFavorite(BuildContext context, String id, bool isFavorite) {

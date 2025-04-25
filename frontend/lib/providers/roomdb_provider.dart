@@ -33,7 +33,7 @@ class RoomDBProvider extends ChangeNotifier {
   void updateMemberRole(String roomId, String originalId,
       List<Map<String, dynamic>> members) async {
     try {
-      await _apiService.updateMemberRole(roomId, originalId, members);
+      await _apiService.updateMemberRole(roomId, members);
       notifyListeners();
     } catch (e) {
       print('Error updating member role: $e');
@@ -94,6 +94,12 @@ class RoomDBProvider extends ChangeNotifier {
 
   Future<void> deleteRoom(String roomId) async {
     await _apiService.deleteRoom(roomId);
+    loadRoomsDB();
+    notifyListeners();
+  }
+
+  Future<void> exitRoom(String roomId) async {
+    await _apiService.deleteMember(roomId, "");
     loadRoomsDB();
     notifyListeners();
   }

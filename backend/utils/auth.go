@@ -75,7 +75,7 @@ func GetUserIDFromToken(r *http.Request) (string, error) {
 }
 
 // Update GetUserIDFromToken to accept a token string directly
-func GetUserIDFromTokenSocket(tokenString string) (string, error) {
+func GetUserIDFromTokenString(tokenString string) (string, error) {
 	// Parse and validate the token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Validate the algorithm

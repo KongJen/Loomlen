@@ -199,7 +199,8 @@ class ApiService {
 
       // Try to parse the response
       try {
-        return jsonDecode(response.body);
+        final responseData = jsonDecode(response.body);
+        return responseData['id'];
       } catch (e) {
         throw Exception('Invalid response format');
       }
@@ -496,7 +497,7 @@ class ApiService {
   Future<List<Map<String, dynamic>>> getMembersInRoom(roomId) async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/roomMember')
-          .replace(queryParameters: {"original_id": roomId}),
+          .replace(queryParameters: {"room_id": roomId}),
     );
 
     if (response.statusCode == 200) {
@@ -511,14 +512,12 @@ class ApiService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> updateMemberRole(String room_id,
-      String original_id, List<Map<String, dynamic>> members) async {
-    print('original_id   ffffffffffffffff: $original_id');
+  Future<List<Map<String, dynamic>>> updateMemberRole(
+      String room_id, List<Map<String, dynamic>> members) async {
     final response = await authenticatedRequest(
       '$baseUrl/api/roomMember',
       method: 'PUT',
-      body: jsonEncode(
-          {"room_id": room_id, "original_id": original_id, "members": members}),
+      body: jsonEncode({"room_id": room_id, "members": members}),
     );
 
     if (response.statusCode == 200) {
@@ -690,6 +689,19 @@ class ApiService {
       }
     } else {
       throw Exception('Failed to get files: ${response.body}');
+    }
+  }
+
+  Future<void> deleteMember(String roomId, String email) async {
+    final headers = await _getHeaders();
+    final response = await http.delete(
+      Uri.parse('$baseUrl/api/roomMember'),
+      headers: headers,
+      body: jsonEncode({"room_id": roomId, "email": email}),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to delete member: ${response.body}');
     }
   }
 

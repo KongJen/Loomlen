@@ -37,7 +37,7 @@ class _SettingsMemberState extends State<SettingsMember> {
 
   void _loadMembers() async {
     final roomProvider = Provider.of<RoomDBProvider>(context, listen: false);
-    final members = await roomProvider.loadMembers(widget.originalId);
+    final members = await roomProvider.loadMembers(widget.roomId);
     setState(() {
       _members = members.map((m) => Map<String, dynamic>.from(m)).toList();
       _originalMembers =

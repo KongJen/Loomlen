@@ -118,13 +118,11 @@ class RoomProvider extends ChangeNotifier {
       if (room.isEmpty) return;
 
       // Share the file
-      await _apiService.shareRoom(
+      final roomID = await _apiService.shareRoom(
         roomId: roomId,
         name: room['name'],
         color: room['color'],
       );
-
-      final roomID = await _apiService.getRoomID(roomId);
 
       await _apiService.shareMember(
         roomId: roomID,
