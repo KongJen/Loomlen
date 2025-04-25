@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/api/apiService.dart';
 import 'package:frontend/providers/folder_provider.dart';
 import 'package:frontend/providers/room_provider.dart';
+import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:provider/provider.dart';
 import '../providers/file_provider.dart';
 import '../providers/paper_provider.dart';
@@ -10,8 +12,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ShareDialog extends StatefulWidget {
   final String roomId;
   final String roomName;
+  final bool? isCollab;
 
-  const ShareDialog({Key? key, required this.roomId, required this.roomName})
+  const ShareDialog(
+      {Key? key,
+      required this.roomId,
+      required this.roomName,
+      required this.isCollab})
       : super(key: key);
 
   @override
@@ -24,6 +31,15 @@ class _ShareDialogState extends State<ShareDialog> {
   String _permission = 'read';
   List<String> _sharedWith = [];
   bool _isSharing = false;
+  List<Map<String, dynamic>> _members = [];
+
+  void _loadMembers() async {
+    final roomProvider = Provider.of<RoomDBProvider>(context, listen: false);
+    final members = await roomProvider.loadMembers(widget.roomId);
+    setState(() {
+      _members = members.map((m) => Map<String, dynamic>.from(m)).toList();
+    });
+  }
 
   @override
   void dispose() {
@@ -60,29 +76,51 @@ class _ShareDialogState extends State<ShareDialog> {
       _isSharing = true;
     });
 
-    try {
-      final roomProvider = Provider.of<RoomProvider>(context, listen: false);
-      final folderProvider =
-          Provider.of<FolderProvider>(context, listen: false);
-      final fileProvider = Provider.of<FileProvider>(context, listen: false);
+    if (widget.isCollab == true) {
+      try {
+        ApiService apiService = ApiService();
+        apiService.shareMember(
+            roomId: widget.roomId,
+            sharedWith: _sharedWith,
+            permission: _permission);
+        Navigator.of(context).pop(true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Room shared successfully')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to share room: $e')));
+      } finally {
+        setState(() {
+          _isSharing = false;
+        });
+      }
+    } else {
+      try {
+        final roomProvider = Provider.of<RoomProvider>(context, listen: false);
+        final folderProvider =
+            Provider.of<FolderProvider>(context, listen: false);
+        final fileProvider = Provider.of<FileProvider>(context, listen: false);
 
-      print("Roomid dialog : ${widget.roomId}");
+        print("Roomid dialog : ${widget.roomId}");
 
-      await roomProvider.shareRoom(widget.roomId, _sharedWith, _permission,
-          folderProvider, fileProvider);
+        await roomProvider.shareRoom(widget.roomId, _sharedWith, _permission,
+            folderProvider, fileProvider);
 
-      Navigator.of(context).pop(true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Room shared & cloned successfully')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to share room: $e')));
-    } finally {
-      setState(() {
-        _isSharing = false;
-      });
+        Navigator.of(context).pop(true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Room shared & cloned successfully')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to share room: $e')));
+      } finally {
+        setState(() {
+          _isSharing = false;
+        });
+      }
     }
   }
 
@@ -91,6 +129,9 @@ class _ShareDialogState extends State<ShareDialog> {
     // Check if user is logged in
     final authProvider = Provider.of<AuthProvider>(context);
     final isLoggedIn = authProvider.isLoggedIn;
+    if (widget.isCollab == true) {
+      _loadMembers();
+    }
 
     if (!isLoggedIn) {
       return AlertDialog(
@@ -139,6 +180,16 @@ class _ShareDialogState extends State<ShareDialog> {
                   }
                   if (value == authProvider.email) {
                     return "You cannot share a room with yourself!";
+                  }
+                  for (var member in _members) {
+                    if (member['email'] == value) {
+                      return 'This email is already a member of the room';
+                    }
+                  }
+                  for (var email in _sharedWith) {
+                    if (email == value) {
+                      return 'This email is already added';
+                    }
                   }
                   return null;
                 },

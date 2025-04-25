@@ -400,6 +400,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
                   builder: (context) => ShareDialog(
                     roomId: _navigationService.currentRoom['id'],
                     roomName: _navigationService.currentRoom['name'],
+                    isCollab: isCollab,
                   ),
                 );
               },
