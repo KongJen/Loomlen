@@ -103,4 +103,10 @@ class RoomDBProvider extends ChangeNotifier {
     loadRoomsDB();
     notifyListeners();
   }
+
+  Future<void> deleteMember(String roomId, String memberId) async {
+    await _apiService.deleteMember(roomId, memberId);
+    loadRoomsDB();
+    notifyListeners();
+  }
 }
