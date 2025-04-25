@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:frontend/providers/folder_provider.dart';
 import 'package:frontend/providers/room_provider.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
@@ -76,6 +77,54 @@ class _SettingsMemberState extends State<SettingsMember> {
     });
   }
 
+  Future<void> _confirmDeleteMember(int index) async {
+    final email = _members[index]['email'];
+
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false, // User must tap button to close dialog
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Removal'),
+          content: SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('Are you sure you want to remove $email from this room?'),
+                const SizedBox(height: 10),
+                const Text('This action cannot be undone.'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text('Remove', style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Proceed with deletion
+                RoomDBProvider roomProvider =
+                    Provider.of<RoomDBProvider>(context, listen: false);
+                roomProvider.deleteMember(
+                  widget.roomId,
+                  _members[index]['email'],
+                );
+                setState(() {
+                  _members.removeAt(index);
+                });
+                _checkForChanges();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     print("roomId : ${widget.roomId}");
@@ -95,36 +144,50 @@ class _SettingsMemberState extends State<SettingsMember> {
                 return ListTile(
                   dense: true,
                   title: Text(_members[index]['email']),
-                  trailing: SizedBox(
-                    width: 120,
-                    child: DropdownButton<String>(
-                      isExpanded: true,
-                      value: _members[index]['role'],
-                      onChanged: isOwner
-                          ? null
-                          : (String? newRole) {
-                              if (newRole != null && newRole != 'owner') {
-                                print(
-                                    "Changing role from ${_members[index]['role']} to $newRole");
-                                setState(() {
-                                  _members[index]['role'] = newRole;
-                                });
-                                _checkForChanges();
-                              }
-                            },
-                      items:
-                          (isOwner ? ['owner'] : ['write', 'read']).map((role) {
-                        return DropdownMenuItem<String>(
-                          value: role,
-                          child: Text(
-                            role[0].toUpperCase() + role.substring(1),
-                            style: TextStyle(
-                              color: isOwner ? Colors.grey : Colors.black,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 120,
+                        child: DropdownButton<String>(
+                          isExpanded: true,
+                          value: _members[index]['role'],
+                          onChanged: isOwner
+                              ? null
+                              : (String? newRole) {
+                                  if (newRole != null && newRole != 'owner') {
+                                    print(
+                                        "Changing role from ${_members[index]['role']} to $newRole");
+                                    setState(() {
+                                      _members[index]['role'] = newRole;
+                                    });
+                                    _checkForChanges();
+                                  }
+                                },
+                          items: (isOwner ? ['owner'] : ['write', 'read'])
+                              .map((role) {
+                            return DropdownMenuItem<String>(
+                              value: role,
+                              child: Text(
+                                role[0].toUpperCase() + role.substring(1),
+                                style: TextStyle(
+                                  color: isOwner ? Colors.grey : Colors.black,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      IconButton(
+                        icon: isOwner
+                            ? const SizedBox.shrink()
+                            : const Icon(Icons.delete),
+                        onPressed: isOwner
+                            ? null
+                            : () => _confirmDeleteMember(
+                                index), // Call confirmation dialog
+                      ),
+                    ],
                   ),
                 );
               }),
