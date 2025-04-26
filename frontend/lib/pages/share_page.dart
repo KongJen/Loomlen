@@ -6,6 +6,7 @@ import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:frontend/widget/app_bar.dart';
 import 'package:frontend/widget/grid_layout.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 
 class SharePage extends StatefulWidget {
   const SharePage({super.key});
@@ -17,6 +18,8 @@ class SharePage extends StatefulWidget {
 class _SharePageState extends State<SharePage> {
   bool _isLoading = true;
 
+  Timer? _pollingTimer;
+
   @override
   void initState() {
     super.initState();
@@ -27,6 +30,10 @@ class _SharePageState extends State<SharePage> {
 
       // Load folders for the specific room
       roomDBProvider.loadRoomsDB();
+
+      _pollingTimer = Timer.periodic(Duration(seconds: 5), (timer) {
+        roomDBProvider.loadRoomsDB();
+      });
     });
   }
 
@@ -141,5 +148,11 @@ class _SharePageState extends State<SharePage> {
     if (mounted) {
       _loadRooms();
     }
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
   }
 }
