@@ -83,7 +83,7 @@ class DrawingDBService {
   }
 
 //--------------------------
-  void _saveAllDrawingsToDatabase() {
+  void saveAllDrawingsToDatabase() {
     // Implement your logic to save all drawings to the database
     // This could involve iterating over _pageIds and saving each page's data
     print("Saving all drawings to database...");
@@ -105,7 +105,7 @@ class DrawingDBService {
 
   void leavefile() {
     if (users.length == 1) {
-      _saveAllDrawingsToDatabase();
+      saveAllDrawingsToDatabase();
     }
     _socketService!.emit('leave_file', {
       'roomId': _roomId,
@@ -137,6 +137,8 @@ class DrawingDBService {
   }
 
   void _handleIncomingCanvasState(List<dynamic> canvasState, String pageId) {
+    if (onDataChanged == null) return;
+
     _pageDrawingPoints[pageId] = [];
 
     // Process each drawing point in the canvas state
@@ -505,6 +507,20 @@ class DrawingDBService {
   }
 
   getCurrentUserId() {}
+
+  void disposeListeners() {
+    // Clear the callback first to prevent any further UI updates
+    onDataChanged = null; // Add this line to clear the callback
+
+    // Remove socket event listeners
+    if (_socketService != null) {
+      _socketService!.off('canvas_state');
+      _socketService!.off('drawing');
+      _socketService!.off('eraser');
+      _socketService!.off('request_canvas_state');
+      _socketService!.off('file_users_update');
+    }
+  }
 }
 
 extension StringCapitalizeExtension on String {
