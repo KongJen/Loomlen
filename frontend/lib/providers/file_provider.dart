@@ -38,7 +38,10 @@ class FileProvider extends ChangeNotifier {
       _sharedFiles.clear();
       final sharedFilesData = await _apiService.getSharedFiles();
       print("Shared Files Data: $sharedFilesData");
-      _sharedFiles.addAll(sharedFilesData);
+      if (sharedFilesData.isNotEmpty) {
+        _sharedFiles.addAll(sharedFilesData);
+      }
+
       notifyListeners();
     } catch (e) {
       print('Error loading shared files: $e');
