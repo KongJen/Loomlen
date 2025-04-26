@@ -277,7 +277,7 @@ class RoomProvider extends ChangeNotifier {
     print("Papers in file $originalFileId: ${papersInFile.length}");
 
     for (var paper in papersInFile) {
-      await _apiService.addPaper(
+      final paperId = await _apiService.addPaper(
         id: paper['id'],
         roomId: roomId,
         fileId: newFileId,
@@ -287,6 +287,8 @@ class RoomProvider extends ChangeNotifier {
         height: paper['height'],
       );
       print("Added paper: ${paper['id']} to file: $newFileId");
+
+      await _apiService.addDraw(paperId, paper['drawingData']);
     }
   }
 
