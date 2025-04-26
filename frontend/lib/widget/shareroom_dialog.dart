@@ -102,11 +102,13 @@ class _ShareDialogState extends State<ShareDialog> {
         final folderProvider =
             Provider.of<FolderProvider>(context, listen: false);
         final fileProvider = Provider.of<FileProvider>(context, listen: false);
+        final paperProvider =
+            Provider.of<PaperProvider>(context, listen: false);
 
         print("Roomid dialog : ${widget.roomId}");
 
         await roomProvider.shareRoom(widget.roomId, _sharedWith, _permission,
-            folderProvider, fileProvider);
+            folderProvider, fileProvider, paperProvider);
 
         Navigator.of(context).pop(true);
         ScaffoldMessenger.of(context).showSnackBar(

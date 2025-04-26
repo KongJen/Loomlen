@@ -597,6 +597,30 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> addDraw(
+    String paperId,
+    List<dynamic>
+        drawingData, // Assuming drawingData is a List of DrawingPoint objects
+  ) async {
+    print("Drawing to db: $drawingData");
+
+    final response = await authenticatedRequest(
+      '$baseUrl/api/paper/drawing',
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'paper_id': paperId,
+      },
+      body: jsonEncode(drawingData),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update drawing: ${response.body}');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getFolders(String roomId) async {
     try {
       final response = await http.get(
