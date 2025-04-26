@@ -44,7 +44,16 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   bool isConnected = false;
   String role = 'viewer';
 
+  late RoomDBProvider _roomDBProvider;
+
   VoidCallback? _roleUpdateListener;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Initialize the provider reference safely here
+    _roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
+  }
 
   @override
   void initState() {
@@ -124,14 +133,13 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   }
 
   void _subscribeToRoleChanges() {
-    final roomDBProvider = Provider.of<RoomDBProvider>(context, listen: false);
-
     // Define the update function
     void updateRoleFromProvider() {
-      if (!mounted)
+      if (!mounted) {
         return; // Add this check to prevent setState on unmounted widget
+      }
 
-      final updatedRoom = roomDBProvider.rooms.firstWhere(
+      final updatedRoom = _roomDBProvider.rooms.firstWhere(
         (r) => r['id'] == widget.room['id'],
         orElse: () => widget.room,
       );
@@ -154,7 +162,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
     updateRoleFromProvider();
 
     // Setup a listener for future changes
-    roomDBProvider.addListener(updateRoleFromProvider);
+    _roomDBProvider.addListener(updateRoleFromProvider);
   }
 
   void _connectToSocket() {
@@ -175,9 +183,7 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   @override
   void dispose() {
     if (_roleUpdateListener != null) {
-      final roomDBProvider =
-          Provider.of<RoomDBProvider>(context, listen: false);
-      roomDBProvider.removeListener(_roleUpdateListener!);
+      _roomDBProvider.removeListener(_roleUpdateListener!);
     }
     _socketService.closeSocket();
     super.dispose();
@@ -541,10 +547,22 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           ? fileDBs
               .where((file) => file['sub_folder_id'] == currentParentId)
               .toList()
-          : fileDBs
-              .where((file) =>
-                  (file['room_id'] == room_id) && file['sub_folder_id'] == '')
-              .toList();
+          : fileDBs.where((file) {
+              // Convert all to strings and trim to ensure clean comparison
+              String folderRoomId = file['room_id'].toString().trim();
+              String currentRoomId = room_id.toString().trim();
+              String subFolderId = file['sub_folder_id'].toString().trim();
+
+              // Room ID matches AND (subfolder is "Unknow" OR empty)
+              bool roomMatch = folderRoomId == currentRoomId;
+              bool subfolderMatch =
+                  subFolderId == 'Unknow' || subFolderId == '';
+
+              print(
+                  "Folder ${file['name']} room match: $roomMatch, subfolder match: $subfolderMatch");
+
+              return roomMatch && subfolderMatch;
+            }).toList();
     } else {
       // Fetch folders for current location
       folders = isInFolder
@@ -563,7 +581,6 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
               .where((file) => file['roomId'] == currentParentId)
               .toList();
     }
-
     // Fetch files for current location
 
     // Create list of items for the grid

@@ -168,6 +168,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
   void _loadDrawingData() {
     final paperDBProvider = context.read<PaperDBProvider>();
     if (widget.collab) {
+      print("yooo");
       _drawingDBService.loadFromProvider(
         paperDBProvider,
         widget.fileId,
@@ -180,14 +181,8 @@ class _PaperDBPageState extends State<PaperDBPage> {
     }
   }
 
-  Future<void> _saveDrawing() async {
-    await _drawingService.saveDrawings(context.read<PaperProvider>());
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Drawing saved successfully')),
-      );
-    }
+  void _saveDrawing() {
+    _drawingDBService.saveAllDrawingsToDatabase();
 
     setState(() {
       _hasUnsavedChanges = false;
@@ -236,7 +231,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
-      if (_hasUnsavedChanges) await _saveDrawing();
+      if (_hasUnsavedChanges) _saveDrawing();
 
       final exportResult = await _pdfExportService.exportNotesToPdf(
         context: context,
@@ -509,6 +504,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
                 },
               ),
             // Drawing interaction surface
+
             isReadOnly
                 ? CustomPaint(
                     painter: DrawingPainter(
@@ -608,15 +604,14 @@ class _PaperDBPageState extends State<PaperDBPage> {
 
   @override
   void dispose() {
-    if (_roleUpdateListener != null) {
-      final roomDBProvider =
-          Provider.of<RoomDBProvider>(context, listen: false);
-      roomDBProvider.removeListener(_roleUpdateListener!);
-    }
+    // if (_roleUpdateListener != null) {
+    //   roomDBProvider.removeListener(_roleUpdateListener!);
+    // }
+
     _controller.dispose();
     _scrollController.dispose();
     _drawingDBService.leavefile();
-    if (_hasUnsavedChanges) _saveDrawing();
+    _drawingDBService.disposeListeners();
     super.dispose();
   }
 }

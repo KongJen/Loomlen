@@ -74,7 +74,7 @@ class SocketService {
         if (data is Map && data['folders'] is List) {
           folderDBProvider
               .updateFolders(List<Map<String, dynamic>>.from(data['folders']));
-        } else if (data['roomID'] != null) {
+        } else if (data is Map && data['roomID'] != null) {
           folderDBProvider.updateFolders([]);
         }
       }
@@ -90,7 +90,7 @@ class SocketService {
         if (data is Map && data['files'] is List) {
           fileDBProvider
               .updateFiles(List<Map<String, dynamic>>.from(data['files']));
-        } else if (data['roomID'] != null) {
+        } else if (data is Map && data['roomID'] != null) {
           fileDBProvider.updateFiles([]);
         }
       }
@@ -112,7 +112,7 @@ class SocketService {
           }
 
           paperDBProvider.updatePapers(papers);
-        } else if (data['roomID'] != null) {
+        } else if (data is Map && data['roomID'] != null) {
           paperDBProvider.updatePapers([]);
         }
       }
@@ -125,8 +125,14 @@ class SocketService {
             Provider.of<PaperDBProvider>(_context!, listen: false);
 
         // Ensure width and height are set correctly
-        data["width"] = (data["width"] as num?)?.toDouble() ?? 595.0;
-        data["height"] = (data["height"] as num?)?.toDouble() ?? 842.0;
+        if (data is Map<String, dynamic>) {
+          data["width"] = (data["width"] as num?)?.toDouble() ?? 595.0;
+          data["height"] = (data["height"] as num?)?.toDouble() ?? 842.0;
+
+          paperDBProvider.updatePaper(data);
+        } else {
+          print("Error: Received data is not of type Map<String, dynamic>");
+        }
 
         // Cast data to Map<String, dynamic> before passing it to updatePaper
         if (data is Map<String, dynamic>) {
@@ -167,6 +173,10 @@ class SocketService {
 // Listen for events
   void on(String event, Function(dynamic) callback) {
     socket?.on(event, callback);
+  }
+
+  void off(String event) {
+    socket?.off(event);
   }
 
   // Emit events to the server
