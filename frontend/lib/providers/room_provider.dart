@@ -109,7 +109,8 @@ class RoomProvider extends ChangeNotifier {
       List<String> sharedWith,
       String permission,
       FolderProvider folderProvider,
-      FileProvider fileProvider) async {
+      FileProvider fileProvider,
+      PaperProvider paperProvider) async {
     try {
       final room = _rooms.firstWhere(
         (f) => f['id'] == roomId,
@@ -142,6 +143,7 @@ class RoomProvider extends ChangeNotifier {
       print("RootFolders : ${rootFolders}");
 
       Map<String, String> folderIdMapping = {};
+      Map<String, String> fileIdMapping = {};
 
       for (var folder in rootFolders) {
         print("Folders : ${folder}");
@@ -153,7 +155,9 @@ class RoomProvider extends ChangeNotifier {
           '',
           folderProvider,
           fileProvider,
+          paperProvider,
           folderIdMapping,
+          fileIdMapping,
         );
       }
 
@@ -164,13 +168,17 @@ class RoomProvider extends ChangeNotifier {
           .toList();
 
       for (var file in rootFiles) {
-        await _apiService.addFile(
+        final newFileId = await _apiService.addFile(
           id: file['id'],
           roomId: roomID,
           subFolderId: '',
           name: file['name'],
         );
         print("Root File ID: ${file['id']}");
+
+        fileIdMapping[file['id']] = newFileId;
+
+        await _processPapers(file['id'], roomID, newFileId, paperProvider);
       }
 
       // Update the local file to indicate it's shared
@@ -193,7 +201,9 @@ class RoomProvider extends ChangeNotifier {
     String parentFolderId,
     FolderProvider folderProvider,
     FileProvider fileProvider,
+    PaperProvider paperProvider,
     Map<String, String> folderIdMapping,
+    Map<String, String> fileIdMapping,
   ) async {
     // Add the folder
     final newFolderId = await _apiService.addFolder(
@@ -221,10 +231,12 @@ class RoomProvider extends ChangeNotifier {
       await _processFolder(
         childFolder,
         sharedRoomId,
-        newFolderId, // This folder is the parent
+        newFolderId,
         folderProvider,
         fileProvider,
+        paperProvider,
         folderIdMapping,
+        fileIdMapping,
       );
     }
 
@@ -236,16 +248,46 @@ class RoomProvider extends ChangeNotifier {
     print("Files in folder ${folder['id']}: ${filesInFolder.length}");
 
     for (var file in filesInFolder) {
-      await _apiService.addFile(
+      final newFileId = await _apiService.addFile(
         id: file['id'],
         roomId: sharedRoomId,
         subFolderId: newFolderId,
         name: file['name'],
       );
       print("Added file: ${file['id']} to folder: $newFolderId");
+      fileIdMapping[file['id']] = newFileId;
+
+      await _processPapers(file['id'], sharedRoomId, newFileId, paperProvider);
     }
 
     return newFolderId;
+  }
+
+  Future<void> _processPapers(
+    String originalFileId,
+    String roomId,
+    String newFileId,
+    PaperProvider paperProvider,
+  ) async {
+    // Get all papers for this file
+    List<Map<String, dynamic>> papersInFile = paperProvider.papers
+        .where((paper) => paper['fileId'] == originalFileId)
+        .toList();
+
+    print("Papers in file $originalFileId: ${papersInFile.length}");
+
+    for (var paper in papersInFile) {
+      await _apiService.addPaper(
+        id: paper['id'],
+        roomId: roomId,
+        fileId: newFileId,
+        templateId: paper['templateId'],
+        pageNumber: paper['PageNumber'],
+        width: paper['width'],
+        height: paper['height'],
+      );
+      print("Added paper: ${paper['id']} to file: $newFileId");
+    }
   }
 
   Future<void> refreshSharedRooms() async {
