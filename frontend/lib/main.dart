@@ -10,8 +10,19 @@ import 'package:frontend/providers/room_provider.dart';
 import 'package:frontend/providers/file_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:frontend/providers/auth_provider.dart';
+import 'package:frontend/global.dart';
+import 'package:frontend/api/discoverBackend.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  baseurl = await discoverBackendIp() ?? "http://10.0.2.2:8080";
+
+  String? testbaseurl = await discoverBackendIp();
+
+  print("baseurl is : ${baseurl}");
+  print("Test baseurl is : ${testbaseurl}");
+
   runApp(
     MultiProvider(
       providers: [
