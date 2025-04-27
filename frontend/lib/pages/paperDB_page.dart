@@ -1,6 +1,7 @@
 // Main file: paper_page.dart
 // ignore_for_file: curly_braces_in_flow_control_structures, use_build_context_synchronously
 
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:frontend/api/socketService.dart';
@@ -534,6 +535,8 @@ class _PaperDBPageState extends State<PaperDBPage> {
   }
 
   int _activePointerCount = 0;
+  Timer? _drawingDelayTimer;
+  static const _drawingDelayDuration = Duration(milliseconds: 80);
 
   void _handlePointerDown(
     PointerDownEvent details,
@@ -545,25 +548,30 @@ class _PaperDBPageState extends State<PaperDBPage> {
 
     final localPosition = details.localPosition;
     if (!_isWithinCanvas(localPosition, paperWidth, paperHeight)) return;
-
+    _drawingDelayTimer?.cancel();
     if (_activePointerCount == 1) {
-      setState(() {
-        _isDrawing = true;
-        _hasUnsavedChanges = true;
-      });
+      _drawingDelayTimer = Timer(_drawingDelayDuration, () {
+        // Only proceed if we still have exactly one finger down
+        if (_activePointerCount == 1 && mounted) {
+          setState(() {
+            _isDrawing = true;
+            _hasUnsavedChanges = true;
+          });
 
-      if (selectedMode == DrawingMode.pencil) {
-        _drawingDBService.startDrawing(
-          paperId,
-          localPosition,
-          selectedColor,
-          selectedWidth,
-        );
-        setState(() {});
-      } else if (selectedMode == DrawingMode.eraser) {
-        _drawingDBService.startErasing(paperId, localPosition);
-        setState(() {});
-      }
+          if (selectedMode == DrawingMode.pencil) {
+            _drawingDBService.startDrawing(
+              paperId,
+              localPosition,
+              selectedColor,
+              selectedWidth,
+            );
+            setState(() {});
+          } else if (selectedMode == DrawingMode.eraser) {
+            _drawingDBService.startErasing(paperId, localPosition);
+            setState(() {});
+          }
+        }
+      });
     } else {
       // If more than one finger, cancel drawing mode
       setState(() {
@@ -599,7 +607,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
 
   void _handlePointerUp(String paperId) {
     _activePointerCount = max(0, _activePointerCount - 1);
-
+    _drawingDelayTimer?.cancel();
     // End drawing if we were drawing
     if (_isDrawing) {
       setState(() {
@@ -617,7 +625,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
   void _handlePointerCancel() {
     // Decrement pointer count (never below 0)
     _activePointerCount = max(0, _activePointerCount - 1);
-
+    _drawingDelayTimer?.cancel();
     // Cancel drawing
     setState(() {
       _isDrawing = false;
