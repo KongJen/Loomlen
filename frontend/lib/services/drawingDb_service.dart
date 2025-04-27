@@ -4,11 +4,13 @@ import 'package:frontend/items/drawingpoint_item.dart';
 import 'package:frontend/items/template_item.dart';
 import 'package:frontend/model/tools.dart';
 import 'package:frontend/providers/paperdb_provider.dart';
+import 'package:google_mlkit_digital_ink_recognition/google_mlkit_digital_ink_recognition.dart';
 
 /// Service responsible for managing drawing operations and state
 class DrawingDBService {
   Function? onDataChanged;
   final Map<String, List<DrawingPoint>> _pageDrawingPoints = {};
+  // final Map<String, List<DrawingPoint>> _pageDrawingPointsSocket = {};
   final List<Map<String, List<DrawingPoint>>> _undoStack = [];
   final List<Map<String, List<DrawingPoint>>> _redoStack = [];
 
@@ -25,6 +27,8 @@ class DrawingDBService {
   EraserMode _eraserMode = EraserMode.point;
 
   List<String> users = [];
+
+  Offset? position = Offset(0, 0);
 
   DrawingDBService({
     bool isCollab = false,
@@ -54,17 +58,22 @@ class DrawingDBService {
 
     // Listen for drawing updates from other clients
     _socketService!.on('drawing', (data) {
-      _handleIncomingDrawing(data['drawing'], data['pageId']);
+      if (data['fileId'] == _fileId) {
+        _handleIncomingDrawing(data['drawing'], data['pageId'], data['state']);
+      }
     });
 
     // Add listener for eraser events
     _socketService!.on('eraser', (data) {
-      _handleIncomingEraser(data['eraserAction'], data['pageId']);
+      if (data['fileId'] == _fileId) {
+        _handleIncomingEraser(
+            data['eraserAction'], data['pageId'], data['state']);
+      }
     });
 
     _socketService!.on('canvas_state', (data) {
-      if (data['canvasState'] != null && data['pageId'] != null) {
-        _handleIncomingCanvasState(data['canvasState'], data['pageId']);
+      if (data['canvasState'] != null && data['fileId'] == _fileId) {
+        _handleIncomingCanvasState(data['canvasState'], data['pageId'], data);
       }
     });
 
@@ -78,6 +87,18 @@ class DrawingDBService {
           _pageDrawingPoints[pageId]!.isNotEmpty &&
           _socketService!.socket?.id != requestingClientId) {
         _sendCanvasState(pageId, requestingClientId);
+      }
+    });
+
+    _socketService!.on('undo', (data) {
+      if (data['fileId'] == _fileId) {
+        undo();
+      }
+    });
+
+    _socketService!.on('redo', (data) {
+      if (data['fileId'] == _fileId) {
+        redo();
       }
     });
   }
@@ -126,17 +147,36 @@ class DrawingDBService {
     List<Map<String, dynamic>> serializedPoints =
         points.map((point) => point.toJson()).toList();
 
+    // Serialize undo and redo stacks
+    List<Map<String, dynamic>> serializedUndoStack = _undoStack.map((state) {
+      return {
+        for (var entry in state.entries)
+          entry.key: entry.value.map((point) => point.toJson()).toList()
+      };
+    }).toList();
+
+    List<Map<String, dynamic>> serializedRedoStack = _redoStack.map((state) {
+      return {
+        for (var entry in state.entries)
+          entry.key: entry.value.map((point) => point.toJson()).toList()
+      };
+    }).toList();
+
     Map<String, dynamic> data = {
       "roomId": _roomId,
+      "fileId": _fileId,
       "pageId": pageId,
       "clientId": requestingClientId,
       "canvasState": serializedPoints,
+      "undoStack": serializedUndoStack,
+      "redoStack": serializedRedoStack,
     };
 
     _socketService!.emit('canvas_state', data);
   }
 
-  void _handleIncomingCanvasState(List<dynamic> canvasState, String pageId) {
+  void _handleIncomingCanvasState(
+      List<dynamic> canvasState, String pageId, Map<String, dynamic> data) {
     if (onDataChanged == null) return;
 
     _pageDrawingPoints[pageId] = [];
@@ -169,6 +209,33 @@ class DrawingDBService {
       }
     }
 
+    // 🆕 Handle undoStack and redoStack if they exist
+    if (data.containsKey('undoStack') && data['undoStack'] != null) {
+      _undoStack.clear();
+      for (var state in data['undoStack']) {
+        Map<String, List<DrawingPoint>> pageState = {};
+        for (var entry in state.entries) {
+          pageState[entry.key] = (entry.value as List)
+              .map((pointData) => DrawingPoint.fromJson(pointData))
+              .toList();
+        }
+        _undoStack.add(pageState);
+      }
+    }
+
+    if (data.containsKey('redoStack') && data['redoStack'] != null) {
+      _redoStack.clear();
+      for (var state in data['redoStack']) {
+        Map<String, List<DrawingPoint>> pageState = {};
+        for (var entry in state.entries) {
+          pageState[entry.key] = (entry.value as List)
+              .map((pointData) => DrawingPoint.fromJson(pointData))
+              .toList();
+        }
+        _redoStack.add(pageState);
+      }
+    }
+
     if (onDataChanged != null) {
       onDataChanged!();
     }
@@ -177,6 +244,7 @@ class DrawingDBService {
   void _handleIncomingDrawing(
     Map<String, dynamic> data,
     String pageId,
+    String state,
   ) {
     // Check if offsets data is properly formatted
     List<dynamic> offsetsData = data['offsets'];
@@ -192,9 +260,16 @@ class DrawingDBService {
       width: data['width'].toDouble(),
       tool: data['tool'],
     );
-
-    _pageDrawingPoints[pageId] ??= [];
-    _pageDrawingPoints[pageId]!.add(drawingPoint);
+    if (state == 'start') {
+      _saveStateForUndo();
+      _redoStack.clear();
+      _pageDrawingPoints[pageId] ??= [];
+      _pageDrawingPoints[pageId]!.add(drawingPoint);
+    } else if (state == 'continue') {
+      _pageDrawingPoints[pageId]!.last = drawingPoint;
+    } else {
+      _currentDrawingPoint = null;
+    }
 
     if (onDataChanged != null) {
       onDataChanged!();
@@ -202,26 +277,26 @@ class DrawingDBService {
   }
 
   void _handleIncomingEraser(
-    Map<String, dynamic> eraserAction,
-    String pageId,
-  ) {
+      Map<String, dynamic> eraserAction, String pageId, String state) {
     if (!_pageDrawingPoints.containsKey(pageId)) {
       _pageDrawingPoints[pageId] = [];
     }
 
     String type = eraserAction['type'];
+    Map<String, dynamic> positionData = eraserAction['position'];
+    Offset position =
+        Offset(positionData['x'].toDouble(), positionData['y'].toDouble());
+    double width = eraserAction['width'].toDouble();
 
-    if (type == 'point') {
-      // Handle point eraser
-      Map<String, dynamic> positionData = eraserAction['position'];
-      Offset position =
-          Offset(positionData['x'].toDouble(), positionData['y'].toDouble());
-      double width = eraserAction['width'].toDouble();
+    // Create or update the eraser tool
+    if (state == 'start') {
+      _saveStateForUndo();
+      _redoStack.clear();
 
-      // Create a temporary EraserTool for point erasing
-      EraserTool tempEraserTool = EraserTool(
+      // Create a new eraser tool for the session
+      _eraserTool = EraserTool(
         eraserWidth: width,
-        eraserMode: EraserMode.point,
+        eraserMode: type == 'point' ? EraserMode.point : EraserMode.stroke,
         pageDrawingPoints: _pageDrawingPoints,
         onStateChanged: () {
           if (onDataChanged != null) {
@@ -230,55 +305,58 @@ class DrawingDBService {
         },
         currentPaperId: pageId,
       );
+    }
 
-      tempEraserTool.handleErasing(position);
-    } else if (type == 'stroke') {
-      // Handle stroke eraser by deleting the specified strokes
-      List<int> deletedIds = List<int>.from(eraserAction['deletedIds']);
+    // Apply the eraser action
+    _eraserTool.handleErasing(position);
 
-      List<DrawingPoint>? pointsForPage = _pageDrawingPoints[pageId];
-      if (pointsForPage != null && pointsForPage.isNotEmpty) {
-        pointsForPage.removeWhere((point) => deletedIds.contains(point.id));
-
-        if (onDataChanged != null) {
-          onDataChanged!();
-        }
-      }
+    // Finish erasing if this is the end state
+    if (state == 'end') {
+      _eraserTool.finishErasing();
     }
   }
 
-  void _sendDrawingToServer(String pageId, DrawingPoint drawingPoint) {
+  void _sendDrawingToServer(
+      String pageId, DrawingPoint? drawingPoint, String state) {
     Map<String, dynamic> data = {
       "roomId": _roomId,
+      "fileId": _fileId,
       "pageId": pageId,
-      "drawing": drawingPoint.toJson(),
+      "drawing": drawingPoint?.toJson(),
+      "sender": getId(),
+      "state": state
     };
     _socketService!.emit('drawing', data);
   }
 
   // Add this method to DrawingDBService to send eraser stroke deletion data
-  void _sendStrokeEraserToServer(String pageId, List<int> deletedStrokeIds) {
+  void _sendStrokeEraserToServer(String pageId, Offset position, String state) {
     Map<String, dynamic> data = {
       "roomId": _roomId,
+      "fileId": _fileId,
       "pageId": pageId,
       "eraserAction": {
         "type": "stroke",
-        "deletedIds": deletedStrokeIds,
+        "position": {"x": position.dx, "y": position.dy},
+        "width": _eraserWidth,
       },
+      "state": state
     };
     _socketService!.emit('eraser', data);
   }
 
 // Add this method to DrawingDBService to send point eraser data
-  void _sendPointEraserToServer(String pageId, Offset position) {
+  void _sendPointEraserToServer(String pageId, Offset position, String state) {
     Map<String, dynamic> data = {
       "roomId": _roomId,
+      "fileId": _fileId,
       "pageId": pageId,
       "eraserAction": {
         "type": "point",
         "position": {"x": position.dx, "y": position.dy},
         "width": _eraserWidth,
       },
+      "state": state,
     };
     _socketService!.emit('eraser', data);
   }
@@ -288,8 +366,11 @@ class DrawingDBService {
   Map<String, PaperTemplate> getPaperTemplates() => _paperTemplates;
   Map<String, List<DrawingPoint>> getPageDrawingPoints() => _pageDrawingPoints;
   String getId() => _socketService!.socket?.id ?? '';
-  List<DrawingPoint> getDrawingPointsForPage(String pageId) =>
-      _pageDrawingPoints[pageId] ?? [];
+  List<DrawingPoint> getDrawingPointsForPage(String pageId) {
+    final localPoints = _pageDrawingPoints[pageId] ?? [];
+    return [...localPoints];
+  }
+
   double getEraserWidth() => _eraserWidth;
   EraserMode getEraserMode() => _eraserMode;
   bool canUndo() => _undoStack.isNotEmpty;
@@ -411,8 +492,8 @@ class DrawingDBService {
 
   // Drawing operations
   void startDrawing(String pageId, Offset position, Color color, double width) {
-    _saveStateForUndo();
-    _redoStack.clear();
+    // _saveStateForUndo();
+    // _redoStack.clear();
     _currentDrawingPoint = DrawingPoint(
       id: DateTime.now().microsecondsSinceEpoch,
       offsets: [position],
@@ -421,7 +502,7 @@ class DrawingDBService {
       tool: 'pencil',
     );
 
-    _sendDrawingToServer(pageId, _currentDrawingPoint!);
+    _sendDrawingToServer(pageId, _currentDrawingPoint!, "start");
   }
 
   void continueDrawing(String pageId, Offset position) {
@@ -431,73 +512,107 @@ class DrawingDBService {
       offsets: List.from(_currentDrawingPoint!.offsets)..add(position),
     );
 
-    _sendDrawingToServer(pageId, _currentDrawingPoint!);
+    _sendDrawingToServer(pageId, _currentDrawingPoint!, "continue");
   }
 
-  void endDrawing() {
-    _currentDrawingPoint = null;
+  void endDrawing(String pageId) {
+    _sendDrawingToServer(pageId, _currentDrawingPoint, "end");
+    // _currentDrawingPoint = null;
   }
 
   // Erasing operations
   void startErasing(String pageId, Offset position) {
-    _eraserTool = EraserTool(
-      eraserWidth: _eraserWidth,
-      eraserMode: _eraserMode,
-      pageDrawingPoints: _pageDrawingPoints,
-      onStateChanged: _onEraserStateChanged,
-      currentPaperId: pageId,
-    );
+    // _saveStateForUndo();
+    // _redoStack.clear();
+    // _eraserTool = EraserTool(
+    //   eraserWidth: _eraserWidth,
+    //   eraserMode: _eraserMode,
+    //   pageDrawingPoints: _pageDrawingPoints,
+    //   onStateChanged: _onEraserStateChanged,
+    //   currentPaperId: pageId,
+    // );
 
-    _eraserTool.handleErasing(position);
+    // _eraserTool.handleErasing(position);
 
     if (_eraserMode == EraserMode.point) {
-      _sendPointEraserToServer(pageId, position);
-    } else if (_eraserMode == EraserMode.stroke &&
-        _eraserTool.deletedStrokeIds.isNotEmpty) {
-      _sendStrokeEraserToServer(pageId, _eraserTool.deletedStrokeIds);
+      _sendPointEraserToServer(pageId, position, "start");
+    } else if (_eraserMode == EraserMode.stroke) {
+      _sendStrokeEraserToServer(pageId, position, "start");
     }
   }
 
   void continueErasing(String pageId, Offset position) {
-    _eraserTool.handleErasing(position);
+    // _eraserTool.handleErasing(position);
 
     if (_eraserMode == EraserMode.point) {
-      _sendPointEraserToServer(pageId, position);
-    } else if (_eraserMode == EraserMode.stroke &&
-        _eraserTool.deletedStrokeIds.isNotEmpty) {
-      _sendStrokeEraserToServer(pageId, _eraserTool.deletedStrokeIds);
+      _sendPointEraserToServer(pageId, position, "continue");
+    } else if (_eraserMode == EraserMode.stroke) {
+      _sendStrokeEraserToServer(pageId, position, "continue");
     }
   }
 
-  void endErasing() {
-    _eraserTool.finishErasing();
+  void endErasing(String pageId) {
+    if (_eraserMode == EraserMode.point) {
+      _sendPointEraserToServer(pageId, position!, "end");
+    } else if (_eraserMode == EraserMode.stroke) {
+      _sendStrokeEraserToServer(pageId, position!, "end");
+    }
+    // _eraserTool.finishErasing();
   }
 
-  // Undo/Redo operations
+  void clickUndo() {
+    _socketService!.emit('undo', {
+      'roomId': _roomId,
+      'fileId': _fileId,
+    });
+    print("undo socket");
+  }
+
+  void clickRedo() {
+    _socketService!.emit('redo', {
+      'roomId': _roomId,
+      'fileId': _fileId,
+    });
+    print("redo socket");
+  }
+
   void undo() {
     if (_undoStack.isEmpty) return;
 
+    // Save current state to redo stack
     _redoStack.add(
       _pageDrawingPoints.map(
         (key, value) => MapEntry(key, List<DrawingPoint>.from(value)),
       ),
     );
 
+    // Restore previous state
     final previousState = _undoStack.removeLast();
     _pageDrawingPoints.clear();
     _pageDrawingPoints.addAll(previousState);
+
+    if (onDataChanged != null) {
+      onDataChanged!();
+    }
   }
 
   void redo() {
     if (_redoStack.isEmpty) return;
 
+    // Save current state to undo stack
     _saveStateForUndo();
 
+    // Restore redo state
     final redoState = _redoStack.removeLast();
     _pageDrawingPoints.clear();
     _pageDrawingPoints.addAll(redoState);
+
+    if (onDataChanged != null) {
+      onDataChanged!();
+    }
   }
 
+// 5. Improved state saving for undo
   void _saveStateForUndo() {
     _undoStack.add(
       _pageDrawingPoints.map(
