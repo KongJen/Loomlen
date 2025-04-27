@@ -26,6 +26,10 @@ func main() {
 	if err != nil {
 		log.Fatal("mDNS register failed:", err)
 	}
+
+	log.Println("Successfully registered mDNS service:", server)
+	log.Println("Service name: my-backend._http._tcp.local")
+	log.Println("Service port: 8080")
 	defer server.Shutdown()
 
 	log.Println("Registered mDNS service: my-backend._http._tcp.local")
