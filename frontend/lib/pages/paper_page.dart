@@ -369,7 +369,7 @@ class _PaperPageState extends State<PaperPage> {
               vertical: 20,
             ),
             constrained: false,
-            panEnabled: false,
+            panEnabled: !_isDrawing,
             scaleEnabled: true,
             child: Center(
               child: ConstrainedBox(
@@ -456,6 +456,7 @@ class _PaperPageState extends State<PaperPage> {
                 paperWidth,
                 paperHeight,
               ),
+              onPointerCancel: (_) => _handlePointerCancel(),
               onPointerUp: (_) => _handlePointerUp(paperId),
               child: CustomPaint(
                 painter: DrawingPainter(
@@ -472,31 +473,41 @@ class _PaperPageState extends State<PaperPage> {
     );
   }
 
+  int _activePointerCount = 0;
+
   void _handlePointerDown(
     PointerDownEvent details,
     String paperId,
     double paperWidth,
     double paperHeight,
   ) {
+    _activePointerCount++;
+
     final localPosition = details.localPosition;
     if (!_isWithinCanvas(localPosition, paperWidth, paperHeight)) return;
+    if (_activePointerCount == 1) {
+      setState(() {
+        _isDrawing = true;
+        _hasUnsavedChanges = true;
+      });
 
-    setState(() {
-      _isDrawing = true;
-      _hasUnsavedChanges = true;
-    });
-
-    if (selectedMode == DrawingMode.pencil) {
-      _drawingService.startDrawing(
-        paperId,
-        localPosition,
-        selectedColor,
-        selectedWidth,
-      );
-      setState(() {});
-    } else if (selectedMode == DrawingMode.eraser) {
-      _drawingService.startErasing(paperId, localPosition);
-      setState(() {});
+      if (selectedMode == DrawingMode.pencil) {
+        _drawingService.startDrawing(
+          paperId,
+          localPosition,
+          selectedColor,
+          selectedWidth,
+        );
+        setState(() {});
+      } else if (selectedMode == DrawingMode.eraser) {
+        _drawingService.startErasing(paperId, localPosition);
+        setState(() {});
+      }
+    } else {
+      // If more than one finger, cancel drawing mode
+      setState(() {
+        _isDrawing = false;
+      });
     }
   }
 
@@ -508,30 +519,46 @@ class _PaperPageState extends State<PaperPage> {
   ) {
     final localPosition = details.localPosition;
     if (!_isWithinCanvas(localPosition, paperWidth, paperHeight)) return;
-
-    if (selectedMode == DrawingMode.pencil) {
-      _drawingService.continueDrawing(paperId, localPosition);
-      setState(() {
-        _hasUnsavedChanges = true;
-      });
-    } else if (selectedMode == DrawingMode.eraser) {
-      _drawingService.continueErasing(paperId, localPosition);
-      setState(() {
-        _hasUnsavedChanges = true;
-      });
+    if (_activePointerCount == 1 && _isDrawing) {
+      if (selectedMode == DrawingMode.pencil) {
+        _drawingService.continueDrawing(paperId, localPosition);
+        setState(() {
+          _hasUnsavedChanges = true;
+        });
+      } else if (selectedMode == DrawingMode.eraser) {
+        _drawingService.continueErasing(paperId, localPosition);
+        setState(() {
+          _hasUnsavedChanges = true;
+        });
+      }
     }
   }
 
   void _handlePointerUp(String paperId) {
+    _activePointerCount = max(0, _activePointerCount - 1);
+
+    // End drawing if we were drawing
+    if (_isDrawing) {
+      setState(() {
+        _isDrawing = false;
+      });
+
+      if (selectedMode == DrawingMode.pencil) {
+        _drawingService.endDrawing();
+      } else if (selectedMode == DrawingMode.eraser) {
+        _drawingService.endErasing();
+      }
+    }
+  }
+
+  void _handlePointerCancel() {
+    // Decrement pointer count (never below 0)
+    _activePointerCount = max(0, _activePointerCount - 1);
+
+    // Cancel drawing
     setState(() {
       _isDrawing = false;
     });
-
-    if (selectedMode == DrawingMode.pencil) {
-      _drawingService.endDrawing();
-    } else if (selectedMode == DrawingMode.eraser) {
-      _drawingService.endErasing();
-    }
   }
 
   bool _isWithinCanvas(Offset position, double width, double height) {

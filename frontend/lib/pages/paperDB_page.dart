@@ -430,7 +430,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
               vertical: 20,
             ),
             constrained: false,
-            panEnabled: false,
+            panEnabled: !_isDrawing,
             scaleEnabled: true,
             child: Center(
               child: ConstrainedBox(
@@ -518,6 +518,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
                     onPointerMove: (details) => _handlePointerMove(
                         details, paperId, paperWidth, paperHeight),
                     onPointerUp: (_) => _handlePointerUp(paperId),
+                    onPointerCancel: (_) => _handlePointerCancel(),
                     child: CustomPaint(
                       painter: DrawingPainter(
                         drawingPoints:
@@ -532,31 +533,42 @@ class _PaperDBPageState extends State<PaperDBPage> {
     );
   }
 
+  int _activePointerCount = 0;
+
   void _handlePointerDown(
     PointerDownEvent details,
     String paperId,
     double paperWidth,
     double paperHeight,
   ) {
+    _activePointerCount++;
+
     final localPosition = details.localPosition;
     if (!_isWithinCanvas(localPosition, paperWidth, paperHeight)) return;
 
-    setState(() {
-      _isDrawing = true;
-      _hasUnsavedChanges = true;
-    });
+    if (_activePointerCount == 1) {
+      setState(() {
+        _isDrawing = true;
+        _hasUnsavedChanges = true;
+      });
 
-    if (selectedMode == DrawingMode.pencil) {
-      _drawingDBService.startDrawing(
-        paperId,
-        localPosition,
-        selectedColor,
-        selectedWidth,
-      );
-      setState(() {});
-    } else if (selectedMode == DrawingMode.eraser) {
-      _drawingDBService.startErasing(paperId, localPosition);
-      setState(() {});
+      if (selectedMode == DrawingMode.pencil) {
+        _drawingDBService.startDrawing(
+          paperId,
+          localPosition,
+          selectedColor,
+          selectedWidth,
+        );
+        setState(() {});
+      } else if (selectedMode == DrawingMode.eraser) {
+        _drawingDBService.startErasing(paperId, localPosition);
+        setState(() {});
+      }
+    } else {
+      // If more than one finger, cancel drawing mode
+      setState(() {
+        _isDrawing = false;
+      });
     }
   }
 
@@ -569,29 +581,47 @@ class _PaperDBPageState extends State<PaperDBPage> {
     final localPosition = details.localPosition;
     if (!_isWithinCanvas(localPosition, paperWidth, paperHeight)) return;
 
-    if (selectedMode == DrawingMode.pencil) {
-      _drawingDBService.continueDrawing(paperId, localPosition);
-      setState(() {
-        _hasUnsavedChanges = true;
-      });
-    } else if (selectedMode == DrawingMode.eraser) {
-      _drawingDBService.continueErasing(paperId, localPosition);
-      setState(() {
-        _hasUnsavedChanges = true;
-      });
+    // Only continue drawing if exactly one finger is down
+    if (_activePointerCount == 1 && _isDrawing) {
+      if (selectedMode == DrawingMode.pencil) {
+        _drawingDBService.continueDrawing(paperId, localPosition);
+        setState(() {
+          _hasUnsavedChanges = true;
+        });
+      } else if (selectedMode == DrawingMode.eraser) {
+        _drawingDBService.continueErasing(paperId, localPosition);
+        setState(() {
+          _hasUnsavedChanges = true;
+        });
+      }
     }
   }
 
   void _handlePointerUp(String paperId) {
+    _activePointerCount = max(0, _activePointerCount - 1);
+
+    // End drawing if we were drawing
+    if (_isDrawing) {
+      setState(() {
+        _isDrawing = false;
+      });
+
+      if (selectedMode == DrawingMode.pencil) {
+        _drawingDBService.endDrawing(paperId);
+      } else if (selectedMode == DrawingMode.eraser) {
+        _drawingDBService.endErasing(paperId);
+      }
+    }
+  }
+
+  void _handlePointerCancel() {
+    // Decrement pointer count (never below 0)
+    _activePointerCount = max(0, _activePointerCount - 1);
+
+    // Cancel drawing
     setState(() {
       _isDrawing = false;
     });
-
-    if (selectedMode == DrawingMode.pencil) {
-      _drawingDBService.endDrawing(paperId);
-    } else if (selectedMode == DrawingMode.eraser) {
-      _drawingDBService.endErasing(paperId);
-    }
   }
 
   bool _isWithinCanvas(Offset position, double width, double height) {
