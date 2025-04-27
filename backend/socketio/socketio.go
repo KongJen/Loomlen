@@ -152,6 +152,32 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 		fmt.Println("📤 Broadcasted canvas state to room:", roomID)
 	})
 
+	server.OnEvent("/", "undo", func(s socketio.Conn, data map[string]interface{}) {
+		roomID, ok := data["roomId"].(string)
+		if !ok || roomID == "" {
+			fmt.Println("⚠️ Invalid or missing roomId in undo event")
+			return
+		}
+
+		fmt.Printf("🔄 Undo requested by %s in room %s\n", s.ID(), roomID)
+
+		// Broadcast undo to other clients
+		server.BroadcastToRoom("/", roomID, "undo", data)
+	})
+
+	server.OnEvent("/", "redo", func(s socketio.Conn, data map[string]interface{}) {
+		roomID, ok := data["roomId"].(string)
+		if !ok || roomID == "" {
+			fmt.Println("⚠️ Invalid or missing roomId in redo event")
+			return
+		}
+
+		fmt.Printf("🔄 Redo requested by %s in room %s\n", s.ID(), roomID)
+
+		// Broadcast redo to other clients
+		server.BroadcastToRoom("/", roomID, "redo", data)
+	})
+
 	server.OnEvent("/", "drawing", func(s socketio.Conn, data map[string]interface{}) {
 
 		// Check if the roomId exists and is a string
@@ -165,6 +191,7 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 		pageID, pageOk := data["pageId"].(string)
 		if pageOk {
 			fmt.Printf("Received pageId: %s\n", pageID)
+			fmt.Printf("ReceivedDrawing data: %v\n", data)
 		}
 
 		// Broadcast the drawing data to all users in the room

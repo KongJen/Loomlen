@@ -168,7 +168,6 @@ class _PaperDBPageState extends State<PaperDBPage> {
   void _loadDrawingData() {
     final paperDBProvider = context.read<PaperDBProvider>();
     if (widget.collab) {
-      print("yooo");
       _drawingDBService.loadFromProvider(
         paperDBProvider,
         widget.fileId,
@@ -359,14 +358,14 @@ class _PaperDBPageState extends State<PaperDBPage> {
               IconButton(
                 icon: const Icon(Icons.undo),
                 onPressed: _drawingDBService.canUndo()
-                    ? () => setState(() => _drawingDBService.undo())
+                    ? () => setState(() => _drawingDBService.clickUndo())
                     : null,
                 tooltip: 'Undo',
               ),
               IconButton(
                 icon: const Icon(Icons.redo),
                 onPressed: _drawingDBService.canRedo()
-                    ? () => setState(() => _drawingDBService.redo())
+                    ? () => setState(() => _drawingDBService.clickRedo())
                     : null,
                 tooltip: 'Redo',
               ),
@@ -589,9 +588,9 @@ class _PaperDBPageState extends State<PaperDBPage> {
     });
 
     if (selectedMode == DrawingMode.pencil) {
-      _drawingDBService.endDrawing();
+      _drawingDBService.endDrawing(paperId);
     } else if (selectedMode == DrawingMode.eraser) {
-      _drawingDBService.endErasing();
+      _drawingDBService.endErasing(paperId);
     }
   }
 
