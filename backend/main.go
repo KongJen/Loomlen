@@ -10,9 +10,26 @@ import (
 	"backend/socketio"
 
 	"github.com/gorilla/mux"
+	"github.com/grandcat/zeroconf"
 )
 
 func main() {
+
+	server, err := zeroconf.Register(
+		"my-backend", // service instance name
+		"_http._tcp", // service type and protocol
+		"local.",     // service domain
+		8080,         // service port
+		[]string{"txtv=1", "app=flutter-backend"}, // optional txt records
+		nil, // use default interface
+	)
+	if err != nil {
+		log.Fatal("mDNS register failed:", err)
+	}
+	defer server.Shutdown()
+
+	log.Println("Registered mDNS service: my-backend._http._tcp.local")
+
 	// Initialize database
 	config.ConnectDB()
 
@@ -62,5 +79,5 @@ func main() {
 
 	// Start the HTTP server with the router
 	log.Printf("Server starting on port 8080...")
-	log.Fatal(http.ListenAndServe(":8080", router))
+	log.Fatal(http.ListenAndServe("0.0.0.0:8080", router))
 }
