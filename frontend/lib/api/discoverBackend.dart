@@ -10,25 +10,69 @@ Future<String?> discoverBackendIp() async {
   });
 
   await client.start();
+  String? discoveredUrl;
 
   try {
-    await for (PtrResourceRecord ptr in client.lookup<PtrResourceRecord>(
-        ResourceRecordQuery.serverPointer('_http._tcp.local'))) {
-      await for (SrvResourceRecord srv in client.lookup<SrvResourceRecord>(
-          ResourceRecordQuery.service(ptr.domainName))) {
-        await for (IPAddressResourceRecord ip
-            in client.lookup<IPAddressResourceRecord>(
-                ResourceRecordQuery.addressIPv4(srv.target))) {
-          print('Found service at: ${ip.address.address}:${srv.port}');
-          return 'http://${ip.address.address}:${srv.port}';
+    print('Starting mDNS discovery...');
+
+    // Look specifically for "my-backend" service
+    final String serviceName = 'my-backend._http._tcp.local';
+
+    // Look for SRV records directly for our specific service
+    await for (SrvResourceRecord srv in client
+        .lookup<SrvResourceRecord>(ResourceRecordQuery.service(serviceName))) {
+      print('Found service: ${srv.name} at ${srv.target}:${srv.port}');
+
+      // Now resolve the hostname to an IP address
+      await for (IPAddressResourceRecord ip
+          in client.lookup<IPAddressResourceRecord>(
+              ResourceRecordQuery.addressIPv4(srv.target))) {
+        print('Found IP: ${ip.address.address}:${srv.port}');
+        discoveredUrl = 'http://${ip.address.address}:${srv.port}';
+        break;
+      }
+
+      if (discoveredUrl != null) break;
+    }
+
+    // If direct approach didn't work, try the broader search
+    if (discoveredUrl == null) {
+      print('Trying broader mDNS search...');
+      await for (PtrResourceRecord ptr in client.lookup<PtrResourceRecord>(
+          ResourceRecordQuery.serverPointer('_http._tcp.local'))) {
+        print('Found service: ${ptr.domainName}');
+
+        // Check if this is our service
+        if (ptr.domainName.contains('my-backend')) {
+          await for (SrvResourceRecord srv in client.lookup<SrvResourceRecord>(
+              ResourceRecordQuery.service(ptr.domainName))) {
+            await for (IPAddressResourceRecord ip
+                in client.lookup<IPAddressResourceRecord>(
+                    ResourceRecordQuery.addressIPv4(srv.target))) {
+              discoveredUrl = 'http://${ip.address.address}:${srv.port}';
+              print('Found our backend: ${discoveredUrl}');
+              break;
+            }
+
+            if (discoveredUrl != null) break;
+          }
         }
+
+        if (discoveredUrl != null) break;
       }
     }
-  } catch (e) {
+  } catch (e, stackTrace) {
     print("mDNS discovery error: $e");
+    print("Stack trace: $stackTrace");
   } finally {
-    client.stop(); // don't await here
+    client.stop();
   }
 
-  return null;
+  if (discoveredUrl == null) {
+    print('No backend service discovered via mDNS');
+  } else {
+    print('Discovered backend at: $discoveredUrl');
+  }
+
+  return discoveredUrl;
 }
