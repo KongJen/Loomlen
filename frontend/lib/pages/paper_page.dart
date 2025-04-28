@@ -371,7 +371,7 @@ class _PaperPageState extends State<PaperPage> {
             ),
             constrained: false,
             panEnabled: !_isDrawing,
-            scaleEnabled: true,
+            scaleEnabled: !_isDrawing,
             child: Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
@@ -531,6 +531,10 @@ class _PaperPageState extends State<PaperPage> {
     final localPosition = details.localPosition;
     if (!_isWithinCanvas(localPosition, paperWidth, paperHeight)) return;
     if (_activePointerCount == 1 && _isDrawing) {
+      setState(() {
+        _isDrawing = true;
+      });
+
       if (selectedMode == DrawingMode.pencil) {
         _drawingService.continueDrawing(paperId, localPosition);
         setState(() {
