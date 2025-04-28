@@ -432,7 +432,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
             ),
             constrained: false,
             panEnabled: !_isDrawing,
-            scaleEnabled: true,
+            scaleEnabled: !_isDrawing,
             child: Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(
@@ -591,6 +591,9 @@ class _PaperDBPageState extends State<PaperDBPage> {
 
     // Only continue drawing if exactly one finger is down
     if (_activePointerCount == 1 && _isDrawing) {
+      setState(() {
+        _isDrawing = true;
+      });
       if (selectedMode == DrawingMode.pencil) {
         _drawingDBService.continueDrawing(paperId, localPosition);
         setState(() {
