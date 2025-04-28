@@ -1,11 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application
-        android:label="my_flutter_app"
+        android:label="Loomlen"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:enableOnBackInvokedCallback="true"
-            android:label="your_app_name"
+            android:label="Loomlen"
             android:icon="@mipmap/ic_launcher"
             
             android:name=".MainActivity"
