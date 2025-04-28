@@ -3,7 +3,6 @@ import 'package:dotted_border/dotted_border.dart';
 
 class UIComponents {
   static Widget createAddButton({
-    required VoidCallback onPressed,
     required double itemSize,
     String label = "New",
   }) {
@@ -13,27 +12,20 @@ class UIComponents {
         SizedBox(
           height: itemSize,
           child: Center(
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8.0),
-                onTap: onPressed,
-                child: DottedBorder(
-                  borderType: BorderType.RRect,
-                  radius: const Radius.circular(8.0),
-                  dashPattern: const [8, 4],
+            child: DottedBorder(
+              borderType: BorderType.RRect,
+              radius: const Radius.circular(8.0),
+              dashPattern: const [8, 4],
+              color: Colors.blue,
+              strokeWidth: 2,
+              child: Container(
+                width: itemSize * 0.65,
+                height: itemSize * 0.65,
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.add,
+                  size: itemSize * 0.2,
                   color: Colors.blue,
-                  strokeWidth: 2,
-                  child: Container(
-                    width: itemSize * 0.65,
-                    height: itemSize * 0.65,
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.add,
-                      size: itemSize * 0.2,
-                      color: Colors.blue,
-                    ),
-                  ),
                 ),
               ),
             ),

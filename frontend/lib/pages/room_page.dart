@@ -591,7 +591,6 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
           onTapDown: (TapDownDetails details) =>
               showOverlaySelect(context, details.globalPosition),
           child: UIComponents.createAddButton(
-            onPressed: () {}, // Handled by onTapDown instead
             itemSize: itemSize,
           ),
         ),
