@@ -93,7 +93,7 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
             onTap: () => _showOptionsOverlay(context),
             child: Icon(
               Icons.keyboard_control_key,
-              size: screenWidth < 600 ? 12 : 15,
+              size: screenWidth < 600 ? 17 : 22,
               color: Colors.blueAccent,
             ),
           ),
