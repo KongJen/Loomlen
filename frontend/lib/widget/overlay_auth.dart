@@ -32,6 +32,9 @@ class _OverlayAuthState extends State<OverlayAuth> {
   bool isAuthenticated = false; // Track login state
   String userEmail = ""; // Store logged-in email
 
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+
   Future<void>? _stateTransitionTimer;
 
   AuthState currentState = AuthState.login;
@@ -339,30 +342,49 @@ class _OverlayAuthState extends State<OverlayAuth> {
                 ),
               ),
               SizedBox(height: 10),
-              // TextField(
-              //   controller: nameController,
-              //   decoration: InputDecoration(
-              //     hintText: 'Enter your name',
-              //     prefixIcon: Icon(Icons.person_outline, color: Colors.black),
-              //   ),
-              // ),
               SizedBox(height: 10),
               TextField(
                 controller: passwordController,
-                obscureText: true,
+                obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   hintText: 'Enter your password',
                   prefixIcon: Icon(Icons.lock_outline, color: Colors.black),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      color: Colors.black,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
                 ),
               ),
               if (!isLogin) ...[
                 SizedBox(height: 10),
                 TextField(
-                  obscureText: true,
                   controller: confirmPasswordController,
+                  obscureText: _obscureConfirmPassword,
                   decoration: InputDecoration(
                     hintText: 'Confirm your password',
                     prefixIcon: Icon(Icons.lock_outline, color: Colors.black),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        color: Colors.black,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        });
+                      },
+                    ),
                   ),
                 ),
               ],
