@@ -54,9 +54,11 @@ class _MyRoomPageState extends State<MyRoomPage> {
   ) {
     // Create room widgets list starting with the "New" button
     List<Widget> gridItems = [
-      UIComponents.createAddButton(
-        onPressed: showCreateRoomOverlay,
-        itemSize: itemSize,
+      GestureDetector(
+        onTapDown: (TapDownDetails details) => showCreateRoomOverlay(),
+        child: UIComponents.createAddButton(
+          itemSize: itemSize,
+        ),
       ),
     ];
 
@@ -85,11 +87,10 @@ class _MyRoomPageState extends State<MyRoomPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (context) => RoomDetailPage(
-              room: room,
-              onRoomUpdated: () => setState(() {}),
-            ),
+        builder: (context) => RoomDetailPage(
+          room: room,
+          onRoomUpdated: () => setState(() {}),
+        ),
       ),
     );
   }
