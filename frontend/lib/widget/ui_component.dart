@@ -3,48 +3,44 @@ import 'package:dotted_border/dotted_border.dart';
 
 class UIComponents {
   static Widget createAddButton({
-    required VoidCallback onPressed,
     required double itemSize,
     String label = "New",
   }) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            height: itemSize,
-            child: Center(
-              child: DottedBorder(
-                borderType: BorderType.RRect,
-                radius: const Radius.circular(8.0),
-                dashPattern: const [8, 4],
-                color: Colors.blue,
-                strokeWidth: 2,
-                child: Container(
-                  width: itemSize * 0.65,
-                  height: itemSize * 0.65,
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.add,
-                    size: itemSize * 0.2,
-                    color: Colors.blue,
-                  ),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        SizedBox(
+          height: itemSize,
+          child: Center(
+            child: DottedBorder(
+              borderType: BorderType.RRect,
+              radius: const Radius.circular(8.0),
+              dashPattern: const [8, 4],
+              color: Colors.blue,
+              strokeWidth: 2,
+              child: Container(
+                width: itemSize * 0.65,
+                height: itemSize * 0.65,
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.add,
+                  size: itemSize * 0.2,
+                  color: Colors.blue,
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.blue,
-              fontWeight: FontWeight.w400,
-            ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.blue,
+            fontWeight: FontWeight.w400,
           ),
-          const SizedBox(height: 12),
-        ],
-      ),
+        ),
+        const SizedBox(height: 12),
+      ],
     );
   }
 

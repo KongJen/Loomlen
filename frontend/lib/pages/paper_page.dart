@@ -140,7 +140,11 @@ class _PaperPageState extends State<PaperPage> {
     });
   }
 
-  void _addNewPaperPage() {
+  void _addNewPaperPage() async {
+    // First, save current drawings to ensure nothing is lost
+    await _drawingService.saveDrawings(context.read<PaperProvider>());
+
+    // Add the new page
     _paperService.addNewPage(
       context.read<PaperProvider>(),
       context.read<PaperDBProvider>(),
@@ -150,29 +154,37 @@ class _PaperPageState extends State<PaperPage> {
       false,
     );
 
-    _reloadPaperData();
-
-    // Scroll to the bottom after UI updates
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    });
-  }
-
-  void _reloadPaperData() {
+    // Reload paper data AFTER saving and adding
     final paperProvider = context.read<PaperProvider>();
-
     _drawingService.loadFromProvider(paperProvider, widget.fileId);
 
     setState(() {
       _hasUnsavedChanges = true;
     });
 
-    _centerContent();
+    // Scroll to the bottom after UI updates
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
+
+  // void _reloadPaperData() {
+  //   final paperProvider = context.read<PaperProvider>();
+
+  //   _drawingService.loadFromProvider(paperProvider, widget.fileId);
+
+  //   setState(() {
+  //     _hasUnsavedChanges = true;
+  //   });
+
+  //   _centerContent();
+  // }
 
   Future<void> exportToPdf() async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -476,7 +488,7 @@ class _PaperPageState extends State<PaperPage> {
 
   int _activePointerCount = 0;
   Timer? _drawingDelayTimer;
-  static const _drawingDelayDuration = Duration(milliseconds: 80);
+  // static const _drawingDelayDuration = Duration(milliseconds: 0);
 
   void _handlePointerDown(
     PointerDownEvent details,
@@ -492,28 +504,27 @@ class _PaperPageState extends State<PaperPage> {
     _drawingDelayTimer?.cancel();
 
     if (_activePointerCount == 1) {
-      _drawingDelayTimer = Timer(_drawingDelayDuration, () {
-        // Only proceed if we still have exactly one finger down
-        if (_activePointerCount == 1 && mounted) {
-          setState(() {
-            _isDrawing = true;
-            _hasUnsavedChanges = true;
-          });
+      // _drawingDelayTimer = Timer(_drawingDelayDuration, () {
+      // Only proceed if we still have exactly one finger down
+      if (_activePointerCount == 1 && mounted) {
+        setState(() {
+          _isDrawing = true;
+          _hasUnsavedChanges = true;
+        });
 
-          if (selectedMode == DrawingMode.pencil) {
-            _drawingService.startDrawing(
-              paperId,
-              localPosition,
-              selectedColor,
-              selectedWidth,
-            );
-            setState(() {});
-          } else if (selectedMode == DrawingMode.eraser) {
-            _drawingService.startErasing(paperId, localPosition);
-            setState(() {});
-          }
+        if (selectedMode == DrawingMode.pencil) {
+          _drawingService.startDrawing(
+            paperId,
+            localPosition,
+            selectedColor,
+            selectedWidth,
+          );
+          setState(() {});
+        } else if (selectedMode == DrawingMode.eraser) {
+          _drawingService.startErasing(paperId, localPosition);
+          setState(() {});
         }
-      });
+      }
     } else {
       // If more than one finger, cancel drawing mode
       setState(() {

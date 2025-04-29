@@ -56,10 +56,9 @@ class _RoomItemState extends State<RoomItem>
                       icon: Icon(
                         Icons.star_rate_rounded,
                         size: starIconSize,
-                        color:
-                            widget.isFavorite
-                                ? Colors.red
-                                : const Color.fromARGB(255, 212, 212, 212),
+                        color: widget.isFavorite
+                            ? Colors.red
+                            : const Color.fromARGB(255, 212, 212, 212),
                         shadows: const [
                           BoxShadow(
                             color: Colors.black,
@@ -111,7 +110,7 @@ class _RoomItemState extends State<RoomItem>
           onTap: () => _showOptionsOverlay(context),
           child: Icon(
             Icons.keyboard_control_key,
-            size: screenWidth < 600 ? 12 : 15,
+            size: screenWidth < 600 ? 17 : 22,
             color: Colors.blueAccent,
           ),
         ),

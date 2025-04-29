@@ -536,7 +536,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
 
   int _activePointerCount = 0;
   Timer? _drawingDelayTimer;
-  static const _drawingDelayDuration = Duration(milliseconds: 80);
+  // static const _drawingDelayDuration = Duration(milliseconds: 80);
 
   void _handlePointerDown(
     PointerDownEvent details,
@@ -550,28 +550,27 @@ class _PaperDBPageState extends State<PaperDBPage> {
     if (!_isWithinCanvas(localPosition, paperWidth, paperHeight)) return;
     _drawingDelayTimer?.cancel();
     if (_activePointerCount == 1) {
-      _drawingDelayTimer = Timer(_drawingDelayDuration, () {
-        // Only proceed if we still have exactly one finger down
-        if (_activePointerCount == 1 && mounted) {
-          setState(() {
-            _isDrawing = true;
-            _hasUnsavedChanges = true;
-          });
+      // _drawingDelayTimer = Timer(_drawingDelayDuration, () {
+      // Only proceed if we still have exactly one finger down
+      if (_activePointerCount == 1 && mounted) {
+        setState(() {
+          _isDrawing = true;
+          _hasUnsavedChanges = true;
+        });
 
-          if (selectedMode == DrawingMode.pencil) {
-            _drawingDBService.startDrawing(
-              paperId,
-              localPosition,
-              selectedColor,
-              selectedWidth,
-            );
-            setState(() {});
-          } else if (selectedMode == DrawingMode.eraser) {
-            _drawingDBService.startErasing(paperId, localPosition);
-            setState(() {});
-          }
+        if (selectedMode == DrawingMode.pencil) {
+          _drawingDBService.startDrawing(
+            paperId,
+            localPosition,
+            selectedColor,
+            selectedWidth,
+          );
+          setState(() {});
+        } else if (selectedMode == DrawingMode.eraser) {
+          _drawingDBService.startErasing(paperId, localPosition);
+          setState(() {});
         }
-      });
+      }
     } else {
       // If more than one finger, cancel drawing mode
       setState(() {
