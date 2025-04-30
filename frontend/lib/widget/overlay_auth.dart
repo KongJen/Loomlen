@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:frontend/providers/auth_provider.dart';
+import 'package:frontend/services/overlay_service.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OverlayAuth extends StatefulWidget {
@@ -10,8 +13,18 @@ class OverlayAuth extends StatefulWidget {
   const OverlayAuth({super.key, required this.onClose});
 
   @override
-  // ignore: library_private_types_in_public_api
   _OverlayAuthState createState() => _OverlayAuthState();
+}
+
+enum AuthState {
+  login,
+  signup,
+  authenticated,
+  loginSuccess,
+  signupSuccess,
+  logoutSuccess,
+  signupFailed,
+  loginFailed,
 }
 
 class _OverlayAuthState extends State<OverlayAuth> {
@@ -19,63 +32,108 @@ class _OverlayAuthState extends State<OverlayAuth> {
   bool isAuthenticated = false; // Track login state
   String userEmail = ""; // Store logged-in email
 
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+
+  Future<void>? _stateTransitionTimer;
+
+  AuthState currentState = AuthState.login;
+
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController nameController = TextEditingController();
   final TextEditingController confirmPasswordController =
       TextEditingController();
 
-  Future<void> authenticate() async {
-    String url =
-        isLogin
-            ? "http://10.0.2.2:8080/api/user/login"
-            : "http://10.0.2.2:8080/api/user/signup";
+  @override
+  void dispose() {
+    // Cancel any pending timers
+    _stateTransitionTimer?.ignore();
 
-    // print("Sending request to: $url");
-    // print(
-    //     "Email: ${emailController.text}, Password: ${passwordController.text}");
+    // Dispose controllers
+    emailController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+
+    super.dispose();
+  }
+
+  Future<void> authenticate() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     try {
-      var response = await http.post(
-        Uri.parse(url),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "email": emailController.text,
-          "password": passwordController.text,
-        }),
-      );
+      if (isLogin) {
+        print('Attempting to login with email: ${emailController.text}');
+        await authProvider.login(emailController.text, passwordController.text);
 
-      // print("Response Status: ${response.statusCode}");
-      // print("Response Body: ${response.body}");
+        print('Login attempt completed');
+        print('AuthProvider isLoggedIn: ${authProvider.isLoggedIn}');
+        print('AuthProvider email: ${authProvider.email}');
 
-      if (response.statusCode == 200) {
-        var data = jsonDecode(response.body);
+        if (!mounted) return;
+        setState(() {
+          isAuthenticated = authProvider.isLoggedIn;
+          userEmail = authProvider.email ?? '';
+          currentState = AuthState.loginSuccess;
+        });
 
-        if (data.containsKey("token") && data.containsKey("user")) {
-          SharedPreferences prefs = await SharedPreferences.getInstance();
-          await prefs.setString("token", data["token"]);
-          await prefs.setString("email", data["user"]["email"]);
-          await prefs.setString("name", data["user"]["name"]);
-          await prefs.setString("created_at", data["user"]["created_at"]);
-          await prefs.setString("last_login", data["user"]["last_login"]);
+        print('AuthState email: ${currentState}');
 
+        // Use a cancelable timer
+        _stateTransitionTimer = Future.delayed(Duration(seconds: 4), () {
+          if (!mounted) return;
           setState(() {
-            isAuthenticated = true;
-            userEmail = data["user"]["email"];
+            currentState = AuthState.authenticated;
           });
-
-          if (kDebugMode) {
-            print("Login successful!");
-          }
-        }
+        });
       } else {
-        if (kDebugMode) {
-          print("Error: ${response.body}");
+        if (passwordController.text != confirmPasswordController.text) {
+          throw Exception('Passwords do not match');
         }
+
+        print('Attempting to signup with email: ${emailController.text}');
+        await authProvider.signup(
+            emailController.text, passwordController.text);
+
+        print('Signup attempt completed');
+        print('AuthProvider isLoggedIn: ${authProvider.isLoggedIn}');
+        print('AuthProvider email: ${authProvider.email}');
+
+        if (!mounted) return;
+        setState(() {
+          // isAuthenticated = authProvider.isLoggedIn;
+          // userEmail = authProvider.email ?? '';
+          currentState = AuthState.signupSuccess;
+        });
+
+        _stateTransitionTimer = Future.delayed(Duration(seconds: 2), () {
+          OverlayService.hideOverlay();
+        });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (kDebugMode) {
         print("Exception: $e");
+        print("Stack trace: $stackTrace");
       }
+      if (e.toString().contains("Email already registered")) {
+        if (!mounted) return;
+        setState(() {
+          currentState = AuthState.signupFailed;
+        });
+      }
+      _stateTransitionTimer = Future.delayed(Duration(seconds: 2), () {
+        OverlayService.hideOverlay();
+      });
+      if (e.toString().contains("Wrong Password!") ||
+          e.toString().contains("mongo: no documents in result")) {
+        if (!mounted) return;
+        setState(() {
+          currentState = AuthState.loginFailed;
+        });
+      }
+      _stateTransitionTimer = Future.delayed(Duration(seconds: 2), () {
+        OverlayService.hideOverlay();
+      });
     }
   }
 
@@ -86,16 +144,36 @@ class _OverlayAuthState extends State<OverlayAuth> {
   }
 
   Future<void> checkLoginStatus() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? token = prefs.getString("token");
-    String? email = prefs.getString("email");
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.refreshAuthState();
 
-    if (token != null && email != null) {
+    if (!mounted) return;
+    setState(() {
+      isAuthenticated = authProvider.isLoggedIn;
+      userEmail = authProvider.email ?? '';
+      currentState =
+          isAuthenticated ? AuthState.authenticated : AuthState.login;
+    });
+  }
+
+  void logout() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.logout();
+
+    if (!mounted) return;
+    setState(() {
+      isAuthenticated = false;
+      userEmail = "";
+      currentState = AuthState.logoutSuccess;
+    });
+
+    // Use a cancelable timer
+    _stateTransitionTimer = Future.delayed(Duration(seconds: 2), () {
+      if (!mounted) return;
       setState(() {
-        isAuthenticated = true;
-        userEmail = email;
+        currentState = AuthState.login;
       });
-    }
+    });
   }
 
   @override
@@ -105,7 +183,6 @@ class _OverlayAuthState extends State<OverlayAuth> {
         Positioned.fill(
           child: GestureDetector(
             onTap: widget.onClose,
-            // ignore: deprecated_member_use
             child: Container(color: Colors.black.withOpacity(0.5)),
           ),
         ),
@@ -125,7 +202,7 @@ class _OverlayAuthState extends State<OverlayAuth> {
                   ),
                 ],
               ),
-              child: isAuthenticated ? buildProfileView() : buildAuthView(),
+              child: buildCurrentView(),
             ),
           ),
         ),
@@ -133,17 +210,57 @@ class _OverlayAuthState extends State<OverlayAuth> {
     );
   }
 
-  void logout() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+  Widget buildCurrentView() {
+    print('Building View for State: $currentState');
 
-    setState(() {
-      isAuthenticated = false;
-      userEmail = "";
-    });
+    switch (currentState) {
+      case AuthState.authenticated:
+        return buildProfileView();
+      case AuthState.loginSuccess:
+        return buildSuccessView(
+            'Login Successful!', Icons.check_circle, Colors.green);
+      case AuthState.signupSuccess:
+        return buildSuccessView(
+            'Signup Successful!', Icons.person_add, Colors.blue);
+      case AuthState.logoutSuccess:
+        return buildSuccessView('Logout Successful!', Icons.logout, Colors.red);
+      case AuthState.signupFailed:
+        return buildSuccessView('Signup Failed! This Email already Signup',
+            Icons.logout, Colors.red);
+      case AuthState.loginFailed:
+        return buildSuccessView('Login Failed! Email/Password not correct',
+            Icons.logout, Colors.red);
+      case AuthState.login:
+      case AuthState.signup:
+      default:
+        return buildAuthView();
+    }
   }
 
-  /// 🔹 **Profile View (After Successful Login)**
+  Widget buildSuccessView(String message, IconData icon, Color color) {
+    return Padding(
+      padding: EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 80, color: color),
+          SizedBox(height: 20),
+          Text(
+            message,
+            style: TextStyle(
+                fontSize: 22, fontWeight: FontWeight.bold, color: color),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 10),
+          Text(
+            'You will be redirected shortly...',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget buildProfileView() {
     return FutureBuilder<SharedPreferences>(
       future: SharedPreferences.getInstance(),
@@ -183,7 +300,6 @@ class _OverlayAuthState extends State<OverlayAuth> {
     );
   }
 
-  /// 🔹 **Login/Signup View**
   Widget buildAuthView() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -226,22 +342,49 @@ class _OverlayAuthState extends State<OverlayAuth> {
                 ),
               ),
               SizedBox(height: 10),
+              SizedBox(height: 10),
               TextField(
                 controller: passwordController,
-                obscureText: true,
+                obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   hintText: 'Enter your password',
                   prefixIcon: Icon(Icons.lock_outline, color: Colors.black),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      color: Colors.black,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
                 ),
               ),
               if (!isLogin) ...[
                 SizedBox(height: 10),
                 TextField(
-                  obscureText: true,
                   controller: confirmPasswordController,
+                  obscureText: _obscureConfirmPassword,
                   decoration: InputDecoration(
                     hintText: 'Confirm your password',
                     prefixIcon: Icon(Icons.lock_outline, color: Colors.black),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirmPassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        color: Colors.black,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        });
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -249,10 +392,7 @@ class _OverlayAuthState extends State<OverlayAuth> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // print("Login button pressed");
-                    authenticate();
-                  },
+                  onPressed: authenticate,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue,
                     padding: EdgeInsets.symmetric(vertical: 12),

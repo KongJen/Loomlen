@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:frontend/model/drawingpoint.dart';
+import 'package:frontend/items/drawingpoint_item.dart';
 
 /*-----------------Pencil Tool-----------------*/
 class DrawingPainter extends CustomPainter {
@@ -16,14 +16,14 @@ class DrawingPainter extends CustomPainter {
     for (final point in drawingPoints) {
       if (point.offsets.isEmpty) continue;
 
-      final paint =
-          Paint()
-            ..color = point.isEraser ? Colors.red : point.color
-            ..strokeWidth = point.width
-            ..strokeCap = StrokeCap.round
-            ..strokeJoin = StrokeJoin.round
-            ..style = PaintingStyle.stroke
-            ..blendMode = point.isEraser ? BlendMode.clear : BlendMode.srcOver;
+      final paint = Paint()
+        ..color = point.tool == 'eraser' ? Colors.red : point.color
+        ..strokeWidth = point.width
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke
+        ..blendMode =
+            point.tool == 'eraser' ? BlendMode.clear : BlendMode.srcOver;
 
       if (point.offsets.length > 1) {
         final path = Path();
@@ -33,7 +33,13 @@ class DrawingPainter extends CustomPainter {
         }
         canvas.drawPath(path, paint);
       } else if (point.offsets.length == 1) {
-        canvas.drawCircle(point.offsets.first, point.width / 2, paint);
+        // Draw a tiny line segment instead of a circle
+        final path = Path();
+        final offset = point.offsets.first;
+        path.moveTo(offset.dx, offset.dy);
+        path.lineTo(
+            offset.dx + 0.1, offset.dy + 0.1); // Tiny offset to create a line
+        canvas.drawPath(path, paint);
       }
     }
 
@@ -53,34 +59,25 @@ class EraserTool {
   Offset? lastErasePosition;
   bool isErasing = false;
   List<DrawingPoint> currentEraseStrokes = [];
+  List<int> deletedStrokeIds = [];
 
   // References to external data
   final Map<String, List<DrawingPoint>> pageDrawingPoints;
-  final List<Map<String, List<DrawingPoint>>> undoStack;
-  final List<Map<String, List<DrawingPoint>>> redoStack;
   final VoidCallback onStateChanged; // Callback to trigger setState in Paper
-  final String currentPaperId; // Current page being erased
+  final String currentPaperId;
+  String? currentUserId;
 
   EraserTool({
     required this.eraserWidth,
     required this.eraserMode,
     required this.pageDrawingPoints,
-    required this.undoStack,
-    required this.redoStack,
     required this.onStateChanged,
     required this.currentPaperId,
+    this.currentUserId,
   });
 
   void startErasing(Offset position) {
     if (isErasing) return;
-
-    // Save current state for undo
-    undoStack.add(
-      pageDrawingPoints.map(
-        (key, value) => MapEntry(key, List<DrawingPoint>.from(value)),
-      ),
-    );
-    redoStack.clear();
 
     isErasing = true;
     currentEraseStrokes = [];
@@ -93,33 +90,26 @@ class EraserTool {
 
     final eraserRadius = eraserWidth;
     final toRemove = <DrawingPoint>[];
+    deletedStrokeIds = [];
 
     final pointsForPage = pageDrawingPoints[currentPaperId] ?? [];
     for (final point in pointsForPage) {
-      if (point.isEraser) continue;
+      if (point.tool == 'eraser') continue;
 
       for (final offset in point.offsets) {
         if ((offset - position).distance <= eraserRadius) {
           toRemove.add(point);
           currentEraseStrokes.add(point);
+          deletedStrokeIds.add(point.id);
           break;
         }
       }
     }
 
-    if (toRemove.isNotEmpty) {
-      pointsForPage.removeWhere((p) => toRemove.contains(p));
-      final eraserPoint = DrawingPoint(
-        id: DateTime.now().microsecondsSinceEpoch,
-        offsets: [position],
-        color: Colors.transparent,
-        width: eraserWidth,
-        isEraser: true,
-      );
-      pointsForPage.add(eraserPoint);
-      pageDrawingPoints[currentPaperId] = pointsForPage;
-      onStateChanged(); // Trigger Paper's setState
-    }
+    // 🔥 Actually remove them
+    pointsForPage.removeWhere((p) => toRemove.contains(p));
+
+    onStateChanged(); // Force UI update
   }
 
   void eraseAtPoint(Offset point) {
@@ -132,7 +122,7 @@ class EraserTool {
       offsets: [point],
       color: Colors.transparent,
       width: eraserWidth,
-      isEraser: true,
+      tool: 'eraser',
     );
     pageDrawingPoints[currentPaperId] ??= [];
     pageDrawingPoints[currentPaperId]!.add(eraserPoint);

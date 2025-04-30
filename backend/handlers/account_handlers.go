@@ -15,6 +15,7 @@ import (
 
 	"backend/config"
 	"backend/models"
+	"backend/utils"
 )
 
 var SECRET_KEY = []byte("gosecretkey")
@@ -26,6 +27,11 @@ type argon2Params struct {
 	parallelism uint8
 	saltLength  uint32
 	keyLength   uint32
+}
+
+type TokenPair struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 // Initialize with recommended parameters
@@ -95,15 +101,50 @@ func verifyPassword(password, encodedHash string) (bool, error) {
 	return string(hash) == string(storedHash), nil
 }
 
-func GenerateJWT() (string, error) {
-	token := jwt.New(jwt.SigningMethodHS256)
-	tokenString, err := token.SignedString(SECRET_KEY)
+func GenerateTokenPair(userID string) (TokenPair, error) {
+	// Generate access token (short-lived)
+	accessToken := jwt.New(jwt.SigningMethodHS256)
+	accessClaims := accessToken.Claims.(jwt.MapClaims)
+	accessClaims["user_id"] = userID
+	accessClaims["exp"] = time.Now().Add(1 * 24 * time.Hour).Unix() // 1 hour expiration
+	accessClaims["type"] = "access"
+
+	accessTokenString, err := accessToken.SignedString(SECRET_KEY)
 	if err != nil {
-		log.Println("Error in JWT token generation", err)
-		return "", err
+		return TokenPair{}, err
 	}
-	return tokenString, nil
+
+	// Generate refresh token (long-lived)
+	refreshToken := jwt.New(jwt.SigningMethodHS256)
+	refreshClaims := refreshToken.Claims.(jwt.MapClaims)
+	refreshClaims["user_id"] = userID
+	refreshClaims["exp"] = time.Now().Add(7 * 24 * time.Hour).Unix() // 7 days expiration
+	refreshClaims["type"] = "refresh"
+
+	refreshTokenString, err := refreshToken.SignedString(SECRET_KEY)
+	if err != nil {
+		return TokenPair{}, err
+	}
+
+	return TokenPair{
+		AccessToken:  accessTokenString,
+		RefreshToken: refreshTokenString,
+	}, nil
 }
+
+// func GenerateJWT(userID string) (string, error) {
+// 	token := jwt.New(jwt.SigningMethodHS256)
+// 	claims := token.Claims.(jwt.MapClaims)
+// 	claims["user_id"] = userID
+// 	claims["exp"] = time.Now().Add(24 * time.Hour).Unix() // Token expires in 24 hours
+
+// 	tokenString, err := token.SignedString(SECRET_KEY)
+// 	if err != nil {
+// 		log.Println("Error in JWT token generation", err)
+// 		return "", err
+// 	}
+// 	return tokenString, nil
+// }
 
 func UserSignup(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("Content-Type", "application/json")
@@ -133,6 +174,17 @@ func UserSignup(response http.ResponseWriter, request *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Check if email already exists
+	existingUser := models.User{}
+	err = collection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&existingUser)
+	if err == nil {
+		// User with this email already exists
+		response.WriteHeader(http.StatusConflict)
+		response.Write([]byte(`{"message":"Email already registered"}`))
+		return
+	}
+
+	// If we reach here, the email is unique, so proceed with insertion
 	result, err := collection.InsertOne(ctx, user)
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
@@ -179,6 +231,8 @@ func UserLogin(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
+	log.Printf("User successfully logged in: %s (%s)", dbUser.Email, dbUser.ID.Hex())
+
 	// Update LastLogin time
 	_, err = collection.UpdateOne(
 		ctx,
@@ -194,22 +248,189 @@ func UserLogin(response http.ResponseWriter, request *http.Request) {
 		// Continue with login process even if updating timestamp fails
 	}
 
-	jwtToken, err := GenerateJWT()
+	tokenPair, err := GenerateTokenPair(dbUser.ID.Hex())
+	//jwtToken, err := GenerateJWT(dbUser.ID.Hex()) // Assuming ID is a primitive.ObjectID
 	if err != nil {
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write([]byte(`{"message":"` + err.Error() + `"}`))
 		return
 	}
 
+	refreshTokenDoc := bson.M{
+		"user_id":    dbUser.ID,
+		"token":      tokenPair.RefreshToken,
+		"created_at": time.Now(),
+		"expires_at": time.Now().Add(7 * 24 * time.Hour),
+	}
+
+	refreshCollection := config.GetRefreshTokenCollection() // Create this collection
+	_, err = refreshCollection.InsertOne(ctx, refreshTokenDoc)
+	if err != nil {
+		log.Printf("Error storing refresh token: %v", err)
+		// Continue with login process even if storing token fails
+	}
+
 	// Return both token and user info (excluding password)
 	dbUser.Password = "" // Remove password from response
 	responseData := struct {
-		Token string      `json:"token"`
-		User  models.User `json:"user"`
+		AccessToken  string      `json:"access_token"`
+		RefreshToken string      `json:"refresh_token"`
+		User         models.User `json:"user"`
 	}{
-		Token: jwtToken,
-		User:  dbUser,
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		User:         dbUser,
 	}
 
 	json.NewEncoder(response).Encode(responseData)
+}
+
+func UserLogout(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("Content-Type", "application/json")
+
+	// Extract token from Authorization header
+	authHeader := request.Header.Get("Authorization")
+	if authHeader == "" || len(authHeader) < 8 || authHeader[:7] != "Bearer " {
+		response.WriteHeader(http.StatusBadRequest)
+		response.Write([]byte(`{"message":"Invalid or missing token"}`))
+		return
+	}
+
+	tokenString := authHeader[7:] // Remove "Bearer " prefix
+
+	// Validate the token using your existing function
+	valid, err := utils.ValidateToken(tokenString)
+	if err != nil || !valid {
+		response.WriteHeader(http.StatusUnauthorized)
+		response.Write([]byte(`{"message":"Invalid token"}`))
+		return
+	}
+
+	// Parse token to get claims
+	token, _ := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		return SECRET_KEY, nil
+	})
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{"message":"Could not parse token claims"}`))
+		return
+	}
+
+	userID, ok := claims["user_id"].(string)
+	if !ok {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{"message":"Invalid user ID in token"}`))
+		return
+	}
+
+	// Create a token blacklist collection if you don't already have one
+	collection := config.GetBlacklistCollection()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Store the token in the blacklist
+	blacklistedToken := struct {
+		Token         string    `bson:"token"`
+		UserID        string    `bson:"user_id"`
+		ExpiresAt     time.Time `bson:"expires_at"`
+		BlacklistedAt time.Time `bson:"blacklisted_at"`
+	}{
+		Token:         tokenString,
+		UserID:        userID,
+		ExpiresAt:     time.Unix(int64(claims["exp"].(float64)), 0),
+		BlacklistedAt: time.Now(),
+	}
+
+	_, err = collection.InsertOne(ctx, blacklistedToken)
+	if err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{"message":"Error blacklisting token"}`))
+		return
+	}
+
+	response.WriteHeader(http.StatusOK)
+	response.Write([]byte(`{"message":"Successfully logged out"}`))
+}
+
+func RefreshToken(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("Content-Type", "application/json")
+
+	var requestBody struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+
+	err := json.NewDecoder(request.Body).Decode(&requestBody)
+	if err != nil {
+		response.WriteHeader(http.StatusBadRequest)
+		response.Write([]byte(`{"message":"Invalid request body"}`))
+		return
+	}
+
+	token, err := jwt.Parse(requestBody.RefreshToken, func(token *jwt.Token) (interface{}, error) {
+		return SECRET_KEY, nil
+	})
+
+	if err != nil {
+		response.WriteHeader(http.StatusUnauthorized)
+		response.Write([]byte(`{"message":"Invalid refresh token"}`))
+		return
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		response.WriteHeader(http.StatusUnauthorized)
+		response.Write([]byte(`{"message":"Invalid token claims"}`))
+		return
+	}
+
+	tokenType, ok := claims["type"].(string)
+	if !ok || tokenType != "refresh" {
+		response.WriteHeader(http.StatusUnauthorized)
+		response.Write([]byte(`{"message":"Not a refresh token"}`))
+		return
+	}
+
+	userID, ok := claims["user_id"].(string)
+	if !ok {
+		response.WriteHeader(http.StatusUnauthorized)
+		response.Write([]byte(`{"message":"Invalid user ID in token"}`))
+		return
+	}
+
+	blacklistCollection := config.GetBlacklistCollection()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	count, err := blacklistCollection.CountDocuments(ctx, bson.M{"token": requestBody.RefreshToken})
+	if err != nil || count > 0 {
+		response.WriteHeader(http.StatusUnauthorized)
+		response.Write([]byte(`{"message":"Token has been revoked"}`))
+		return
+	}
+
+	// refreshCollection := config.GetRefreshTokenCollection()
+	// result := refreshCollection.FindOne(ctx, bson.M{
+	// 	"user_id": userID,
+	// 	"token":   requestBody.RefreshToken,
+	// })
+
+	// if result.Err() != nil {
+	// 	response.WriteHeader(http.StatusUnauthorized)
+	// 	response.Write([]byte(`{"message":"Refresh token not found or expired"}`))
+	// 	return
+	// }
+
+	newTokenPair, err := GenerateTokenPair(userID)
+	if err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{"message":"Error generating new tokens"}`))
+		return
+	}
+
+	json.NewEncoder(response).Encode(map[string]string{
+		"access_token":  newTokenPair.AccessToken,
+		"refresh_token": newTokenPair.RefreshToken,
+	})
 }

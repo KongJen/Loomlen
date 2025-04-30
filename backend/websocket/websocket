@@ -1,0 +1,206 @@
+package websocket
+
+import (
+	"backend/config"
+	"backend/models"
+	"backend/utils"
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"time"
+
+	"github.com/gorilla/websocket"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
+type Client struct {
+	conn   *websocket.Conn
+	send   chan []byte
+	roomID string
+	userID string
+}
+
+func (c *Client) readPump(hub *RoomHub) {
+	defer func() {
+		hub.unregister <- c
+		c.conn.Close()
+	}()
+	for {
+		_, message, err := c.conn.ReadMessage()
+		if err != nil {
+			log.Println("read error:", err)
+			break
+		}
+		var msg Message
+		if err := json.Unmarshal(message, &msg); err == nil {
+			hub.broadcast <- msg
+		}
+	}
+}
+
+func (c *Client) writePump() {
+	for message := range c.send {
+		c.conn.WriteMessage(websocket.TextMessage, message)
+	}
+}
+
+type RoomHub struct {
+	rooms      map[string]map[*Client]bool // roomID -> clients
+	broadcast  chan Message
+	register   chan *Client
+	unregister chan *Client
+}
+
+type Message struct {
+	RoomID string          `json:"room_id"`
+	UserID string          `json:"user_id"`
+	Type   string          `json:"type"`
+	Data   json.RawMessage `json:"data"`
+}
+
+func NewRoomHub() *RoomHub {
+	return &RoomHub{
+		rooms:      make(map[string]map[*Client]bool),
+		broadcast:  make(chan Message),
+		register:   make(chan *Client),
+		unregister: make(chan *Client),
+	}
+}
+
+func (hub *RoomHub) Run() {
+	for {
+		select {
+		case client := <-hub.register:
+			if hub.rooms[client.roomID] == nil {
+				hub.rooms[client.roomID] = make(map[*Client]bool)
+			}
+			hub.rooms[client.roomID][client] = true
+		case client := <-hub.unregister:
+			if clients, ok := hub.rooms[client.roomID]; ok {
+				delete(clients, client)
+				close(client.send)
+				if len(clients) == 0 {
+					delete(hub.rooms, client.roomID)
+				}
+			}
+		case message := <-hub.broadcast:
+			hub.handleMessage(message)
+		}
+	}
+}
+
+func (hub *RoomHub) handleMessage(message Message) {
+	switch message.Type {
+	case "create_folder":
+		hub.handleCreateFolder(message)
+	default:
+		hub.broadcastToRoom(message)
+	}
+}
+
+func (hub *RoomHub) handleCreateFolder(message Message) {
+	var folderData struct {
+		Name        string `json:"name"`
+		SubFolderID string `json:"sub_folder_id"`
+		Color       string `json:"color"`
+	}
+	if err := json.Unmarshal(message.Data, &folderData); err != nil {
+		log.Println("Invalid create_folder data:", err)
+		return
+	}
+
+	newFolder := models.Folder{
+		ID:          primitive.NewObjectID(),
+		OriginalID:  "", // This can be set if cloning folders
+		RoomID:      message.RoomID,
+		SubFolderID: folderData.SubFolderID,
+		Name:        folderData.Name,
+		Color:       folderData.Color,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	collection := config.GetFolderCollection()
+	_, err := collection.InsertOne(context.Background(), newFolder)
+	if err != nil {
+		log.Println("Failed to insert folder:", err)
+		return
+	}
+
+	// Notify all users in the room about the new folder
+	response := Message{
+		RoomID: message.RoomID,
+		UserID: message.UserID,
+		Type:   "folder_created",
+		Data:   json.RawMessage(fmt.Sprintf(`{"id": "%s", "name": "%s", "color": "%s"}`, newFolder.ID.Hex(), newFolder.Name, newFolder.Color)),
+	}
+	hub.broadcastToRoom(response)
+}
+
+func (hub *RoomHub) broadcastToRoom(message Message) {
+	if clients, ok := hub.rooms[message.RoomID]; ok {
+		for client := range clients {
+			select {
+			case client.send <- []byte(message.Data):
+			default:
+				close(client.send)
+				delete(clients, client)
+			}
+		}
+	}
+}
+
+func ServeRoomWs(hub *RoomHub, w http.ResponseWriter, r *http.Request) {
+	// Extract the user ID from the token
+	userID, err := utils.GetUserIDFromToken(r)
+	if err != nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Upgrade to a WebSocket connection
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("WebSocket upgrade error:", err)
+		return
+	}
+
+	// Read the initial message from the client to extract the room ID
+	_, msg, err := conn.ReadMessage()
+	if err != nil {
+		log.Println("Failed to read room ID:", err)
+		conn.Close()
+		return
+	}
+
+	// Parse the initial message
+	var initMsg Message
+	if err := json.Unmarshal(msg, &initMsg); err != nil {
+		log.Println("Invalid initial message format")
+		conn.Close()
+		return
+	}
+
+	// Create the client with the user ID and room ID
+	client := &Client{
+		conn:   conn,
+		send:   make(chan []byte, 256),
+		roomID: initMsg.RoomID,
+		userID: userID, // Store the user ID
+	}
+
+	// Register the client in the hub
+	hub.register <- client
+
+	// Start the client's read and write pumps
+	go client.readPump(hub)
+	go client.writePump()
+}

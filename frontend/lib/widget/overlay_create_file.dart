@@ -1,21 +1,34 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:frontend/model/provider.dart';
-import 'package:frontend/paper_page.dart';
+import 'package:frontend/api/socketService.dart';
+import 'package:frontend/items/template_item.dart';
+import 'package:frontend/pages/paperDB_page.dart';
+import 'package:frontend/pages/paper_page.dart';
+import 'package:frontend/providers/file_provider.dart';
+import 'package:frontend/providers/filedb_provider.dart';
+import 'package:frontend/providers/paper_provider.dart';
+import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:provider/provider.dart';
-import '../OBJ/object.dart';
 import '../main.dart';
 
 class OverlayCreateFile extends StatefulWidget {
+  final String roomId;
   final String parentId;
   final bool isInFolder;
+  final bool isCollab;
+  final String role;
+  final SocketService? socketService;
   final VoidCallback onClose;
 
   const OverlayCreateFile({
     super.key,
+    required this.roomId,
     required this.onClose,
     required this.parentId,
     required this.isInFolder,
+    required this.isCollab,
+    required this.role,
+    this.socketService,
   });
 
   @override
@@ -24,78 +37,116 @@ class OverlayCreateFile extends StatefulWidget {
 }
 
 class _OverlayCreateFileState extends State<OverlayCreateFile> {
+  late SocketService _socketService;
   final TextEditingController nameController = TextEditingController();
   late PaperTemplate selectedTemplate;
   List<PaperTemplate> availableTemplates = [
-    const PaperTemplate(
-      id: 'plain',
-      name: 'Plain Paper',
-      templateType: TemplateType.plain,
-    ),
-    const PaperTemplate(
-      id: 'lined',
-      name: 'Lined Paper',
-      templateType: TemplateType.lined,
-      spacing: 30.0,
-    ),
-    const PaperTemplate(
-      id: 'grid',
-      name: 'Grid Paper',
-      templateType: TemplateType.grid,
-      spacing: 30.0,
-    ),
-    const PaperTemplate(
-      id: 'dotted',
-      name: 'Dotted Paper',
-      templateType: TemplateType.dotted,
-      spacing: 30.0,
-    ),
+    const PaperTemplate(id: 'plain', name: 'Plain Paper'),
+    const PaperTemplate(id: 'lined', name: 'Lined Paper', spacing: 30.0),
+    const PaperTemplate(id: 'grid', name: 'Grid Paper', spacing: 30.0),
+    const PaperTemplate(id: 'dotted', name: 'Dotted Paper', spacing: 30.0),
   ];
 
-  void createFile() {
+  void createFile() async {
     if (nameController.text.trim().isEmpty) return;
     try {
-      final roomProvider = Provider.of<RoomProvider>(context, listen: false);
-      final folderProvider = Provider.of<FolderProvider>(
-        context,
-        listen: false,
-      );
       final fileProvider = Provider.of<FileProvider>(context, listen: false);
       final paperProvider = Provider.of<PaperProvider>(context, listen: false);
 
-      final paperId = paperProvider.addPaper(
-        selectedTemplate,
-        1, // Start with page number 1
-        null, // No initial drawing data
-        null, // No PDF path since it's not imported
-        595.0, // Default A4 width in points
-        842.0, // Default A4 height in points
-      );
+      final fileDBProvider =
+          Provider.of<FileDBProvider>(context, listen: false);
+      final paperDBProvider =
+          Provider.of<PaperDBProvider>(context, listen: false);
 
-      final fileId = fileProvider.addFile(nameController.text.trim());
-      // print("Created file with ID: $fileId");
-      fileProvider.addPaperPageToFile(fileId, paperId);
+      String fileId;
 
-      if (widget.isInFolder == true) {
-        folderProvider.addFileToFolder(widget.parentId, fileId);
+      if (widget.isCollab == true) {
+        if (widget.isInFolder == true) {
+          fileId = await fileDBProvider.addFile(
+            nameController.text.trim(),
+            roomId: widget.roomId,
+            parentFolderId: widget.parentId,
+          );
+
+          paperDBProvider.addPaper(
+              selectedTemplate, 1, 595, 842, fileId, widget.roomId);
+        } else {
+          fileId = await fileDBProvider.addFile(
+            nameController.text.trim(),
+            roomId: widget.roomId,
+            parentFolderId: 'Unknow',
+          );
+          ;
+
+          paperDBProvider.addPaper(
+              selectedTemplate, 1, 595, 842, fileId, widget.roomId);
+        }
       } else {
-        roomProvider.addFileToRoom(widget.parentId, fileId);
+        if (widget.isInFolder == true) {
+          fileId = fileProvider.addFile(
+            nameController.text.trim(),
+            parentFolderId: widget.parentId,
+          );
+
+          paperProvider.addPaper(
+            selectedTemplate,
+            1,
+            null,
+            null,
+            595,
+            842,
+            fileId,
+          );
+        } else {
+          fileId = fileProvider.addFile(
+            nameController.text.trim(),
+            roomId: widget.parentId,
+          );
+          paperProvider.addPaper(
+            selectedTemplate,
+            1,
+            null,
+            null,
+            595,
+            842,
+            fileId,
+          );
+        }
       }
 
       MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(false);
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (context) => PaperPage(
-                name: nameController.text.trim(),
-                fileId: fileId,
-                onFileUpdated: () => setState(() {}),
-              ),
-        ),
-      ).then((_) {
-        MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(true);
-      });
+      if (widget.isCollab) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PaperDBPage(
+              collab: widget.isCollab,
+              name: nameController.text.trim(),
+              fileId: fileId,
+              roomId: widget.roomId,
+              role: widget.role,
+              onFileUpdated: () => setState(() {}),
+              socket: widget.socketService,
+            ),
+          ),
+        ).then((_) {
+          MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(true);
+        });
+      } else {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PaperPage(
+              name: nameController.text.trim(),
+              fileId: fileId,
+              onFileUpdated: () => setState(() {}),
+              roomId: widget.roomId,
+            ),
+          ),
+        ).then((_) {
+          MyApp.navMenuKey.currentState?.toggleBottomNavVisibility(true);
+        });
+      }
       widget.onClose();
     } catch (e) {
       if (kDebugMode) {
@@ -224,10 +275,9 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
                                   width: 80,
                                   decoration: BoxDecoration(
                                     border: Border.all(
-                                      color:
-                                          isSelected
-                                              ? Colors.blue
-                                              : Colors.grey.shade300,
+                                      color: isSelected
+                                          ? Colors.blue
+                                          : Colors.grey.shade300,
                                       width: isSelected ? 2.0 : 1.0,
                                     ),
                                     borderRadius: BorderRadius.circular(8),
@@ -239,8 +289,8 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
                                         child: ClipRRect(
                                           borderRadius:
                                               const BorderRadius.vertical(
-                                                top: Radius.circular(8),
-                                              ),
+                                            top: Radius.circular(8),
+                                          ),
                                           child: CustomPaint(
                                             painter: TemplateThumbnailPainter(
                                               template: template,
@@ -258,10 +308,9 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
                                           textAlign: TextAlign.center,
                                           style: TextStyle(
                                             fontSize: 12,
-                                            fontWeight:
-                                                isSelected
-                                                    ? FontWeight.bold
-                                                    : FontWeight.normal,
+                                            fontWeight: isSelected
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
                                           ),
                                         ),
                                       ),

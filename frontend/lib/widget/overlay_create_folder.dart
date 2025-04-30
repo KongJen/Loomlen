@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/providers/folder_provider.dart';
+import 'package:frontend/providers/folderdb_provider.dart';
 import 'package:provider/provider.dart';
-import '../model/provider.dart';
 
 class OverlayCreateFolder extends StatefulWidget {
+  final String roomId;
   final String parentId;
   final bool isInFolder;
+  final bool isCollab;
   final VoidCallback onClose;
 
-  const OverlayCreateFolder({
-    super.key,
-    required this.onClose,
-    required this.parentId,
-    required this.isInFolder,
-  });
+  const OverlayCreateFolder(
+      {super.key,
+      required this.roomId,
+      required this.onClose,
+      required this.parentId,
+      required this.isInFolder,
+      required this.isCollab});
 
   @override
   // ignore: library_private_types_in_public_api
@@ -37,18 +41,40 @@ class _OverlayCreateFolderState extends State<OverlayCreateFolder> {
   void createFolder() {
     if (nameController.text.trim().isEmpty) return;
 
-    final roomProvider = Provider.of<RoomProvider>(context, listen: false);
     final folderProvider = Provider.of<FolderProvider>(context, listen: false);
-
-    final folderId = folderProvider.addFolder(
-      nameController.text.trim(),
-      selectedColor,
-    );
-
-    if (widget.isInFolder == true) {
-      folderProvider.addFolderToFolder(widget.parentId, folderId);
+    final folderDBProvider =
+        Provider.of<FolderDBProvider>(context, listen: false);
+    if (widget.isCollab == true) {
+      if (widget.isInFolder == true) {
+        folderDBProvider.addFolder(
+          nameController.text.trim(),
+          selectedColor,
+          roomId: widget.roomId,
+          parentFolderId: widget.parentId,
+        );
+      } else {
+        print("nice");
+        folderDBProvider.addFolder(
+          nameController.text.trim(),
+          selectedColor,
+          roomId: widget.roomId,
+          parentFolderId: 'Unknow',
+        );
+      }
     } else {
-      roomProvider.addFolderToRoom(widget.parentId, folderId);
+      if (widget.isInFolder == true) {
+        folderProvider.addFolder(
+          nameController.text.trim(),
+          selectedColor,
+          parentFolderId: widget.parentId,
+        );
+      } else {
+        folderProvider.addFolder(
+          nameController.text.trim(),
+          selectedColor,
+          roomId: widget.parentId,
+        );
+      }
     }
 
     widget.onClose();
