@@ -65,6 +65,8 @@ func main() {
 	router.HandleFunc("/api/paper", handlers.DeletePaper).Methods("DELETE")
 	router.HandleFunc("/api/paper/drawing", handlers.AddDrawingPoint).Methods("PUT")
 
+	router.HandleFunc("/api/paper/import", handlers.UploadHandler).Methods("POST")
+
 	// router.HandleFunc("/api/paper", handlers.AddDrawing).Methods("PUT")
 	router.HandleFunc("/api/shared", handlers.ShareFile).Methods("POST")
 	router.HandleFunc("/api/shared", handlers.GetSharedFiles).Methods("GET")

@@ -16,7 +16,8 @@ import 'package:frontend/api/discoverBackend.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  baseurl = await discoverBackendIp() ?? "http://20.40.64.83:8080";
+  baseurl = await discoverBackendIp() ?? "http://10.0.2.2:8080";
+  //baseurl = await discoverBackendIp() ?? "http://20.40.64.83:8080";
 
   String? testbaseurl = await discoverBackendIp();
 

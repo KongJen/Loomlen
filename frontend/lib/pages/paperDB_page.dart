@@ -18,6 +18,7 @@ import 'package:frontend/services/drawing_service.dart';
 import 'package:frontend/services/pdf_export_service.dart';
 import 'package:frontend/services/paper_service.dart';
 import 'package:frontend/widget/sharefile_dialog.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 enum DrawingMode { pencil, eraser }
 
@@ -458,13 +459,14 @@ class _PaperDBPageState extends State<PaperDBPage> {
   Widget _buildPaperPage(String paperId, PaperProvider paperProvider,
       PaperDBProvider paperDBProvider) {
     final paperDBData = paperDBProvider.getPaperDBById(paperId);
-    final paperData = paperProvider.getPaperById(paperId);
+
     final PaperTemplate template;
     final double paperWidth;
     final double paperHeight;
     template = PaperTemplateFactory.getTemplate(paperDBData['template_id']);
     paperWidth = (paperDBData['width'] as num?)?.toDouble() ?? 595.0;
     paperHeight = (paperDBData['height'] as num?)?.toDouble() ?? 595.0;
+    print("link ${paperDBData['background_image']}");
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -492,17 +494,21 @@ class _PaperDBPageState extends State<PaperDBPage> {
               size: Size(paperWidth, paperHeight),
             ),
             // PDF background if available
-            if (paperData != null && paperData['pdfPath'] != null)
-              Image.file(
-                File(paperData['pdfPath']),
-                width: paperWidth,
-                height: paperHeight,
+
+            if (paperDBData['background_image'] != '')
+              Image.network(
+                paperDBData['background_image'],
                 fit: BoxFit.contain,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(child: CircularProgressIndicator());
+                },
                 errorBuilder: (context, error, stackTrace) {
-                  debugPrint('Error loading image for $paperId: $error');
-                  return const Center(child: Text('Failed to load image'));
+                  debugPrint('Error: $error');
+                  return Center(child: Text('Failed to load image'));
                 },
               ),
+
             // Drawing interaction surface
 
             isReadOnly

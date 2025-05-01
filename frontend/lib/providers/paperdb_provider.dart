@@ -47,6 +47,7 @@ class PaperDBProvider extends ChangeNotifier {
     double? height,
     String fileId,
     String roomId,
+    String? image,
   ) async {
     final String paperId = _uuid.v4();
     await _apiService.addPaper(
@@ -56,7 +57,8 @@ class PaperDBProvider extends ChangeNotifier {
         templateId: template.id,
         pageNumber: pageNumber,
         width: width ?? 595.0,
-        height: height ?? 842.0);
+        height: height ?? 842.0,
+        image: image ?? '');
 
     notifyListeners();
     return paperId;
@@ -70,23 +72,27 @@ class PaperDBProvider extends ChangeNotifier {
   }
 
   List<DrawingPoint> getDrawingPointsForPage(String pageId) {
-    final paperData = _papers.firstWhere(
-      (paper) => paper['id'] == pageId,
-      orElse: () => {},
-    );
+    final paperData = _papers.cast<Map<String, dynamic>>().firstWhere(
+          (paper) => paper['id'] == pageId,
+          orElse: () => {},
+        );
 
-    if (paperData['drawingData'] == null) {
-      return []; // No drawing data found
+    final drawingData = paperData['drawing_data'];
+    if (drawingData == null || drawingData is! List) {
+      return [];
     }
 
     final List<DrawingPoint> drawingPoints = [];
 
-    // Process the drawingData and create DrawingPoint objects
-    for (final stroke in paperData['drawingData']) {
+    for (final stroke in drawingData) {
       if (stroke['type'] == 'drawing') {
-        final point = DrawingPoint.fromJson(stroke['data']);
-        if (point.offsets.isNotEmpty) {
-          drawingPoints.add(point);
+        try {
+          final point = DrawingPoint.fromJson(stroke); // Use full stroke
+          if (point.offsets.isNotEmpty) {
+            drawingPoints.add(point);
+          }
+        } catch (e) {
+          debugPrint("Failed to parse stroke: $e");
         }
       }
     }
