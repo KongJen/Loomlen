@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:frontend/global.dart';
 import 'package:frontend/items/drawingpoint_item.dart';
 import 'package:frontend/providers/auth_provider.dart';
@@ -6,6 +8,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
 
 class ApiService {
   final String baseUrl = baseurl;
@@ -313,7 +317,8 @@ class ApiService {
       required String templateId,
       required int pageNumber,
       required double width,
-      required double height}) async {
+      required double height,
+      required String image}) async {
     try {
       // Convert the data to JSON strings
       final Map<String, dynamic> payload = {
@@ -324,6 +329,7 @@ class ApiService {
         'page_number': pageNumber,
         'width': width,
         'height': height,
+        'image': image
       };
 
       final bodyf = jsonEncode(payload);
@@ -618,6 +624,54 @@ class ApiService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to update drawing: ${response.body}');
+    }
+  }
+
+  Future<String> addImage(Uint8List bytes, {required String filename}) async {
+    final mimeType = lookupMimeType(filename) ?? 'application/octet-stream';
+    final mimeParts = mimeType.split('/');
+
+    try {
+      final request =
+          http.MultipartRequest('POST', Uri.parse('$baseUrl/api/paper/import'))
+            ..files.add(http.MultipartFile.fromBytes(
+              'file',
+              bytes,
+              filename: filename,
+              contentType: MediaType(mimeParts[0], mimeParts[1]),
+            ));
+
+      // Send request and get response
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+
+      // Debugging response
+      print("Response status: ${streamedResponse.statusCode}");
+      print("Response body: $responseBody");
+
+      if (streamedResponse.statusCode == 200) {
+        print("Upload success!");
+
+        // Extract JSON part from the response body
+        int jsonStartIndex = responseBody.indexOf('{');
+        if (jsonStartIndex != -1) {
+          String jsonPart = responseBody.substring(jsonStartIndex);
+
+          // Parse the JSON part
+          final data = json.decode(jsonPart);
+          print("Parsed data: $data");
+
+          return data['link'];
+        } else {
+          throw Exception("No valid JSON found in the response.");
+        }
+      } else {
+        print("Upload failed: $responseBody");
+        throw Exception('Failed to upload image: $responseBody');
+      }
+    } catch (e) {
+      print("Error: $e");
+      throw Exception('Error during image upload: $e');
     }
   }
 

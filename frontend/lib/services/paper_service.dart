@@ -43,7 +43,7 @@ class PaperService {
       }
 
       dbProvider.addPaper(
-          template, newPageNumber, 595.0, 842.0, fileId, roomId);
+          template, newPageNumber, 595.0, 842.0, fileId, roomId, '');
     } else {
       if (papers.isNotEmpty) {
         final lastPaper = papers.last;

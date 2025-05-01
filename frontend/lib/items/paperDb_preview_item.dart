@@ -82,16 +82,17 @@ class PaperDBPreviewItem extends StatelessWidget {
             ),
 
             // PDF preview if exists
-            if (paper['pdfPath'] != null)
-              Image.file(
-                File(paper['pdfPath']!),
-                width: previewWidth,
-                height: previewHeight,
-                fit: BoxFit.cover,
+            if (paper['background_image'] != '')
+              Image.network(
+                paper['background_image'],
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(child: CircularProgressIndicator());
+                },
                 errorBuilder: (context, error, stackTrace) {
-                  return const Center(
-                    child: Icon(Icons.broken_image, color: Colors.red),
-                  );
+                  debugPrint('Error: $error');
+                  return Center(child: Text('Failed to load image'));
                 },
               ),
             // Draw stored drawing

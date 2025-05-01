@@ -69,7 +69,7 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
           );
 
           paperDBProvider.addPaper(
-              selectedTemplate, 1, 595, 842, fileId, widget.roomId);
+              selectedTemplate, 1, 595, 842, fileId, widget.roomId, '');
         } else {
           fileId = await fileDBProvider.addFile(
             nameController.text.trim(),
@@ -79,7 +79,7 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
           ;
 
           paperDBProvider.addPaper(
-              selectedTemplate, 1, 595, 842, fileId, widget.roomId);
+              selectedTemplate, 1, 595, 842, fileId, widget.roomId, '');
         }
       } else {
         if (widget.isInFolder == true) {

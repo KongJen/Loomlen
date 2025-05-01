@@ -6,6 +6,7 @@ import 'package:frontend/providers/filedb_provider.dart';
 import 'package:frontend/providers/folderdb_provider.dart';
 import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
+import 'package:frontend/services/PDF_DB_import_service.dart';
 import 'package:frontend/services/PDF_import_service.dart';
 import 'package:frontend/services/folder_navigation_service.dart';
 import 'package:frontend/widget/grid_layout.dart';
@@ -257,25 +258,50 @@ class _RoomDetailPageState extends State<RoomDetailPage> {
   void _importPDF() {
     final fileProvider = Provider.of<FileProvider>(context, listen: false);
     final paperProvider = Provider.of<PaperProvider>(context, listen: false);
+    final fileDBProvider = Provider.of<FileDBProvider>(context, listen: false);
+    final paperDBProvider =
+        Provider.of<PaperDBProvider>(context, listen: false);
 
-    PdfService(
-      showError: (message) => ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message))),
-      showSuccess: (message) => ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message))),
-      onImportComplete: (fileId, name) {
-        _navigateToPaperPage(name, fileId, isCollab);
-      },
-      showLoading: () => _showLoadingOverlay(),
-      hideLoading: () => OverlayService.hideOverlay(),
-    ).importPDF(
-      parentId: _navigationService.currentParentId,
-      isInFolder: _navigationService.isInFolder,
-      addFile: fileProvider.addFile,
-      addPaper: paperProvider.addPaper,
-    );
+    if (isCollab) {
+      PdfDBService(
+        showError: (message) => ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message))),
+        showSuccess: (message) => ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message))),
+        onImportComplete: (fileId, name) {
+          _navigateToPaperDBPage(name, fileId, isCollab, role);
+        },
+        showLoading: () => _showLoadingOverlay(),
+        hideLoading: () => OverlayService.hideOverlay(),
+      ).importPDFDB(
+        parentId: _navigationService.currentParentId,
+        isInFolder: _navigationService.isInFolder,
+        roomId: widget.room['id'],
+        addFile: fileDBProvider.addFile,
+        addPaper: paperDBProvider.addPaper,
+      );
+    } else {
+      PdfService(
+        showError: (message) => ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message))),
+        showSuccess: (message) => ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message))),
+        onImportComplete: (fileId, name) {
+          _navigateToPaperPage(name, fileId, isCollab);
+        },
+        showLoading: () => _showLoadingOverlay(),
+        hideLoading: () => OverlayService.hideOverlay(),
+      ).importPDF(
+        parentId: _navigationService.currentParentId,
+        isInFolder: _navigationService.isInFolder,
+        addFile: fileProvider.addFile,
+        addPaper: paperProvider.addPaper,
+      );
+    }
   }
 
   void _showLoadingOverlay() {

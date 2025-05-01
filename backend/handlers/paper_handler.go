@@ -25,13 +25,14 @@ func AddPaper(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var paperRequest struct {
-		PaperID    string  `json:"paper_id"`
-		RoomID     string  `json:"room_id"`
-		FileID     string  `json:"file_id"`
-		TemplateID string  `json:"template_id"`
-		PageNumber int     `json:"page_number"`
-		Width      float64 `json:"width"`
-		Height     float64 `json:"height"`
+		PaperID         string  `json:"paper_id"`
+		RoomID          string  `json:"room_id"`
+		FileID          string  `json:"file_id"`
+		TemplateID      string  `json:"template_id"`
+		PageNumber      int     `json:"page_number"`
+		Width           float64 `json:"width"`
+		Height          float64 `json:"height"`
+		BackgroundImage string  `json:"image"`
 	}
 
 	if err := json.Unmarshal(body, &paperRequest); err != nil {
@@ -41,16 +42,17 @@ func AddPaper(w http.ResponseWriter, r *http.Request) {
 	}
 
 	paper := models.Paper{
-		ID:         primitive.NewObjectID(),
-		OriginalID: paperRequest.PaperID,
-		RoomID:     paperRequest.RoomID,
-		FileID:     paperRequest.FileID,
-		TemplateID: paperRequest.TemplateID,
-		PageNumber: paperRequest.PageNumber,
-		Width:      paperRequest.Width,
-		Height:     paperRequest.Height,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		ID:              primitive.NewObjectID(),
+		OriginalID:      paperRequest.PaperID,
+		RoomID:          paperRequest.RoomID,
+		FileID:          paperRequest.FileID,
+		TemplateID:      paperRequest.TemplateID,
+		PageNumber:      paperRequest.PageNumber,
+		Width:           paperRequest.Width,
+		Height:          paperRequest.Height,
+		BackgroundImage: paperRequest.BackgroundImage,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
 	}
 
 	paperCollection := config.GetPaperCollection()

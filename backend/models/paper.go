@@ -12,13 +12,14 @@ type Paper struct {
 	RoomID     string             `bson:"room_id" json:"room_id"`
 	FileID     string             `bson:"file_id" json:"file_id"`
 	//pdfpath
-	TemplateID  string         `bson:"template_id" json:"template_id"`
-	PageNumber  int            `bson:"page_number" json:"page_number"`
-	Width       float64        `bson:"width" json:"width"`
-	Height      float64        `bson:"height" json:"height"`
-	DrawingData []DrawingPoint `json:"drawing_data" bson:"drawing_data"`
-	CreatedAt   time.Time      `bson:"created_at" json:"created_at"`
-	UpdatedAt   time.Time      `bson:"updated_at" json:"updated_at"`
+	TemplateID      string         `bson:"template_id" json:"template_id"`
+	PageNumber      int            `bson:"page_number" json:"page_number"`
+	Width           float64        `bson:"width" json:"width"`
+	Height          float64        `bson:"height" json:"height"`
+	DrawingData     []DrawingPoint `json:"drawing_data" bson:"drawing_data"`
+	BackgroundImage string         `json:"background_image" bson:"background_image"`
+	CreatedAt       time.Time      `bson:"created_at" json:"created_at"`
+	UpdatedAt       time.Time      `bson:"updated_at" json:"updated_at"`
 }
 
 type Offset struct {

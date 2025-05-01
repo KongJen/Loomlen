@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:frontend/providers/file_provider.dart';
 import 'package:frontend/providers/folder_provider.dart';
@@ -276,16 +279,38 @@ class RoomProvider extends ChangeNotifier {
 
     print("Papers in file $originalFileId: ${papersInFile.length}");
 
+    final ApiService _apiService = ApiService();
+    final uuid = Uuid();
+
     for (var paper in papersInFile) {
+      String imageUrl = '';
+      if (paper['pdfPath'] != null) {
+        final pdfPath = paper['pdfPath'].toString();
+        final file = File(pdfPath);
+
+        if (await file.exists()) {
+          final Uint8List pngBytes = await file.readAsBytes();
+
+          final filename = '${uuid.v4()}_background_from_local.png';
+          imageUrl = await _apiService.addImage(pngBytes, filename: filename);
+
+          print("Image uploaded to: $imageUrl");
+
+          // Optionally: update paper['background_image'] = imageUrl;
+        } else {
+          print("File does not exist at path: $pdfPath");
+        }
+      }
+      print("imageUrl $imageUrl");
       final paperId = await _apiService.addPaper(
-        id: paper['id'],
-        roomId: roomId,
-        fileId: newFileId,
-        templateId: paper['templateId'],
-        pageNumber: paper['PageNumber'],
-        width: paper['width'],
-        height: paper['height'],
-      );
+          id: paper['id'],
+          roomId: roomId,
+          fileId: newFileId,
+          templateId: paper['templateId'],
+          pageNumber: paper['PageNumber'],
+          width: paper['width'],
+          height: paper['height'],
+          image: imageUrl);
       print("Added paper: ${paper['id']} to file: $newFileId");
 
       await _apiService.addDraw(paperId, paper['drawingData']);
