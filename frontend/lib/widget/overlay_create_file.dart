@@ -38,7 +38,8 @@ class OverlayCreateFile extends StatefulWidget {
 
 class _OverlayCreateFileState extends State<OverlayCreateFile> {
   late SocketService _socketService;
-  final TextEditingController nameController = TextEditingController();
+  final TextEditingController nameController =
+      TextEditingController(text: 'File');
   late PaperTemplate selectedTemplate;
   List<PaperTemplate> availableTemplates = [
     const PaperTemplate(id: 'plain', name: 'Plain Paper'),
