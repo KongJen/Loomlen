@@ -9,6 +9,7 @@ import 'package:frontend/items/template_item.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
+import 'package:frontend/services/PDF_DB_export_service.dart';
 import 'package:frontend/services/drawingDb_service.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
@@ -50,7 +51,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
   late final DrawingService _drawingService;
   late final DrawingDBService _drawingDBService;
   late final PaperService _paperService;
-  late final PDFExportService _pdfExportService;
+  late final PDFDBExportService _pdfDBExportService;
 
   final TransformationController _controller = TransformationController();
   final ScrollController _scrollController = ScrollController();
@@ -83,7 +84,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
         fileId: widget.fileId,
         socketService: widget.socket);
     _paperService = PaperService();
-    _pdfExportService = PDFExportService();
+    _pdfDBExportService = PDFDBExportService();
     _drawingDBService.onDataChanged = () {
       if (mounted) setState(() {});
     };
@@ -234,13 +235,13 @@ class _PaperDBPageState extends State<PaperDBPage> {
     try {
       if (_hasUnsavedChanges) _saveDrawing();
 
-      final exportResult = await _pdfExportService.exportNotesToPdf(
+      final exportResult = await _pdfDBExportService.exportNotesDBToPdf(
         context: context,
         fileName: widget.name.replaceAll(' ', '_'),
-        pageIds: _drawingService.getPageIds(),
-        paperTemplates: _drawingService.getPaperTemplates(),
-        pageDrawingPoints: _drawingService.getPageDrawingPoints(),
-        paperProvider: context.read<PaperProvider>(),
+        pageIds: _drawingDBService.getPageIds(),
+        paperTemplates: _drawingDBService.getPaperTemplates(),
+        pageDrawingPoints: _drawingDBService.getPageDrawingPoints(),
+        paperDBProvider: context.read<PaperDBProvider>(),
       );
 
       if (exportResult.success) {
