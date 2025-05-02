@@ -36,11 +36,20 @@ class RoomProvider extends ChangeNotifier {
   }
 
   void addRoom(String name, Color color) {
+    String baseName = name.trim();
+    String uniqueName = baseName;
+    int counter = 1;
+
+    // Check for duplicate names
+    while (_rooms.any((room) => room['name'] == uniqueName)) {
+      uniqueName = '$baseName ($counter)';
+      counter++;
+    }
+
     final newRoom = {
       'id': _uuid.v4(),
-      'name': name,
+      'name': uniqueName,
       'createdDate': DateTime.now().toIso8601String(),
-      // ignore: deprecated_member_use
       'color': color.value,
       'isFavorite': false,
     };
@@ -52,11 +61,21 @@ class RoomProvider extends ChangeNotifier {
 
   void renameRoom(String roomId, String newName) {
     final room = _rooms.firstWhere((r) => r['id'] == roomId, orElse: () => {});
-    if (room.isNotEmpty) {
-      room['name'] = newName;
-      _saveRooms();
-      notifyListeners();
+    if (room.isEmpty) return;
+
+    String baseName = newName.trim();
+    String uniqueName = baseName;
+    int counter = 1;
+
+    // Check for duplicate names, excluding the current room
+    while (_rooms.any((r) => r['name'] == uniqueName && r['id'] != roomId)) {
+      uniqueName = '$baseName ($counter)';
+      counter++;
     }
+
+    room['name'] = uniqueName;
+    _saveRooms();
+    notifyListeners();
   }
 
   Future<void> deleteRoom(
