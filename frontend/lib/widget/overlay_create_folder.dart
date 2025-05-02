@@ -24,7 +24,8 @@ class OverlayCreateFolder extends StatefulWidget {
 }
 
 class _OverlayCreateFolderState extends State<OverlayCreateFolder> {
-  final TextEditingController nameController = TextEditingController();
+  final TextEditingController nameController =
+      TextEditingController(text: 'Folder');
   Color selectedColor = Colors.blue;
 
   final List<Color> colorOptions = [

@@ -13,7 +13,8 @@ class OverlayCreateRoom extends StatefulWidget {
 }
 
 class _OverlayCreateRoomState extends State<OverlayCreateRoom> {
-  final TextEditingController nameController = TextEditingController();
+  final TextEditingController nameController =
+      TextEditingController(text: 'Room');
   Color selectedColor = Colors.blue;
 
   final List<Color> colorOptions = [
