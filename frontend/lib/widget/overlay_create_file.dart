@@ -59,34 +59,40 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
           Provider.of<PaperDBProvider>(context, listen: false);
 
       String fileId;
+      String fileName = '';
 
       if (widget.isCollab == true) {
         if (widget.isInFolder == true) {
-          fileId = await fileDBProvider.addFile(
+          final result = await fileDBProvider.addFile(
             nameController.text.trim(),
             roomId: widget.roomId,
             parentFolderId: widget.parentId,
           );
+          fileId = result['id']!;
+          fileName = result['name']!;
 
           paperDBProvider.addPaper(
               selectedTemplate, 1, 595, 842, fileId, widget.roomId, '');
         } else {
-          fileId = await fileDBProvider.addFile(
+          final result = await fileDBProvider.addFile(
             nameController.text.trim(),
             roomId: widget.roomId,
             parentFolderId: 'Unknow',
           );
-          ;
+          fileId = result['id']!;
+          fileName = result['name']!;
 
           paperDBProvider.addPaper(
               selectedTemplate, 1, 595, 842, fileId, widget.roomId, '');
         }
       } else {
         if (widget.isInFolder == true) {
-          fileId = fileProvider.addFile(
+          final result = fileProvider.addFile(
             nameController.text.trim(),
             parentFolderId: widget.parentId,
           );
+          fileId = result['id']!;
+          fileName = result['name']!;
 
           paperProvider.addPaper(
             selectedTemplate,
@@ -98,10 +104,13 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
             fileId,
           );
         } else {
-          fileId = fileProvider.addFile(
+          final result = fileProvider.addFile(
             nameController.text.trim(),
             roomId: widget.parentId,
           );
+          fileId = result['id']!;
+          fileName = result['name']!;
+
           paperProvider.addPaper(
             selectedTemplate,
             1,
@@ -137,7 +146,7 @@ class _OverlayCreateFileState extends State<OverlayCreateFile> {
           context,
           MaterialPageRoute(
             builder: (context) => PaperPage(
-              name: nameController.text.trim(),
+              name: fileName,
               fileId: fileId,
               onFileUpdated: () => setState(() {}),
               roomId: widget.roomId,

@@ -30,7 +30,7 @@ class PdfDBService {
     required String parentId,
     required bool isInFolder,
     required String roomId,
-    required Future<String> Function(
+    required Future<Map<String, String>> Function(
       String name, {
       required String roomId,
       required String parentFolderId,
@@ -61,23 +61,29 @@ class PdfDBService {
         print('PDF has $pageCount pages');
 
         String fileId;
+        String fileName;
         if (isInFolder) {
-          fileId =
+          final result =
               await addFile(pdfName, roomId: roomId, parentFolderId: parentId);
+          fileId = result['id']!;
+          fileName = result['name']!;
         } else {
-          fileId =
+          final result =
               await addFile(pdfName, roomId: roomId, parentFolderId: 'Unknow');
+
+          fileId = result['id']!;
+          fileName = result['name']!;
         }
 
         showLoading();
 
-        await _processPdfPages(pdfDoc, pdfName, fileId, roomId, addPaper);
+        await _processPdfPages(pdfDoc, fileName, fileId, roomId, addPaper);
 
         hideLoading();
         pdfDoc.dispose();
 
         showSuccess('PDF "$pdfName" imported as $pageCount pages');
-        onImportComplete(fileId, pdfName);
+        onImportComplete(fileId, fileName);
       }
     } catch (e) {
       print('Error importing PDF: $e');

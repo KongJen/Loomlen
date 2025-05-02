@@ -52,13 +52,28 @@ class FileProvider extends ChangeNotifier {
     await _loadSharedFiles();
   }
 
-  String addFile(String name, {String? roomId, String? parentFolderId}) {
+  Map<String, String> addFile(String name,
+      {String? roomId, String? parentFolderId}) {
+    String baseName = name.trim();
+    String uniqueName = baseName;
+    int counter = 1;
+
+    // Filter files within the same room and parent folder
+    final existingFiles = _files.where((file) =>
+        file['roomId'] == roomId && file['parentFolderId'] == parentFolderId);
+
+    // Ensure name is unique in this context
+    while (existingFiles.any((file) => file['name'] == uniqueName)) {
+      uniqueName = '$baseName ($counter)';
+      counter++;
+    }
+
     final String fileId = _uuid.v4();
     final newFile = {
       'id': fileId,
       'roomId': roomId,
       'parentFolderId': parentFolderId,
-      'name': name,
+      'name': uniqueName,
       'createdDate': DateTime.now().toIso8601String(),
       'isShared': false,
     };
@@ -67,16 +82,35 @@ class FileProvider extends ChangeNotifier {
     _saveFiles();
     notifyListeners();
 
-    return fileId; // Return the generated fileId
+    return {'id': fileId, 'name': uniqueName};
   }
 
   void renameFile(String fileId, String newName) {
     final file = _files.firstWhere((f) => f['id'] == fileId, orElse: () => {});
-    if (file.isNotEmpty) {
-      file['name'] = newName;
-      _saveFiles();
-      notifyListeners();
+    if (file.isEmpty) return;
+
+    String baseName = newName.trim();
+    String uniqueName = baseName;
+    int counter = 1;
+
+    final roomId = file['roomId'];
+    final parentFolderId = file['parentFolderId'];
+
+    // Filter files within the same room and parent folder, excluding the file being renamed
+    final existingFiles = _files.where((f) =>
+        f['roomId'] == roomId &&
+        f['parentFolderId'] == parentFolderId &&
+        f['id'] != fileId);
+
+    // Ensure the new name is unique
+    while (existingFiles.any((f) => f['name'] == uniqueName)) {
+      uniqueName = '$baseName ($counter)';
+      counter++;
     }
+
+    file['name'] = uniqueName;
+    _saveFiles();
+    notifyListeners();
   }
 
   Future<void> deleteFile(String fileId, PaperProvider paperProvider) async {

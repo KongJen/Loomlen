@@ -37,11 +37,26 @@ class FolderProvider extends ChangeNotifier {
     String? roomId,
     String? parentFolderId,
   }) {
+    String baseName = name.trim();
+    String uniqueName = baseName;
+    int counter = 1;
+
+    // Filter folders within the same room and parent
+    final existingFolders = _folders.where((folder) =>
+        folder['roomId'] == roomId &&
+        folder['parentFolderId'] == parentFolderId);
+
+    // Ensure name is unique in this context
+    while (existingFolders.any((folder) => folder['name'] == uniqueName)) {
+      uniqueName = '$baseName ($counter)';
+      counter++;
+    }
+
     final newFolder = {
       'id': _uuid.v4(),
       'roomId': roomId,
       'parentFolderId': parentFolderId,
-      'name': name,
+      'name': uniqueName,
       'createdDate': DateTime.now().toIso8601String(),
       'color': color.value,
     };
@@ -56,11 +71,30 @@ class FolderProvider extends ChangeNotifier {
       (f) => f['id'] == folderId,
       orElse: () => {},
     );
-    if (folder.isNotEmpty) {
-      folder['name'] = newName;
-      _saveFolders();
-      notifyListeners();
+    if (folder.isEmpty) return;
+
+    String baseName = newName.trim();
+    String uniqueName = baseName;
+    int counter = 1;
+
+    final roomId = folder['roomId'];
+    final parentFolderId = folder['parentFolderId'];
+
+    // Filter folders in the same context, excluding the current one
+    final existingFolders = _folders.where((f) =>
+        f['roomId'] == roomId &&
+        f['parentFolderId'] == parentFolderId &&
+        f['id'] != folderId);
+
+    // Ensure name is unique
+    while (existingFolders.any((f) => f['name'] == uniqueName)) {
+      uniqueName = '$baseName ($counter)';
+      counter++;
     }
+
+    folder['name'] = uniqueName;
+    _saveFolders();
+    notifyListeners();
   }
 
   Future<void> deleteFolder(
