@@ -80,6 +80,54 @@ class PaperProvider extends ChangeNotifier {
     return paperId;
   }
 
+  String insertPaperAt(
+    String fileId,
+    int insertPosition, // Position to insert (page number - 1)
+    PaperTemplate template,
+    String? pdfPath,
+    double? width,
+    double? height,
+  ) {
+    // Get all papers for this file
+    final List<String> paperIds = getPaperIdsByFileId(fileId);
+
+    // Calculate the new page number (position + 1)
+    final int newPageNumber = insertPosition + 1;
+
+    // Create the new paper
+    final String newPaperId = _uuid.v4();
+    final Map<String, dynamic> newPaper = {
+      'fileId': fileId,
+      'id': newPaperId,
+      'templateId': template.id,
+      'drawingData': [],
+      'PageNumber': newPageNumber,
+      'pdfPath': pdfPath,
+      'width': width ?? 595.0,
+      'height': height ?? 842.0,
+    };
+
+    // Add the paper to the papers collection
+    _papers.add(newPaper);
+
+    // Update page numbers for all papers that come after the insertion point
+    for (int i = 0; i < _papers.length; i++) {
+      final paper = _papers[i];
+      if (paper['fileId'] == fileId &&
+          paper['id'] != newPaperId &&
+          (paper['PageNumber'] as int) >= newPageNumber) {
+        // Increment the page number for all papers after the insertion point
+        _papers[i]['PageNumber'] = (paper['PageNumber'] as int) + 1;
+      }
+    }
+
+    // Save changes
+    _savePapers();
+    notifyListeners();
+
+    return newPaperId;
+  }
+
   /// Update drawing data
   Future<void> updatePaperDrawingData(
     String paperId,
@@ -127,11 +175,14 @@ class PaperProvider extends ChangeNotifier {
   }
 
   List<String> getPaperIdsByFileId(String fileId) {
-    return _papers
-        .where((paper) => paper['fileId'] == fileId) // Filter papers by file_id
-        .map((paper) =>
-            paper['id'].toString()) // Map filtered papers to their id
-        .toList();
+    final filteredPapers =
+        _papers.where((paper) => paper['fileId'] == fileId).toList();
+
+    filteredPapers.sort(
+      (a, b) => (a['PageNumber'] as int).compareTo(b['PageNumber'] as int),
+    );
+
+    return filteredPapers.map((paper) => paper['id'].toString()).toList();
   }
 
   PaperTemplate getPaperTemplate(String templateId) {
@@ -139,8 +190,74 @@ class PaperProvider extends ChangeNotifier {
   }
 
   /// Delete paper
+  /// Delete paper and update page numbers of remaining papers in the same file
   Future<void> deletePaper(String paperId) async {
+    // Find the paper to delete
+    final paperToDelete = _papers.firstWhere(
+      (paper) => paper['id'] == paperId,
+      orElse: () => {},
+    );
+
+    if (paperToDelete.isEmpty) {
+      return; // Paper not found
+    }
+
+    // Get the fileId and page number of the paper to be deleted
+    final String fileId = paperToDelete['fileId'];
+    final int deletedPageNumber = paperToDelete['PageNumber'];
+
+    // Remove the paper
     _papers.removeWhere((paper) => paper['id'] == paperId);
+
+    // Update page numbers for all papers that come after the deleted one
+    for (int i = 0; i < _papers.length; i++) {
+      final paper = _papers[i];
+      if (paper['fileId'] == fileId &&
+          (paper['PageNumber'] as int) > deletedPageNumber) {
+        // Decrement the page number for all papers after the deleted one
+        _papers[i]['PageNumber'] = (paper['PageNumber'] as int) - 1;
+      }
+    }
+
+    _savePapers();
+    notifyListeners();
+  }
+
+  void swapPaperOrder(String fileId, int fromIndex, int toIndex) {
+    // Get all papers for this file
+    final paperIds = getPaperIdsByFileId(fileId);
+
+    if (fromIndex < 0 ||
+        fromIndex >= paperIds.length ||
+        toIndex < 0 ||
+        toIndex >= paperIds.length) {
+      return; // Invalid indices
+    }
+
+    // Get the papers by their IDs in the current order
+    final List<Map<String, dynamic>> filePapers = [];
+    for (final paperId in paperIds) {
+      final paper = getPaperById(paperId);
+      if (paper != null && paper.isNotEmpty) {
+        filePapers.add(paper);
+      }
+    }
+
+    // Move the paper in the list
+    final movedPaper = filePapers.removeAt(fromIndex);
+    filePapers.insert(toIndex, movedPaper);
+
+    // Update page numbers to match the new order
+    for (int i = 0; i < filePapers.length; i++) {
+      final paperId = filePapers[i]['id'];
+      final index = _papers.indexWhere((paper) => paper['id'] == paperId);
+      if (index != -1) {
+        _papers[index]['PageNumber'] =
+            i + 1; // Page numbers typically start from 1
+      }
+    }
+
+    // Save changes to storage
     _savePapers();
     notifyListeners();
   }

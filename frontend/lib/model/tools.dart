@@ -4,11 +4,16 @@ import 'package:frontend/items/drawingpoint_item.dart';
 /*-----------------Pencil Tool-----------------*/
 class DrawingPainter extends CustomPainter {
   final List<DrawingPoint> drawingPoints;
+  final double scaleFactor;
 
-  DrawingPainter({required this.drawingPoints});
+  DrawingPainter({required this.drawingPoints, this.scaleFactor = 1.0});
 
   @override
   void paint(Canvas canvas, Size size) {
+    // Apply scale factor to the canvas
+    canvas.save();
+    canvas.scale(scaleFactor);
+
     // Create a single layer for all drawing operations
     canvas.saveLayer(Rect.fromLTWH(0, 0, size.width, size.height), Paint());
 
@@ -43,7 +48,8 @@ class DrawingPainter extends CustomPainter {
       }
     }
 
-    canvas.restore();
+    canvas.restore(); // Restore the drawing layer
+    canvas.restore(); // Restore the scale transformation
   }
 
   @override

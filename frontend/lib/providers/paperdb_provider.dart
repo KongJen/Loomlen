@@ -29,7 +29,7 @@ class PaperDBProvider extends ChangeNotifier {
   }
 
   void updatePaper(Map<String, dynamic> paperData) {
-    print("paperData: $paperData");
+    // print("paperData: $paperData");
     final index = _papers.indexWhere((paper) => paper['id'] == paperData['id']);
     if (index != -1) {
       _papers[index] = paperData;
@@ -101,12 +101,14 @@ class PaperDBProvider extends ChangeNotifier {
   }
 
   List<String> getPaperIdsByFileId(String fileId) {
-    return _papers
-        .where(
-            (paper) => paper['file_id'] == fileId) // Filter papers by file_id
-        .map((paper) =>
-            paper['id'].toString()) // Map filtered papers to their id
-        .toList();
+    final filteredPapers =
+        _papers.where((paper) => paper['file_id'] == fileId).toList();
+
+    filteredPapers.sort(
+      (a, b) => (a['page_number'] as int).compareTo(b['page_number'] as int),
+    );
+
+    return filteredPapers.map((paper) => paper['id'].toString()).toList();
   }
 
   PaperTemplate getPaperTemplate(String templateId) {
@@ -116,4 +118,6 @@ class PaperDBProvider extends ChangeNotifier {
   void saveDrawingData(String pageId, List<DrawingPoint> points) {
     _apiService.updateDraw(pageId, points);
   }
+
+  void removePaper(String paperId) {}
 }

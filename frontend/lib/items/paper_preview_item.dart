@@ -32,7 +32,7 @@ class PaperPreviewItem extends StatelessWidget {
       );
     }
 
-    final firstPaper = papers.first;
+    final firstPaper = papers.firstWhere((p) => p['PageNumber'] == 1);
 
     double originalWidth = firstPaper['width'] as double? ?? 595.0;
     double originalHeight = firstPaper['height'] as double? ?? 842.0;

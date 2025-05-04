@@ -18,8 +18,9 @@ import 'package:frontend/model/tools.dart';
 import 'package:frontend/services/drawing_service.dart';
 import 'package:frontend/services/pdf_export_service.dart';
 import 'package:frontend/services/paper_service.dart';
-import 'package:frontend/widget/sharefile_dialog.dart';
+
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 enum DrawingMode { pencil, eraser }
 
@@ -349,8 +350,8 @@ class _PaperDBPageState extends State<PaperDBPage> {
                 tooltip: 'Pencil',
               ),
               IconButton(
-                icon: Icon(
-                  Icons.delete,
+                icon: FaIcon(
+                  FontAwesomeIcons.eraser,
                   color:
                       selectedMode == DrawingMode.eraser ? Colors.blue : null,
                 ),
@@ -387,17 +388,17 @@ class _PaperDBPageState extends State<PaperDBPage> {
                 onPressed: exportToPdf,
                 tooltip: 'Export to PDF',
               ),
-              IconButton(
-                icon: const Icon(Icons.share),
-                tooltip: 'Share this file',
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => ShareDialog(
-                        fileId: widget.fileId, fileName: widget.name),
-                  );
-                },
-              ),
+              // IconButton(
+              //   icon: const Icon(Icons.share),
+              //   tooltip: 'Share this file',
+              //   onPressed: () {
+              //     showDialog(
+              //       context: context,
+              //       builder: (context) => ShareDialog(
+              //           fileId: widget.fileId, fileName: widget.name),
+              //     );
+              //   },
+              // ),
             ],
     );
   }
