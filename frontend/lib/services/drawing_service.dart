@@ -147,7 +147,7 @@ class DrawingService {
     for (final pageId in pageIds) {
       final paperData = paperProvider.getPaperById(pageId);
       final List<DrawingPoint> pointsForPage = [];
-      print("paperdata: $paperData");
+      // print("papernumber: ${paperData?['PageNumber']}");
 
       if (paperData?['drawingData'] != null) {
         try {
