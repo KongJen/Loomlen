@@ -64,6 +64,30 @@ class PaperDBProvider extends ChangeNotifier {
     return paperId;
   }
 
+  Future<String> insertPaperAt(
+    String fileId,
+    String roomId,
+    int insertPosition,
+    PaperTemplate template,
+    String? image,
+    double? width,
+    double? height,
+  ) async {
+    final String paperId = _uuid.v4();
+    await _apiService.insertPaperAt(
+        id: paperId,
+        roomId: roomId,
+        fileId: fileId,
+        templateId: template.id,
+        insertPosition: insertPosition,
+        width: width ?? 595.0,
+        height: height ?? 842.0,
+        image: image ?? '');
+
+    notifyListeners();
+    return paperId;
+  }
+
   Map<String, dynamic> getPaperDBById(String paperId) {
     return _papers.firstWhere(
       (paper) => paper['id'] == paperId,
@@ -119,5 +143,11 @@ class PaperDBProvider extends ChangeNotifier {
     _apiService.updateDraw(pageId, points);
   }
 
-  void removePaper(String paperId) {}
+  void removePaper(String paperId) {
+    _apiService.deletePaper(paperId);
+  }
+
+  void swapPaperOrder(String fileId, int fromIndex, int toIndex) {
+    _apiService.swapPage(fileId, fromIndex + 1, toIndex + 1);
+  }
 }

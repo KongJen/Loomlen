@@ -11,6 +11,7 @@ import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:frontend/services/PDF_DB_export_service.dart';
 import 'package:frontend/services/drawingDb_service.dart';
+import 'package:frontend/widget/manage_paperDB_page.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
 import 'package:frontend/widget/tool_bar.dart';
@@ -388,6 +389,49 @@ class _PaperDBPageState extends State<PaperDBPage> {
                 onPressed: exportToPdf,
                 tooltip: 'Export to PDF',
               ),
+              IconButton(
+                icon: const Icon(Icons.book),
+                onPressed: () {
+                  showGeneralDialog(
+                    context: context,
+                    barrierDismissible: true,
+                    barrierLabel: 'Dismiss',
+                    pageBuilder: (context, animation, secondaryAnimation) {
+                      return Align(
+                        alignment: Alignment.centerRight,
+                        child: Material(
+                          color: Colors.white,
+                          elevation: 8,
+                          child: SizedBox(
+                            width: MediaQuery.of(context).size.width *
+                                0.35, // Adjust width as needed
+                            height: MediaQuery.of(context).size.height,
+                            child: ManagePaperDBPage(
+                              fileId: widget.fileId,
+                              paperDBProvider:
+                                  Provider.of<PaperDBProvider>(context),
+                              roomId: widget.roomId,
+                              drawingDBService: _drawingDBService,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    transitionDuration: const Duration(milliseconds: 300),
+                    transitionBuilder:
+                        (context, animation, secondaryAnimation, child) {
+                      return SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(1, 0), // From right
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      );
+                    },
+                  );
+                },
+                tooltip: 'Edit Paper',
+              )
               // IconButton(
               //   icon: const Icon(Icons.share),
               //   tooltip: 'Share this file',
