@@ -361,6 +361,57 @@ class ApiService {
     }
   }
 
+  Future<dynamic> insertPaperAt(
+      {required String id,
+      required String roomId,
+      required String fileId,
+      required String templateId,
+      required int insertPosition,
+      required double width,
+      required double height,
+      required String image}) async {
+    try {
+      // Convert the data to JSON strings
+      final Map<String, dynamic> payload = {
+        'paper_id': id,
+        'file_id': fileId,
+        'room_id': roomId,
+        'insert_position': insertPosition,
+        'template_id': templateId,
+        'width': width,
+        'height': height,
+        'image': image
+      };
+
+      final bodyf = jsonEncode(payload);
+
+      final response = await authenticatedRequest('$baseUrl/api/paper/insert',
+          method: 'POST',
+          body: bodyf,
+          headers: {'Content-Type': 'application/json'});
+
+      // Check for error status codes
+      if (response.statusCode >= 400) {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+
+      if (response.body.isEmpty) {
+        return {'message': 'Operation completed but server returned no data'};
+      }
+
+      // Try to parse the response
+      try {
+        final data = jsonDecode(response.body);
+        return data["paper_id"];
+      } catch (e) {
+        throw Exception('Invalid response format');
+      }
+    } catch (e) {
+      print('Error in addPaper: $e');
+      rethrow;
+    }
+  }
+
   Future<void> renameRoom(String roomId, String name) async {
     try {
       final response = await authenticatedRequest(
@@ -600,6 +651,25 @@ class ApiService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to update drawing: ${response.body}');
+    }
+  }
+
+  Future<Map<String, dynamic>> swapPage(
+      String fileId, int fromIndex, int toIndex) async {
+    final response = await authenticatedRequest(
+      '$baseUrl/api/paper/swap',
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(
+          {"file_id": fileId, "from_index": fromIndex, "to_index": toIndex}),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to swap page: ${response.body}');
     }
   }
 

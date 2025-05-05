@@ -141,40 +141,6 @@ class _PaperPageState extends State<PaperPage> {
     });
   }
 
-  void _addNewPaperPage() async {
-    // First, save current drawings to ensure nothing is lost
-    await _drawingService.saveDrawings(context.read<PaperProvider>());
-
-    // Add the new page
-    _paperService.addNewPage(
-      context.read<PaperProvider>(),
-      context.read<PaperDBProvider>(),
-      widget.fileId,
-      _drawingService.getTemplateForLastPage(),
-      widget.roomId,
-      false,
-    );
-
-    // Reload paper data AFTER saving and adding
-    final paperProvider = context.read<PaperProvider>();
-    _drawingService.loadFromProvider(paperProvider, widget.fileId);
-
-    setState(() {
-      _hasUnsavedChanges = true;
-    });
-
-    // Scroll to the bottom after UI updates
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-
   // void _reloadPaperData() {
   //   final paperProvider = context.read<PaperProvider>();
 
@@ -326,11 +292,6 @@ class _PaperPageState extends State<PaperPage> {
           icon: const Icon(Icons.save),
           onPressed: _saveDrawing,
           tooltip: 'Save Drawing',
-        ),
-        IconButton(
-          icon: const Icon(Icons.add),
-          onPressed: _addNewPaperPage,
-          tooltip: 'Add New Page',
         ),
         IconButton(
           icon: Icon(Icons.picture_as_pdf),
