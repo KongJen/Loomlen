@@ -61,11 +61,11 @@ func main() {
 	router.HandleFunc("/api/file/id", handlers.GetFileIDByOriginalID).Methods("GET")
 	router.HandleFunc("/api/file", handlers.DeleteFile).Methods("DELETE")
 	router.HandleFunc("/api/paper", handlers.AddPaper).Methods("POST")
-	router.HandleFunc("/api/paper/insert", handlers.InsertPaperAt).Methods("POST")
+	router.HandleFunc("/api/paper/insert", handlers.InsertPaperAt).Methods("POST") // addmore
 	router.HandleFunc("/api/paper", handlers.GetPaper).Methods("GET")
 	router.HandleFunc("/api/paper", handlers.DeletePaper).Methods("DELETE")
 	router.HandleFunc("/api/paper/drawing", handlers.AddDrawingPoint).Methods("PUT")
-	router.HandleFunc("/api/paper/swap", handlers.SwapPaper).Methods("PUT")
+	router.HandleFunc("/api/paper/swap", handlers.SwapPaper).Methods("PUT") // addmore
 
 	router.HandleFunc("/api/paper/import", handlers.UploadHandler).Methods("POST")
 
