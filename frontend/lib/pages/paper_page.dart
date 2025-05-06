@@ -8,6 +8,7 @@ import 'package:frontend/items/template_item.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:frontend/widget/manage_paper_page.dart';
+import 'package:frontend/widget/text_annotation_widget.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
 import 'package:frontend/widget/tool_bar.dart';
@@ -17,7 +18,7 @@ import 'package:frontend/services/pdf_export_service.dart';
 import 'package:frontend/services/paper_service.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
-enum DrawingMode { pencil, eraser }
+enum DrawingMode { pencil, eraser, text, read }
 
 class PaperPage extends StatefulWidget {
   final String name;
@@ -51,6 +52,12 @@ class _PaperPageState extends State<PaperPage> {
   bool _isDrawing = false;
   bool _hasUnsavedChanges = false;
 
+  double selectedFontSize = 16.0;
+  TextAlign selectedTextAlign = TextAlign.left;
+  bool selectedTextBold = false;
+  bool selectedTextItalic = false;
+  bool get isReadOnly => selectedMode == DrawingMode.read;
+
   final List<Color> availableColors = const [
     Colors.black,
     Colors.red,
@@ -75,6 +82,23 @@ class _PaperPageState extends State<PaperPage> {
       _loadDrawingData();
       _centerContent();
     });
+  }
+
+  void _updateSelectedTextAnnotation(String pageId) {
+    final selectedAnnotation = _drawingService.getSelectedTextAnnotation();
+
+    if (selectedAnnotation != null) {
+      _drawingService.updateTextAnnotation(
+        pageId,
+        selectedAnnotation.id,
+        fontSize: selectedFontSize,
+        isBold: selectedTextBold,
+        isItalic: selectedTextItalic,
+      );
+      setState(() {
+        _hasUnsavedChanges = true;
+      });
+    }
   }
 
   void _centerContent() {
@@ -199,6 +223,14 @@ class _PaperPageState extends State<PaperPage> {
     final papers = _paperService.getPapersForFile(
         paperProvider, paperDBProvider, widget.fileId, false);
 
+    // Load selected text properties from selected annotation
+    final selectedTextAnnotation = _drawingService.getSelectedTextAnnotation();
+    if (selectedTextAnnotation != null && selectedMode == DrawingMode.text) {
+      selectedFontSize = selectedTextAnnotation.fontSize;
+      selectedTextBold = selectedTextAnnotation.isBold;
+      selectedTextItalic = selectedTextAnnotation.isItalic;
+    }
+
     if (papers.isNotEmpty && _drawingService.getPageIds().isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _loadDrawingData();
@@ -210,6 +242,17 @@ class _PaperPageState extends State<PaperPage> {
       0.0,
       (height, paper) => height + (paper['height'] as double? ?? 842.0) + 16.0,
     );
+
+    MouseCursor cursor = SystemMouseCursors.basic;
+    if (selectedMode == DrawingMode.read) {
+      cursor = SystemMouseCursors.click;
+    } else if (selectedMode == DrawingMode.pencil) {
+      cursor = SystemMouseCursors.precise;
+    } else if (selectedMode == DrawingMode.eraser) {
+      cursor = SystemMouseCursors.precise;
+    } else if (selectedMode == DrawingMode.text) {
+      cursor = SystemMouseCursors.text;
+    }
 
     return Scaffold(
       appBar: buildAppBar(),
@@ -238,9 +281,142 @@ class _PaperPageState extends State<PaperPage> {
                 });
               },
             ),
+          // Add the text settings bar when in text mode
+          if (selectedMode == DrawingMode.text)
+            buildTextSettingsBar(
+              selectedColor: selectedColor,
+              availableColors: availableColors,
+              onColorChanged: (color) {
+                setState(() {
+                  selectedColor = color;
+
+                  // Update the selected annotation if there is one
+                  final selectedAnnotation =
+                      _drawingService.getSelectedTextAnnotation();
+                  if (selectedAnnotation != null) {
+                    final pageIds = _drawingService.getPageIds();
+                    for (final pageId in pageIds) {
+                      final annotations =
+                          _drawingService.getTextAnnotationsForPage(pageId);
+                      if (annotations.contains(selectedAnnotation)) {
+                        _drawingService.updateTextAnnotation(
+                          pageId,
+                          selectedAnnotation.id,
+                          color: color,
+                        );
+                        break;
+                      }
+                    }
+                  }
+                });
+              },
+              fontSize: selectedFontSize,
+              onFontSizeChanged: (value) {
+                setState(() {
+                  selectedFontSize = value;
+
+                  // Update the selected annotation if there is one
+                  final selectedAnnotation =
+                      _drawingService.getSelectedTextAnnotation();
+                  if (selectedAnnotation != null) {
+                    final pageIds = _drawingService.getPageIds();
+                    for (final pageId in pageIds) {
+                      final annotations =
+                          _drawingService.getTextAnnotationsForPage(pageId);
+                      if (annotations.contains(selectedAnnotation)) {
+                        _drawingService.updateTextAnnotation(
+                          pageId,
+                          selectedAnnotation.id,
+                          fontSize: value,
+                        );
+                        break;
+                      }
+                    }
+                  }
+                });
+              },
+              textAlign: selectedTextAlign,
+              onTextAlignChanged: (align) {
+                setState(() {
+                  selectedTextAlign = align;
+
+                  // Update the selected annotation if there is one
+                  final selectedAnnotation =
+                      _drawingService.getSelectedTextAnnotation();
+                  if (selectedAnnotation != null) {
+                    final pageIds = _drawingService.getPageIds();
+                    for (final pageId in pageIds) {
+                      final annotations =
+                          _drawingService.getTextAnnotationsForPage(pageId);
+                      if (annotations.contains(selectedAnnotation)) {
+                        _drawingService.updateTextAnnotation(
+                          pageId,
+                          selectedAnnotation.id,
+                        );
+                        break;
+                      }
+                    }
+                  }
+                });
+              },
+              isBold: selectedTextBold,
+              onBoldChanged: (value) {
+                setState(() {
+                  selectedTextBold = value;
+
+                  // Update the selected annotation if there is one
+                  final selectedAnnotation =
+                      _drawingService.getSelectedTextAnnotation();
+                  if (selectedAnnotation != null) {
+                    final pageIds = _drawingService.getPageIds();
+                    for (final pageId in pageIds) {
+                      final annotations =
+                          _drawingService.getTextAnnotationsForPage(pageId);
+                      if (annotations.contains(selectedAnnotation)) {
+                        _drawingService.updateTextAnnotation(
+                          pageId,
+                          selectedAnnotation.id,
+                          isBold: value,
+                        );
+                        break;
+                      }
+                    }
+                  }
+                });
+              },
+              isItalic: selectedTextItalic,
+              onItalicChanged: (value) {
+                setState(() {
+                  selectedTextItalic = value;
+
+                  // Update the selected annotation if there is one
+                  final selectedAnnotation =
+                      _drawingService.getSelectedTextAnnotation();
+                  if (selectedAnnotation != null) {
+                    final pageIds = _drawingService.getPageIds();
+                    for (final pageId in pageIds) {
+                      final annotations =
+                          _drawingService.getTextAnnotationsForPage(pageId);
+                      if (annotations.contains(selectedAnnotation)) {
+                        _drawingService.updateTextAnnotation(
+                          pageId,
+                          selectedAnnotation.id,
+                          isItalic: value,
+                        );
+                        break;
+                      }
+                    }
+                  }
+                });
+              },
+            ),
           Expanded(
+            child: MouseRegion(
+              cursor: cursor,
               child: buildPaperCanvas(
-                  totalHeight, papers, paperProvider, paperDBProvider)),
+                  totalHeight, papers, paperProvider, paperDBProvider),
+            ),
+          ),
         ],
       ),
     );
@@ -273,6 +449,24 @@ class _PaperPageState extends State<PaperPage> {
           ),
           onPressed: () => setState(() => selectedMode = DrawingMode.eraser),
           tooltip: 'Eraser',
+        ),
+        IconButton(
+          icon: Icon(
+            Icons.text_fields,
+            color: selectedMode == DrawingMode.text ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.text),
+          tooltip: 'Text',
+        ),
+        IconButton(
+          // Add pointing finger icon for reading mode
+          icon: FaIcon(
+            FontAwesomeIcons
+                .handPointer, // Or Icons.touch_app for Material icon
+            color: selectedMode == DrawingMode.read ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.read),
+          tooltip: 'Reading Mode',
         ),
         IconButton(
           icon: const Icon(Icons.undo),
@@ -356,51 +550,63 @@ class _PaperPageState extends State<PaperPage> {
 
   Widget buildPaperCanvas(double totalHeight, List<Map<String, dynamic>> papers,
       PaperProvider paperProvider, PaperDBProvider paperDBProvider) {
-    return Scrollbar(
-      controller: _scrollController,
-      thumbVisibility: true,
-      thickness: 8.0,
-      radius: const Radius.circular(4.0),
-      interactive: true,
-      child: SingleChildScrollView(
+    return GestureDetector(
+      // Detect taps on the background (outside paper)
+      onTapDown: (TapDownDetails details) {
+        // Deselect all text annotations when tapping outside the paper
+        for (String paperId
+            in paperProvider.getPaperIdsByFileId(widget.fileId)) {
+          if (!_isDrawing) _drawingService.deselectAllTextAnnotations(paperId);
+        }
+        setState(() {});
+      },
+      behavior: HitTestBehavior.translucent,
+      child: Scrollbar(
         controller: _scrollController,
-        physics: _isDrawing
-            ? const NeverScrollableScrollPhysics()
-            : const AlwaysScrollableScrollPhysics(),
-        child: SizedBox(
-          height: totalHeight,
-          child: InteractiveViewer(
-            transformationController: _controller,
-            minScale: 1.0,
-            maxScale: 2.0,
-            boundaryMargin: EdgeInsets.symmetric(
-              horizontal: max(
-                (MediaQuery.of(context).size.width -
-                        (papers.isNotEmpty
-                            ? papers.first['width'] as double? ?? 595.0
-                            : 595.0)) /
-                    2,
-                0,
-              ),
-              vertical: 20,
-            ),
-            constrained: false,
-            panEnabled: !_isDrawing,
-            scaleEnabled: !_isDrawing,
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width,
+        thumbVisibility: true,
+        thickness: 8.0,
+        radius: const Radius.circular(4.0),
+        interactive: true,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          physics: _isDrawing
+              ? const NeverScrollableScrollPhysics()
+              : const AlwaysScrollableScrollPhysics(),
+          child: SizedBox(
+            height: totalHeight,
+            child: InteractiveViewer(
+              transformationController: _controller,
+              minScale: 1.0,
+              maxScale: 2.0,
+              boundaryMargin: EdgeInsets.symmetric(
+                horizontal: max(
+                  (MediaQuery.of(context).size.width -
+                          (papers.isNotEmpty
+                              ? papers.first['width'] as double? ?? 595.0
+                              : 595.0)) /
+                      2,
+                  0,
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: paperProvider
-                      .getPaperIdsByFileId(widget.fileId)
-                      .map(
-                        (paperId) => _buildPaperPage(
-                            paperId, paperProvider, paperDBProvider),
-                      )
-                      .toList(),
+                vertical: 20,
+              ),
+              constrained: false,
+              panEnabled: !_isDrawing,
+              scaleEnabled: !_isDrawing,
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.of(context).size.width,
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: paperProvider
+                        .getPaperIdsByFileId(widget.fileId)
+                        .map(
+                          (paperId) => _buildPaperPage(
+                              paperId, paperProvider, paperDBProvider),
+                        )
+                        .toList(),
+                  ),
                 ),
               ),
             ),
@@ -458,31 +664,129 @@ class _PaperPageState extends State<PaperPage> {
                   return const Center(child: Text('Failed to load image'));
                 },
               ),
-            // Drawing interaction surface
-            Listener(
-              onPointerDown: (details) => _handlePointerDown(
-                details,
-                paperId,
-                paperWidth,
-                paperHeight,
-              ),
-              onPointerMove: (details) => _handlePointerMove(
-                details,
-                paperId,
-                paperWidth,
-                paperHeight,
-              ),
-              onPointerCancel: (_) => _handlePointerCancel(),
-              onPointerUp: (_) => _handlePointerUp(paperId),
-              child: CustomPaint(
-                painter: DrawingPainter(
-                  drawingPoints: _drawingService.getDrawingPointsForPage(
-                    paperId,
+
+            isReadOnly
+                ? CustomPaint(
+                    painter: DrawingPainter(
+                      drawingPoints: _drawingService.getDrawingPointsForPage(
+                        paperId,
+                      ),
+                    ),
+                    size: Size(paperWidth, paperHeight),
+                  )
+                : Listener(
+                    onPointerDown: (details) => _handlePointerDown(
+                      details,
+                      paperId,
+                      paperWidth,
+                      paperHeight,
+                    ),
+                    onPointerMove: (details) => _handlePointerMove(
+                      details,
+                      paperId,
+                      paperWidth,
+                      paperHeight,
+                    ),
+                    onPointerCancel: (_) => _handlePointerCancel(),
+                    onPointerUp: (_) => _handlePointerUp(paperId),
+                    child: CustomPaint(
+                      painter: DrawingPainter(
+                        drawingPoints: _drawingService.getDrawingPointsForPage(
+                          paperId,
+                        ),
+                      ),
+                      size: Size(paperWidth, paperHeight),
+                    ),
                   ),
-                ),
-                size: Size(paperWidth, paperHeight),
-              ),
-            ),
+            ...(_drawingService
+                .getTextAnnotationsForPage(paperId)
+                .map((annotation) {
+              return TextAnnotationWidget(
+                annotation: annotation,
+                onTextChanged: (text) {
+                  if (selectedMode == DrawingMode.text) {
+                    setState(() {
+                      _isDrawing = true;
+                      _drawingService.updateTextAnnotation(
+                        paperId,
+                        annotation.id,
+                        text: text,
+                      );
+                      _hasUnsavedChanges = true;
+                    });
+                  }
+                },
+                onPositionChanged: (position) {
+                  if (selectedMode == DrawingMode.text) {
+                    setState(() {
+                      _isDrawing = true;
+                      _drawingService.updateTextAnnotation(
+                        paperId,
+                        annotation.id,
+                        position: position,
+                      );
+                      _hasUnsavedChanges = true;
+                    });
+                  }
+                },
+                onStartEditing: () {
+                  if (selectedMode == DrawingMode.text) {
+                    _isDrawing = true;
+                    setState(() {
+                      _drawingService.updateTextAnnotation(
+                        paperId,
+                        annotation.id,
+                        isEditing: true,
+                        isSelected: false,
+                        color: selectedColor,
+                        fontSize: selectedFontSize,
+                        isBold: selectedTextBold,
+                        isItalic: selectedTextItalic,
+                      );
+                    });
+                  }
+                },
+                onDelete: () {
+                  if (selectedMode == DrawingMode.text) {
+                    setState(() {
+                      _isDrawing = false;
+                      _drawingService.deleteTextAnnotation(
+                          paperId, annotation.id);
+                      _hasUnsavedChanges = true;
+                    });
+                  }
+                },
+                onEditingComplete: () {
+                  if (selectedMode == DrawingMode.text) {
+                    setState(() {
+                      _isDrawing = false;
+                      _drawingService.updateTextAnnotation(
+                        paperId,
+                        annotation.id,
+                        isEditing: false,
+                        isSelected: false,
+                        color: selectedColor,
+                        fontSize: selectedFontSize,
+                        isBold: selectedTextBold,
+                        isItalic: selectedTextItalic,
+                      );
+                      _hasUnsavedChanges = true;
+                    });
+                  }
+                },
+                onTap: () {
+                  if (selectedMode == DrawingMode.text) {
+                    setState(() {
+                      _drawingService.updateTextAnnotation(
+                        paperId,
+                        annotation.id,
+                        isSelected: true,
+                      );
+                    });
+                  }
+                },
+              );
+            }).toList()),
           ],
         ),
       ),
@@ -505,14 +809,70 @@ class _PaperPageState extends State<PaperPage> {
     if (!_isWithinCanvas(localPosition, paperWidth, paperHeight)) return;
 
     _drawingDelayTimer?.cancel();
-
     if (_activePointerCount == 1) {
-      // _drawingDelayTimer = Timer(_drawingDelayDuration, () {
-      // Only proceed if we still have exactly one finger down
+      if (selectedMode == DrawingMode.text) {
+        // Check if we clicked on an existing text annotation
+        bool clickedOnText = false;
+        final textAnnotations =
+            _drawingService.getTextAnnotationsForPage(paperId);
+
+        _drawingService.deselectAllTextAnnotations(paperId);
+
+        for (final annotation in textAnnotations) {
+          // Simple hit test - could be improved with more precise text bounds
+          final textWidth =
+              _calculateTextWidth(annotation.text, annotation.fontSize);
+          final textHeight =
+              annotation.fontSize * 1.5; // Approximate height based on fontSize
+
+          final rect = Rect.fromLTWH(annotation.position.dx,
+              annotation.position.dy, textWidth, textHeight);
+
+          if (rect.contains(localPosition)) {
+            clickedOnText = true;
+            setState(() {
+              _drawingService.updateTextAnnotation(
+                paperId,
+                annotation.id,
+                isSelected: true,
+              );
+              selectedColor = annotation.color;
+              selectedFontSize = annotation.fontSize;
+              selectedTextBold = annotation.isBold;
+              selectedTextItalic = annotation.isItalic;
+            });
+            break;
+          }
+        }
+
+        if (!clickedOnText) {
+          // Create a new text annotation at this position with current settings
+          setState(() {
+            _isDrawing = true;
+            _drawingService.deselectAllTextAnnotations(paperId);
+            _drawingService.addTextAnnotation(
+              paperId,
+              localPosition,
+              selectedColor,
+              fontSize: selectedFontSize,
+              textAlign: selectedTextAlign,
+              isBold: selectedTextBold,
+              isItalic: selectedTextItalic,
+            );
+            _hasUnsavedChanges = true;
+          });
+        }
+        return;
+      }
+
+      // Handle pencil and eraser modes as before
       if (_activePointerCount == 1 && mounted) {
         setState(() {
           _isDrawing = true;
           _hasUnsavedChanges = true;
+
+          // Deselect all text annotations when drawing
+          _drawingService.deselectAllTextAnnotations(paperId);
         });
 
         if (selectedMode == DrawingMode.pencil) {
@@ -612,4 +972,14 @@ class _PaperPageState extends State<PaperPage> {
 
 extension StringExtension on String {
   String capitalize() => '${this[0].toUpperCase()}${substring(1)}';
+}
+
+double _calculateTextWidth(String text, double fontSize) {
+  if (text.isEmpty) return 0;
+
+  // Basic calculation based on average character width
+  // This is an approximation - for more accuracy you would need TextPainter
+  final avgCharWidth =
+      fontSize * 0.6; // Approximate width of an average character
+  return text.length * avgCharWidth;
 }
