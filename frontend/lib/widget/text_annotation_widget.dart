@@ -11,6 +11,10 @@ class TextAnnotationWidget extends StatefulWidget {
   final VoidCallback onDelete;
   final VoidCallback onEditingComplete;
   final VoidCallback onTap;
+  final Color? onColorChanged;
+  final double? fontSize;
+  final bool? isBold;
+  final bool? isItalic;
 
   const TextAnnotationWidget({
     super.key,
@@ -21,6 +25,10 @@ class TextAnnotationWidget extends StatefulWidget {
     required this.onDelete,
     required this.onEditingComplete,
     required this.onTap,
+    this.onColorChanged,
+    this.fontSize,
+    this.isBold,
+    this.isItalic,
   });
 
   @override
@@ -121,14 +129,26 @@ class _TextAnnotationWidgetState extends State<TextAnnotationWidget> {
                         controller: _textController,
                         focusNode: _focusNode,
                         style: TextStyle(
-                          color: widget.annotation.color,
-                          fontSize: widget.annotation.fontSize,
-                          fontWeight: widget.annotation.isBold
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          fontStyle: widget.annotation.isItalic
-                              ? FontStyle.italic
-                              : FontStyle.normal,
+                          color: widget.onColorChanged == null
+                              ? widget.annotation.color
+                              : widget.onColorChanged,
+                          fontSize: widget.fontSize == null
+                              ? widget.annotation.fontSize
+                              : widget.fontSize,
+                          fontWeight: widget.isBold == null
+                              ? widget.annotation.isBold
+                                  ? FontWeight.bold
+                                  : FontWeight.normal
+                              : widget.isBold == true
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                          fontStyle: widget.isItalic == null
+                              ? widget.annotation.isItalic
+                                  ? FontStyle.italic
+                                  : FontStyle.normal
+                              : widget.isItalic == true
+                                  ? FontStyle.italic
+                                  : FontStyle.normal,
                         ),
                         decoration: const InputDecoration(
                           contentPadding: EdgeInsets.all(4.0),

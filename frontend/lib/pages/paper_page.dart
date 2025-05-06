@@ -860,22 +860,20 @@ class _PaperPageState extends State<PaperPage> {
                   }
                 },
                 onEditingComplete: () {
-                  if (selectedMode == DrawingMode.text) {
-                    setState(() {
-                      _isDrawing = false;
-                      _drawingService.updateTextAnnotation(
-                        paperId,
-                        annotation.id,
-                        isEditing: false,
-                        isSelected: false,
-                        color: selectedColor,
-                        fontSize: selectedFontSize,
-                        isBold: selectedTextBold,
-                        isItalic: selectedTextItalic,
-                      );
-                      _hasUnsavedChanges = true;
-                    });
-                  }
+                  setState(() {
+                    _isDrawing = false;
+                    _drawingService.updateTextAnnotation(
+                      paperId,
+                      annotation.id,
+                      isEditing: false,
+                      isSelected: false,
+                      color: selectedColor,
+                      fontSize: selectedFontSize,
+                      isBold: selectedTextBold,
+                      isItalic: selectedTextItalic,
+                    );
+                    _hasUnsavedChanges = true;
+                  });
                 },
                 onTap: () {
                   if (selectedMode == DrawingMode.text) {
@@ -884,10 +882,15 @@ class _PaperPageState extends State<PaperPage> {
                         paperId,
                         annotation.id,
                         isSelected: true,
+                        color: annotation.color,
                       );
                     });
                   }
                 },
+                onColorChanged: selectedColor,
+                fontSize: selectedFontSize,
+                isBold: selectedTextBold,
+                isItalic: selectedTextItalic,
               );
             }).toList()),
           ],
@@ -966,11 +969,15 @@ class _PaperPageState extends State<PaperPage> {
                 paperId,
                 annotation.id,
                 isSelected: true,
+                color: annotation.color,
+                fontSize: annotation.fontSize,
+                isBold: annotation.isBold,
+                isItalic: annotation.isItalic,
               );
-              selectedColor = annotation.color;
-              selectedFontSize = annotation.fontSize;
-              selectedTextBold = annotation.isBold;
-              selectedTextItalic = annotation.isItalic;
+              // selectedColor = annotation.color;
+              // selectedFontSize = annotation.fontSize;
+              // selectedTextBold = annotation.isBold;
+              // selectedTextItalic = annotation.isItalic;
             });
             break;
           }
@@ -985,10 +992,9 @@ class _PaperPageState extends State<PaperPage> {
               paperId,
               localPosition,
               selectedColor,
-              fontSize: selectedFontSize,
-              textAlign: selectedTextAlign,
-              isBold: selectedTextBold,
-              isItalic: selectedTextItalic,
+              selectedFontSize,
+              selectedTextBold,
+              selectedTextItalic,
             );
             _hasUnsavedChanges = true;
           });

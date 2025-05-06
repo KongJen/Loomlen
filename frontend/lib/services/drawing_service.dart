@@ -560,14 +560,15 @@ class DrawingService {
   String? addTextAnnotation(
     String pageId,
     Offset position,
-    Color color, {
-    double fontSize = 16.0,
-    TextAlign textAlign = TextAlign.left,
-    bool isBold = false,
-    bool isItalic = false,
-  }) {
+    Color color,
+    double fontSize,
+    bool isBold,
+    bool isItalic,
+  ) {
     // We'll save state only when the annotation is completed (not empty text)
     // So we don't save state here, but when the user finishes editing
+    _saveStateForUndo();
+    _redoStack.clear();
 
     final String annotationId =
         DateTime.now().microsecondsSinceEpoch.toString();
