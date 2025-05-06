@@ -141,6 +141,18 @@ class PaperProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> updatePaperRecognizedTexts(
+    String paperId,
+    List<Map<String, dynamic>> recognizedTexts,
+  ) async {
+    final index = _papers.indexWhere((paper) => paper['id'] == paperId);
+    if (index != -1) {
+      _papers[index]['recognizedTexts'] = recognizedTexts;
+      _savePapers();
+      notifyListeners();
+    }
+  }
+
   /// Get paper by ID
   Map<String, dynamic>? getPaperById(String paperId) {
     return _papers.firstWhere(
@@ -172,6 +184,19 @@ class PaperProvider extends ChangeNotifier {
     }
 
     return drawingPoints;
+  }
+
+  List<Map<String, dynamic>> getRecognizedTextsForPage(String pageId) {
+    final paperData = _papers.firstWhere(
+      (paper) => paper['id'] == pageId,
+      orElse: () => {},
+    );
+
+    if (paperData.isEmpty || paperData['recognizedTexts'] == null) {
+      return [];
+    }
+
+    return List<Map<String, dynamic>>.from(paperData['recognizedTexts']);
   }
 
   List<String> getPaperIdsByFileId(String fileId) {
