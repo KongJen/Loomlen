@@ -16,8 +16,11 @@ import 'package:frontend/services/drawing_service.dart';
 import 'package:frontend/services/pdf_export_service.dart';
 import 'package:frontend/services/paper_service.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:google_mlkit_digital_ink_recognition/google_mlkit_digital_ink_recognition.dart'
+    as ml_kit;
+import 'package:frontend/services/textRecognition.dart';
 
-enum DrawingMode { pencil, eraser }
+enum DrawingMode { pencil, eraser, handwriting }
 
 class PaperPage extends StatefulWidget {
   final String name;
@@ -59,9 +62,23 @@ class _PaperPageState extends State<PaperPage> {
     Colors.yellow,
   ];
 
+  // Digital Ink Recognition related variables
+  bool _isHandwritingMode = false;
+  Map<String, List<TextRecognitionResult>> _recognizedTexts = {};
+  final ml_kit.DigitalInkRecognizer _digitalInkRecognizer =
+      ml_kit.DigitalInkRecognizer(languageCode: 'en');
+  final ml_kit.DigitalInkRecognizerModelManager _modelManager =
+      ml_kit.DigitalInkRecognizerModelManager();
+  final ml_kit.Ink _ink = ml_kit.Ink();
+  List<ml_kit.StrokePoint> _strokePoints = [];
+  String recognizedText = '';
+  bool _modelDownloaded = false;
+  var _language = 'en';
+
   @override
   void initState() {
     super.initState();
+    _downloadModel();
     _drawingService = DrawingService();
     _paperService = PaperService();
     _pdfExportService = PDFExportService();
@@ -75,6 +92,77 @@ class _PaperPageState extends State<PaperPage> {
       _loadDrawingData();
       _centerContent();
     });
+  }
+
+  Future<void> _downloadModel() async {
+    try {
+      final bool response = await _modelManager.downloadModel(_language);
+      setState(() {
+        _modelDownloaded = response;
+      });
+      if (response) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Model downloaded successfully')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error downloading model: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _recognizeText() async {
+    if (!_modelDownloaded) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please wait for the model to download'),
+        ),
+      );
+      return;
+    }
+
+    if (_ink.strokes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please write something first'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      setState(() {
+        recognizedText = 'Recognizing...';
+      });
+
+      final List<ml_kit.RecognitionCandidate> candidates =
+          await _digitalInkRecognizer.recognize(_ink);
+
+      if (candidates.isNotEmpty) {
+        setState(() {
+          recognizedText = candidates.first.text;
+          print('Recognized text: $recognizedText'); // For debugging
+        });
+      } else {
+        setState(() {
+          recognizedText = 'No text recognized';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        recognizedText = '';
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error recognizing text: $e')),
+        );
+      }
+    }
   }
 
   void _centerContent() {
@@ -293,6 +381,38 @@ class _PaperPageState extends State<PaperPage> {
           onPressed: _saveDrawing,
           tooltip: 'Save Drawing',
         ),
+        _isHandwritingMode
+            ? IconButton(
+                icon: const Icon(
+                  Icons.check,
+                  color: Colors.red, // Use red to indicate "confirm" action
+                ),
+                onPressed: () {
+                  // Process the handwriting when confirm button is clicked
+                  _processHandwritingConfirm();
+
+                  // Toggle handwriting mode off
+                  setState(() {
+                    _isHandwritingMode = false;
+                    selectedMode =
+                        DrawingMode.pencil; // Switch back to pencil mode
+                  });
+                },
+                tooltip: 'Confirm Handwriting',
+              )
+            : IconButton(
+                icon: FaIcon(FontAwesomeIcons.signature),
+                onPressed: () {
+                  setState(() {
+                    _isHandwritingMode = true;
+                    selectedMode = DrawingMode.handwriting;
+
+                    // Clear previous handwriting data when entering handwriting mode
+                    _clearHandwritingData();
+                  });
+                },
+                tooltip: 'Handwriting Mode',
+              ),
         IconButton(
           icon: Icon(Icons.picture_as_pdf),
           onPressed: exportToPdf,
@@ -483,10 +603,39 @@ class _PaperPageState extends State<PaperPage> {
                 size: Size(paperWidth, paperHeight),
               ),
             ),
+            ..._buildRecognizedTexts(paperId),
           ],
         ),
       ),
     );
+  }
+
+  List<Widget> _buildRecognizedTexts(String paperId) {
+    final texts = _drawingService.getRecognizedTextsForPage(paperId);
+    if (texts.isEmpty) {
+      return [];
+    }
+
+    return texts.map((result) {
+      return Positioned(
+        left:
+            result.position.dx - (result.text.length * result.fontSize * 0.25),
+        top: result.position.dy - (result.fontSize * 0.5),
+        child: Text(
+          result.text,
+          style: TextStyle(
+            color: result.color,
+            fontSize: result.fontSize,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  void _clearHandwritingData() {
+    _ink.strokes.clear();
+    _strokePoints = [];
   }
 
   int _activePointerCount = 0;
@@ -526,6 +675,29 @@ class _PaperPageState extends State<PaperPage> {
         } else if (selectedMode == DrawingMode.eraser) {
           _drawingService.startErasing(paperId, localPosition);
           setState(() {});
+        } else if (selectedMode == DrawingMode.handwriting &&
+            _isHandwritingMode) {
+          // Start collecting stroke points for handwriting recognition
+          _drawingService.startDrawing(
+            paperId,
+            localPosition,
+            selectedColor,
+            selectedWidth,
+            isHandwriting: true, // Mark this stroke as handwriting
+          );
+
+          // Prepare for new stroke points
+          _strokePoints = [];
+
+          // Add the first point to our ML Kit stroke
+          final ml_kit.StrokePoint strokePoint = ml_kit.StrokePoint(
+            x: localPosition.dx,
+            y: localPosition.dy,
+            t: DateTime.now().millisecondsSinceEpoch,
+          );
+          _strokePoints.add(strokePoint);
+
+          setState(() {});
         }
       }
     } else {
@@ -559,6 +731,22 @@ class _PaperPageState extends State<PaperPage> {
         setState(() {
           _hasUnsavedChanges = true;
         });
+      } else if (selectedMode == DrawingMode.handwriting &&
+          _isHandwritingMode) {
+        // Continue drawing and collecting stroke points
+        _drawingService.continueDrawing(paperId, localPosition);
+
+        // Add point to our ML Kit stroke
+        final ml_kit.StrokePoint strokePoint = ml_kit.StrokePoint(
+          x: localPosition.dx,
+          y: localPosition.dy,
+          t: DateTime.now().millisecondsSinceEpoch,
+        );
+        _strokePoints.add(strokePoint);
+
+        setState(() {
+          _hasUnsavedChanges = true;
+        });
       }
     }
   }
@@ -578,6 +766,18 @@ class _PaperPageState extends State<PaperPage> {
         _drawingService.endDrawing();
       } else if (selectedMode == DrawingMode.eraser) {
         _drawingService.endErasing();
+      } else if (selectedMode == DrawingMode.handwriting) {
+        _drawingService.endDrawing();
+
+        // If we have collected points and in handwriting mode, add them to the ink
+        // but don't process them immediately
+        if (_strokePoints.isNotEmpty) {
+          // Add the stroke to the ink
+          _ink.strokes.add(ml_kit.Stroke()..points = _strokePoints);
+
+          // Clear stroke points for the next stroke
+          _strokePoints = [];
+        }
       }
     }
   }
@@ -594,6 +794,135 @@ class _PaperPageState extends State<PaperPage> {
     });
   }
 
+  Future<void> _processHandwritingConfirm() async {
+    if (!_modelDownloaded) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please wait for the model to download'),
+        ),
+      );
+      return;
+    }
+
+    if (_ink.strokes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please write something first'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      setState(() {
+        recognizedText = 'Recognizing...';
+      });
+
+      final List<ml_kit.RecognitionCandidate> candidates =
+          await _digitalInkRecognizer.recognize(_ink);
+
+      if (candidates.isNotEmpty) {
+        // Get the most likely text
+        final recognizedText = candidates.first.text;
+
+        // Calculate the position and size for the text
+        double minX = double.infinity;
+        double maxX = -double.infinity;
+        double minY = double.infinity;
+        double maxY = -double.infinity;
+
+        for (final stroke in _ink.strokes) {
+          for (final point in stroke.points) {
+            minX = min(minX, point.x);
+            maxX = max(maxX, point.x);
+            minY = min(minY, point.y);
+            maxY = max(maxY, point.y);
+          }
+        }
+
+        // Calculate the center position
+        final position = Offset((minX + maxX) / 2, (minY + maxY) / 2);
+
+        // Calculate the height of the handwriting
+        final handwritingHeight = maxY - minY;
+        final handwritingWidth = maxX - minX;
+
+        // Estimate a reasonable font size based on handwriting height
+        // The multiplier can be adjusted based on testing
+        double calculatedFontSize = handwritingHeight * 0.7;
+
+        // Apply reasonable bounds to the font size
+        calculatedFontSize = max(12.0, min(calculatedFontSize, 48.0));
+
+        // If the handwriting is very wide compared to height, adjust font size
+        final aspectRatio = handwritingWidth / handwritingHeight;
+        if (aspectRatio > 8) {
+          // If writing is very wide and short, it's likely small text
+          calculatedFontSize = max(12.0, calculatedFontSize * 0.7);
+        } else if (aspectRatio < 1) {
+          // If writing is taller than wide, adjust accordingly
+          calculatedFontSize = max(12.0, calculatedFontSize * 0.9);
+        }
+
+        final String paperId = _drawingService.getCurrentPageId();
+
+        // Store the recognized text with calculated font size
+        final newText = TextRecognitionResult(
+          text: recognizedText,
+          position: position,
+          color: selectedColor,
+          fontSize: calculatedFontSize,
+        );
+        _drawingService.addRecognizedText(paperId, newText);
+
+        // Clear the ink for the next recognition
+        _ink.strokes.clear();
+
+        // Remove all handwriting strokes
+        _drawingService.removeHandwritingStrokes(paperId);
+
+        setState(() {
+          // Update UI to show recognized text
+        });
+
+        // Show a toast notification
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Recognized text: $recognizedText')),
+        );
+
+        setState(() {
+          _hasUnsavedChanges = true;
+        });
+      } else {
+        setState(() {
+          recognizedText = 'No text recognized';
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No text recognized')),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        recognizedText = '';
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error recognizing text: $e')),
+        );
+      }
+    }
+  }
+
+  void removeLastStroke(String paperId) {
+    final pagePoints = _drawingService.getDrawingPointsForPage(paperId);
+    if (pagePoints.isNotEmpty) {
+      final lastStrokeId = pagePoints.last.id;
+      _drawingService
+          .getDrawingPointsForPage(paperId)
+          .removeWhere((point) => point.id == lastStrokeId);
+    }
+  }
+
   bool _isWithinCanvas(Offset position, double width, double height) {
     return position.dx >= 0 &&
         position.dx <= width &&
@@ -606,6 +935,8 @@ class _PaperPageState extends State<PaperPage> {
     _controller.dispose();
     _scrollController.dispose();
     if (_hasUnsavedChanges) _saveDrawing();
+    _digitalInkRecognizer.close();
+    _clearHandwritingData();
     super.dispose();
   }
 }
