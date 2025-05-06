@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/providers/file_provider.dart';
-import 'package:frontend/providers/filedb_provider.dart';
 import 'package:frontend/providers/folder_provider.dart';
 import 'package:frontend/providers/folderdb_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
-import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:provider/provider.dart';
 import 'base_item.dart';
 import 'item_behaviors.dart';
@@ -102,12 +100,36 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
   }
 
   void _showOptionsOverlay(BuildContext context) async {
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    final Offset position = renderBox.localToGlobal(Offset.zero);
+    final Size screenSize = MediaQuery.of(context).size;
+
+    // Get the icon's position
+    final iconButtonRenderBox = context.findRenderObject() as RenderBox;
+    final iconPosition = iconButtonRenderBox.localToGlobal(Offset.zero);
+
+    // Set overlay dimensions
+    const double overlayWidth = 350;
+    const double overlayHeight =
+        100; // Increased slightly to ensure all options fit
+    const double margin = 10;
+
+    // Calculate the position to display the overlay
+    // Start with the position of the clicked icon
+    double adjustedDx = iconPosition.dx;
+    double adjustedDy = iconPosition.dy;
+
+    // Adjust horizontal position if needed to stay on screen
+    if (adjustedDx + overlayWidth > screenSize.width) {
+      adjustedDx = screenSize.width - overlayWidth - margin;
+    }
+
+    // Adjust vertical position if needed to stay on screen
+    if (adjustedDy + overlayHeight > screenSize.height) {
+      adjustedDy = screenSize.height - overlayHeight - margin;
+    }
 
     await ItemDialogService.showOptionsOverlay(
       context: context,
-      position: position,
+      position: Offset(adjustedDx, adjustedDy),
       itemName: widget.name,
       onRename: () => _showRenameDialog(context),
       onDelete: () => _showDeleteConfirmationDialog(context),

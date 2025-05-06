@@ -1,17 +1,11 @@
 // ignore_for_file: non_constant_identifier_names, avoid_types_as_parameter_names
 
 import 'package:flutter/material.dart';
-import 'package:frontend/api/apiService.dart';
-import 'package:frontend/providers/file_provider.dart';
-import 'package:frontend/providers/folder_provider.dart';
-import 'package:frontend/providers/paper_provider.dart';
-import 'package:frontend/providers/room_provider.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:frontend/services/roomDB_dialog_service.dart';
 import 'package:provider/provider.dart';
 import 'base_item.dart';
 import 'item_behaviors.dart';
-import '../services/item_dialog_service.dart';
 
 class RoomDBItem extends BaseItem {
   final Color color;
@@ -128,12 +122,36 @@ class _RoomDBItemState extends State<RoomDBItem>
   }
 
   void _showOptionsOverlay(BuildContext context) async {
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    final Offset position = renderBox.localToGlobal(Offset.zero);
+    final Size screenSize = MediaQuery.of(context).size;
+
+    // Get the icon's position
+    final iconButtonRenderBox = context.findRenderObject() as RenderBox;
+    final iconPosition = iconButtonRenderBox.localToGlobal(Offset.zero);
+
+    // Set overlay dimensions
+    const double overlayWidth = 350;
+    const double overlayHeight =
+        100; // Increased slightly to ensure all options fit
+    const double margin = 10;
+
+    // Calculate the position to display the overlay
+    // Start with the position of the clicked icon
+    double adjustedDx = iconPosition.dx;
+    double adjustedDy = iconPosition.dy;
+
+    // Adjust horizontal position if needed to stay on screen
+    if (adjustedDx + overlayWidth > screenSize.width) {
+      adjustedDx = screenSize.width - overlayWidth - margin;
+    }
+
+    // Adjust vertical position if needed to stay on screen
+    if (adjustedDy + overlayHeight > screenSize.height) {
+      adjustedDy = screenSize.height - overlayHeight - margin;
+    }
 
     await ItemRoomDialogService.showRoomOptionsOverlay(
       context: context,
-      position: position,
+      position: Offset(adjustedDx, adjustedDy),
       itemName: widget.name,
       onRename: () => _showRenameDialog(context),
       onDelete: () => _showDeleteConfirmationDialog(context),
