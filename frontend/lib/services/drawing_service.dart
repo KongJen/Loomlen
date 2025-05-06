@@ -6,6 +6,7 @@ import 'package:frontend/items/drawingpoint_item.dart';
 import 'package:frontend/items/template_item.dart';
 import 'package:frontend/model/tools.dart';
 import 'package:frontend/providers/paper_provider.dart';
+import 'package:frontend/services/textRecognition.dart';
 
 /// Service responsible for managing drawing operations and state
 class DrawingService {
@@ -15,6 +16,9 @@ class DrawingService {
   // Combined state for undo/redo operations
   final List<_DrawingState> _undoStack = [];
   final List<_DrawingState> _redoStack = [];
+  final Map<String, List<TextRecognitionResult>> _pageRecognizedTexts = {};
+  final Set<int> _handwritingStrokeIds = {};
+  String? _currentDrawingPageId;
 
   List<String> _pageIds = [];
   Map<String, PaperTemplate> _paperTemplates = {};
@@ -36,12 +40,20 @@ class DrawingService {
     );
   }
 
+  String getCurrentPageId() {
+    return _currentDrawingPageId ?? '';
+  }
+
   // Public getters
   List<String> getPageIds() => _pageIds;
   Map<String, PaperTemplate> getPaperTemplates() => _paperTemplates;
   Map<String, List<DrawingPoint>> getPageDrawingPoints() => _pageDrawingPoints;
   List<DrawingPoint> getDrawingPointsForPage(String pageId) =>
       _pageDrawingPoints[pageId] ?? [];
+  Map<String, List<TextRecognitionResult>> getPageRecognizedTexts() =>
+      _pageRecognizedTexts;
+  List<TextRecognitionResult> getRecognizedTextsForPage(String pageId) =>
+      _pageRecognizedTexts[pageId] ?? [];
   double getEraserWidth() => _eraserWidth;
   EraserMode getEraserMode() => _eraserMode;
   bool canUndo() => _undoStack.isNotEmpty;
@@ -103,9 +115,35 @@ class DrawingService {
     _pageIds = papers.map((paper) => paper['id'].toString()).toList();
     _loadTemplatesForPapers(_pageIds, provider);
     loadDrawingPoints(_pageIds, provider);
+    loadRecognizedTexts(_pageIds, provider); // Add this line
 
     if (onDataLoaded != null) {
       onDataLoaded();
+    }
+  }
+
+  void loadRecognizedTexts(List<String> pageIds, PaperProvider paperProvider) {
+    _pageRecognizedTexts.clear();
+
+    for (final pageId in pageIds) {
+      final paperData = paperProvider.getPaperById(pageId);
+      final List<TextRecognitionResult> textsForPage = [];
+
+      if (paperData?['recognizedTexts'] != null) {
+        try {
+          final List<dynamic> loadedTexts = paperData!['recognizedTexts'];
+          for (final textData in loadedTexts) {
+            final text = TextRecognitionResult.fromJson(textData);
+            textsForPage.add(text);
+          }
+        } catch (e, stackTrace) {
+          debugPrint(
+            'Error loading recognized texts for page $pageId: $e\n$stackTrace',
+          );
+        }
+      }
+
+      _pageRecognizedTexts[pageId] = textsForPage;
     }
   }
 
@@ -187,10 +225,19 @@ class DrawingService {
   }
 
   // Drawing operations
-  void startDrawing(String pageId, Offset position, Color color, double width) {
+  void startDrawing(String pageId, Offset position, Color color, double width,
+      {bool isHandwriting = false}) {
     // We'll save state when drawing completes, not when it starts
+    _currentDrawingPageId = pageId;
+
+    final int strokeId = DateTime.now().microsecondsSinceEpoch;
+
+    if (isHandwriting) {
+      _handwritingStrokeIds.add(strokeId);
+    }
+
     _currentDrawingPoint = DrawingPoint(
-      id: DateTime.now().microsecondsSinceEpoch,
+      id: strokeId,
       offsets: [position],
       color: color,
       width: width,
@@ -370,9 +417,22 @@ class DrawingService {
     }
   }
 
+  void removeLastStroke(String paperId) {
+    final points = _pageDrawingPoints[paperId];
+    if (points == null || points.isEmpty) return;
+
+    final lastId = points.last.id;
+
+    points.removeWhere((point) => point.id == lastId);
+
+    // Update state
+    _pageDrawingPoints[paperId] = points;
+  }
+
   // Save drawing to persistent storage
   Future<void> saveDrawings(PaperProvider paperProvider) async {
     for (final pageId in _pageIds) {
+      // Save drawing points
       final pointsForPage = _pageDrawingPoints[pageId] ?? [];
       final textAnnotationsForPage = _pageTextAnnotations[pageId] ?? [];
 
@@ -397,7 +457,35 @@ class DrawingService {
       }
 
       await paperProvider.updatePaperDrawingData(pageId, cleanHistory);
+
+      // Save recognized texts
+      final textsForPage = _pageRecognizedTexts[pageId] ?? [];
+      final textsJson = textsForPage.map((text) => text.toJson()).toList();
+      await paperProvider.updatePaperRecognizedTexts(pageId, textsJson);
     }
+  }
+
+  void addRecognizedText(String pageId, TextRecognitionResult text) {
+    _pageRecognizedTexts[pageId] ??= [];
+    _pageRecognizedTexts[pageId]!.add(text);
+  }
+
+  void removeHandwritingStrokes(String pageId) {
+    if (!_pageDrawingPoints.containsKey(pageId)) return;
+
+    _saveStateForUndo();
+    final pointsList = _pageDrawingPoints[pageId]!;
+    pointsList.removeWhere((point) => _handwritingStrokeIds.contains(point.id));
+
+    _handwritingStrokeIds.clear();
+  }
+
+  bool isHandwritingStroke(int strokeId) {
+    return _handwritingStrokeIds.contains(strokeId);
+  }
+
+  void clearHandwritingData() {
+    _handwritingStrokeIds.clear();
   }
 
   // Returns true if update was successful
