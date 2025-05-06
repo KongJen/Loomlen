@@ -104,12 +104,36 @@ class _FileItemState extends State<FileItem> with Renamable, Deletable {
   }
 
   void _showOptionsOverlay(BuildContext context) async {
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    final Offset position = renderBox.localToGlobal(Offset.zero);
+    final Size screenSize = MediaQuery.of(context).size;
+
+    // Get the icon's position
+    final iconButtonRenderBox = context.findRenderObject() as RenderBox;
+    final iconPosition = iconButtonRenderBox.localToGlobal(Offset.zero);
+
+    // Set overlay dimensions
+    const double overlayWidth = 350;
+    const double overlayHeight =
+        100; // Increased slightly to ensure all options fit
+    const double margin = 10;
+
+    // Calculate the position to display the overlay
+    // Start with the position of the clicked icon
+    double adjustedDx = iconPosition.dx;
+    double adjustedDy = iconPosition.dy;
+
+    // Adjust horizontal position if needed to stay on screen
+    if (adjustedDx + overlayWidth > screenSize.width) {
+      adjustedDx = screenSize.width - overlayWidth - margin;
+    }
+
+    // Adjust vertical position if needed to stay on screen
+    if (adjustedDy + overlayHeight > screenSize.height) {
+      adjustedDy = screenSize.height - overlayHeight - margin;
+    }
 
     await ItemDialogService.showOptionsOverlay(
       context: context,
-      position: position,
+      position: Offset(adjustedDx, adjustedDy),
       itemName: widget.name,
       onRename: () => _showRenameDialog(context),
       onDelete: () => _showDeleteConfirmationDialog(context),
