@@ -236,17 +236,17 @@ class _PaperPageState extends State<PaperPage> {
     });
   }
 
-  // void _reloadPaperData() {
-  //   final paperProvider = context.read<PaperProvider>();
+  void _reloadPaperData() {
+    final paperProvider = context.read<PaperProvider>();
 
-  //   _drawingService.loadFromProvider(paperProvider, widget.fileId);
+    _drawingService.loadFromProvider(paperProvider, widget.fileId);
 
-  //   setState(() {
-  //     _hasUnsavedChanges = true;
-  //   });
+    setState(() {
+      _hasUnsavedChanges = true;
+    });
 
-  //   _centerContent();
-  // }
+    _centerContent();
+  }
 
   Future<void> exportToPdf() async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -644,7 +644,10 @@ class _PaperPageState extends State<PaperPage> {
                   child: child,
                 );
               },
-            );
+            ).then((_) {
+              // Call _reloadPaperData when the dialog is closed
+              _reloadPaperData();
+            });
           },
           tooltip: 'Edit Paper',
         )
@@ -673,6 +676,7 @@ class _PaperPageState extends State<PaperPage> {
         for (String paperId
             in paperProvider.getPaperIdsByFileId(widget.fileId)) {
           if (!_isDrawing) {
+            _drawingService.deselectAllTextAnnotations(paperId);
             final annotations =
                 _drawingService.getTextAnnotationsForPage(paperId);
             for (final annotation in annotations) {
@@ -690,7 +694,6 @@ class _PaperPageState extends State<PaperPage> {
                 });
               }
             }
-            _drawingService.deselectAllTextAnnotations(paperId);
           }
           ;
         }
