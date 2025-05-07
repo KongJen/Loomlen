@@ -197,14 +197,8 @@ class _TextAnnotationWidgetState extends State<TextAnnotationWidget> {
                   controller: _textController,
                   focusNode: _focusNode,
                   style: TextStyle(
-                    color: widget.onColorChanged ?? widget.annotation.color,
-                    fontSize: widget.fontSize ?? widget.annotation.fontSize,
-                    fontWeight: (widget.isBold ?? widget.annotation.isBold)
-                        ? FontWeight.bold
-                        : FontWeight.normal,
-                    fontStyle: (widget.isItalic ?? widget.annotation.isItalic)
-                        ? FontStyle.italic
-                        : FontStyle.normal,
+                    color: Colors.black,
+                    fontSize: 16,
                   ),
                   decoration: const InputDecoration(
                     isDense: true,
