@@ -13,6 +13,7 @@ class TextAnnotation {
   final bool isSelected;
   final bool isBold;
   final bool isItalic;
+  final bool isBubble;
 
   TextAnnotation({
     required this.id,
@@ -24,6 +25,7 @@ class TextAnnotation {
     this.isSelected = false,
     this.isBold = false,
     this.isItalic = false,
+    this.isBubble = false,
   });
 
   // Copy with method to create a new instance with updated properties
@@ -37,6 +39,7 @@ class TextAnnotation {
     TextAlign? textAlign,
     bool? isBold,
     bool? isItalic,
+    bool? isBubble,
   }) {
     return TextAnnotation(
       id: this.id,
@@ -48,6 +51,7 @@ class TextAnnotation {
       isSelected: isSelected ?? this.isSelected,
       isBold: isBold ?? this.isBold,
       isItalic: isItalic ?? this.isItalic,
+      isBubble: isBubble ?? this.isBubble,
     );
   }
 
@@ -66,6 +70,7 @@ class TextAnnotation {
       isSelected: false,
       isBold: json['isBold'] as bool? ?? false,
       isItalic: json['isItalic'] as bool? ?? false,
+      isBubble: json['isBubble'] as bool? ?? false,
     );
   }
 
@@ -82,16 +87,7 @@ class TextAnnotation {
       'fontSize': fontSize,
       'isBold': isBold,
       'isItalic': isItalic,
+      'isBubble': isBubble,
     };
-  }
-
-  // Helper method to parse TextAlign from string
-  static TextAlign _parseTextAlign(String? textAlignStr) {
-    if (textAlignStr == null) return TextAlign.left;
-
-    if (textAlignStr.contains('center')) return TextAlign.center;
-    if (textAlignStr.contains('right')) return TextAlign.right;
-
-    return TextAlign.left;
   }
 }

@@ -12,6 +12,7 @@ import 'package:frontend/services/textRecognition.dart';
 class DrawingService {
   final Map<String, List<DrawingPoint>> _pageDrawingPoints = {};
   final Map<String, List<TextAnnotation>> _pageTextAnnotations = {};
+  final Map<String, List<TextAnnotation>> _pageBubbleAnnotations = {};
 
   // Combined state for undo/redo operations
   final List<_DrawingState> _undoStack = [];
@@ -59,9 +60,11 @@ class DrawingService {
   bool canUndo() => _undoStack.isNotEmpty;
   bool canRedo() => _redoStack.isNotEmpty;
   Map<String, List<TextAnnotation>> getPageTextAnnotations() =>
-      _pageTextAnnotations;
+      {..._pageTextAnnotations, ..._pageBubbleAnnotations};
+
   List<TextAnnotation> getTextAnnotationsForPage(String pageId) =>
-      _pageTextAnnotations[pageId] ?? [];
+      [...?_pageTextAnnotations[pageId], ...?_pageBubbleAnnotations[pageId]];
+
   TextAnnotation? getSelectedTextAnnotation() => _selectedTextAnnotation;
 
   // Public setters
@@ -190,6 +193,7 @@ class DrawingService {
     _pageIds = pageIds;
     _pageDrawingPoints.clear();
     _pageTextAnnotations.clear();
+    _pageBubbleAnnotations.clear();
     _undoStack.clear();
     _redoStack.clear();
 
@@ -197,6 +201,7 @@ class DrawingService {
       final paperData = paperProvider.getPaperById(pageId);
       final List<DrawingPoint> pointsForPage = [];
       final List<TextAnnotation> textAnnotationsForPage = [];
+      final List<TextAnnotation> BubbleAnnotationsForPage = [];
 
       if (paperData?['drawingData'] != null) {
         try {
@@ -209,7 +214,11 @@ class DrawingService {
               }
             } else if (stroke['type'] == 'text') {
               final annotation = TextAnnotation.fromJson(stroke['data']);
-              textAnnotationsForPage.add(annotation);
+              if (annotation.isBubble) {
+                BubbleAnnotationsForPage.add(annotation);
+              } else {
+                textAnnotationsForPage.add(annotation);
+              }
             }
           }
         } catch (e, stackTrace) {
@@ -220,6 +229,7 @@ class DrawingService {
       }
 
       _pageDrawingPoints[pageId] = pointsForPage;
+      _pageBubbleAnnotations[pageId] = BubbleAnnotationsForPage;
       _pageTextAnnotations[pageId] = textAnnotationsForPage;
     }
   }
@@ -227,7 +237,8 @@ class DrawingService {
   // Drawing operations
   void startDrawing(String pageId, Offset position, Color color, double width,
       {bool isHandwriting = false}) {
-    // We'll save state when drawing completes, not when it starts
+    _saveStateForUndo();
+    _redoStack.clear();
     _currentDrawingPageId = pageId;
 
     final int strokeId = DateTime.now().microsecondsSinceEpoch;
@@ -264,11 +275,6 @@ class DrawingService {
 
     // Save state only if there are multiple points (meaningful drawing)
     bool isMeaningfulDrawing = _currentDrawingPoint!.offsets.length > 1;
-
-    if (isMeaningfulDrawing) {
-      _saveStateForUndo();
-      _redoStack.clear();
-    }
 
     _currentDrawingPoint = null;
     return isMeaningfulDrawing;
@@ -417,24 +423,13 @@ class DrawingService {
     }
   }
 
-  void removeLastStroke(String paperId) {
-    final points = _pageDrawingPoints[paperId];
-    if (points == null || points.isEmpty) return;
-
-    final lastId = points.last.id;
-
-    points.removeWhere((point) => point.id == lastId);
-
-    // Update state
-    _pageDrawingPoints[paperId] = points;
-  }
-
   // Save drawing to persistent storage
   Future<void> saveDrawings(PaperProvider paperProvider) async {
     for (final pageId in _pageIds) {
       // Save drawing points
       final pointsForPage = _pageDrawingPoints[pageId] ?? [];
       final textAnnotationsForPage = _pageTextAnnotations[pageId] ?? [];
+      final BubbleAnnotationsForPage = _pageBubbleAnnotations[pageId] ?? [];
 
       final List<Map<String, dynamic>> cleanHistory = [];
 
@@ -449,6 +444,14 @@ class DrawingService {
 
       // Add text annotations
       for (final annotation in textAnnotationsForPage) {
+        cleanHistory.add({
+          'type': 'text',
+          'data': annotation.toJson(),
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+        });
+      }
+
+      for (final annotation in BubbleAnnotationsForPage) {
         cleanHistory.add({
           'type': 'text',
           'data': annotation.toJson(),
@@ -500,75 +503,109 @@ class DrawingService {
     bool? isSelected,
     bool? isBold,
     bool? isItalic,
+    bool? isBubble,
   }) {
-    if (_pageTextAnnotations[pageId] == null) return false;
+    print("isBubble: $isBubble");
+    if (_pageTextAnnotations[pageId] == null && isBubble == false) return false;
+    if (_pageBubbleAnnotations[pageId] == null && isBubble == true)
+      return false;
 
-    final index =
-        _pageTextAnnotations[pageId]!.indexWhere((a) => a.id == annotationId);
-    if (index == -1) return false;
+    if (isBubble == false) {
+      final index =
+          _pageTextAnnotations[pageId]!.indexWhere((a) => a.id == annotationId);
+      if (index == -1) return false;
 
-    // If we're making significant changes (not just selection states),
-    // and coming out of edit mode, save state for undo
-    bool significantChange = text != null ||
-        position != null ||
-        color != null ||
-        fontSize != null ||
-        isBold != null ||
-        isItalic != null;
-    bool finishingEdit = isEditing == false &&
-        _pageTextAnnotations[pageId]![index].isEditing == true;
+      // If we're making significant changes (not just selection states),
+      // and coming out of edit mode, save state for undo
+      bool significantChange = text != null ||
+          position != null ||
+          color != null ||
+          fontSize != null ||
+          isBold != null ||
+          isItalic != null;
+      bool finishingEdit = isEditing == false &&
+          _pageTextAnnotations[pageId]![index].isEditing == true;
 
-    if (significantChange && finishingEdit) {
-      _saveStateForUndo();
-      _redoStack.clear();
-    }
-
-    final annotation = _pageTextAnnotations[pageId]![index];
-    _pageTextAnnotations[pageId]![index] = annotation.copyWith(
-      text: text ?? annotation.text,
-      position: position ?? annotation.position,
-      color: color ?? annotation.color,
-      fontSize: fontSize ?? annotation.fontSize,
-      isEditing: isEditing ?? annotation.isEditing,
-      isSelected: isSelected ?? annotation.isSelected,
-      isBold: isBold ?? annotation.isBold,
-      isItalic: isItalic ?? annotation.isItalic,
-    );
-
-    if (isSelected == true) {
-      // Deselect all other annotations
-      for (int i = 0; i < _pageTextAnnotations[pageId]!.length; i++) {
-        if (i != index) {
-          _pageTextAnnotations[pageId]![i] =
-              _pageTextAnnotations[pageId]![i].copyWith(
-            isSelected: false,
-            isEditing: false,
-          );
-        }
+      if (significantChange && finishingEdit) {
+        _saveStateForUndo();
+        _redoStack.clear();
       }
-      _selectedTextAnnotation = _pageTextAnnotations[pageId]![index];
-    }
 
-    if (isSelected == false && _selectedTextAnnotation?.id == annotationId) {
-      _selectedTextAnnotation = null;
-    }
+      final annotation = _pageTextAnnotations[pageId]![index];
+      _pageTextAnnotations[pageId]![index] = annotation.copyWith(
+        text: text ?? annotation.text,
+        position: position ?? annotation.position,
+        color: color ?? annotation.color,
+        fontSize: fontSize ?? annotation.fontSize,
+        isEditing: isEditing ?? annotation.isEditing,
+        isSelected: isSelected ?? annotation.isSelected,
+        isBold: isBold ?? annotation.isBold,
+        isItalic: isItalic ?? annotation.isItalic,
+      );
 
-    return true;
+      if (isSelected == true) {
+        // Deselect all other annotations
+        for (int i = 0; i < _pageTextAnnotations[pageId]!.length; i++) {
+          if (i != index) {
+            _pageTextAnnotations[pageId]![i] =
+                _pageTextAnnotations[pageId]![i].copyWith(
+              isSelected: false,
+              isEditing: false,
+            );
+          }
+        }
+        _selectedTextAnnotation = _pageTextAnnotations[pageId]![index];
+      }
+
+      if (isSelected == false && _selectedTextAnnotation?.id == annotationId) {
+        _selectedTextAnnotation = null;
+      }
+
+      return true;
+    } else {
+      final index = _pageBubbleAnnotations[pageId]!
+          .indexWhere((a) => a.id == annotationId);
+      if (index == -1) return false;
+
+      final annotation = _pageBubbleAnnotations[pageId]![index];
+      _pageBubbleAnnotations[pageId]![index] = annotation.copyWith(
+        text: text ?? annotation.text,
+        position: position ?? annotation.position,
+        // color: color ?? annotation.color,
+        fontSize: fontSize ?? annotation.fontSize,
+        isEditing: isEditing ?? annotation.isEditing,
+        isSelected: isSelected ?? annotation.isSelected,
+        isBold: isBold ?? annotation.isBold,
+        isItalic: isItalic ?? annotation.isItalic,
+      );
+
+      if (isSelected == true) {
+        // Deselect all other annotations
+        for (int i = 0; i < _pageBubbleAnnotations[pageId]!.length; i++) {
+          if (i != index) {
+            _pageBubbleAnnotations[pageId]![i] =
+                _pageBubbleAnnotations[pageId]![i].copyWith(
+              isSelected: false,
+              isEditing: false,
+            );
+          }
+        }
+        _selectedTextAnnotation = _pageBubbleAnnotations[pageId]![index];
+      }
+
+      if (isSelected == false && _selectedTextAnnotation?.id == annotationId) {
+        _selectedTextAnnotation = null;
+      }
+
+      return true;
+    }
   }
 
   // Returns the ID of the new annotation if successful, null otherwise
-  String? addTextAnnotation(
-    String pageId,
-    Offset position,
-    Color color,
-    double fontSize,
-    bool isBold,
-    bool isItalic,
-  ) {
+  String? addTextAnnotation(String pageId, Offset position, Color color,
+      double fontSize, bool isBold, bool isItalic, bool isBubble) {
     // We'll save state only when the annotation is completed (not empty text)
     // So we don't save state here, but when the user finishes editing
-    _saveStateForUndo();
-    _redoStack.clear();
 
     final String annotationId =
         DateTime.now().microsecondsSinceEpoch.toString();
@@ -582,68 +619,104 @@ class DrawingService {
       isItalic: isItalic,
       isEditing: true,
       isSelected: true,
+      isBubble: isBubble,
     );
-
-    _pageTextAnnotations[pageId] ??= [];
-    _pageTextAnnotations[pageId]!.add(newAnnotation);
-    _selectedTextAnnotation = newAnnotation;
+    if (isBubble == false) {
+      _saveStateForUndo();
+      _redoStack.clear();
+      _pageTextAnnotations[pageId] ??= [];
+      _pageTextAnnotations[pageId]!.add(newAnnotation);
+      _selectedTextAnnotation = newAnnotation;
+    } else {
+      _pageBubbleAnnotations[pageId] ??= [];
+      _pageBubbleAnnotations[pageId]!.add(newAnnotation);
+      _selectedTextAnnotation = newAnnotation;
+    }
 
     return annotationId;
   }
 
   // Returns true if deletion was successful
-  bool deleteTextAnnotation(String pageId, String annotationId) {
-    if (_pageTextAnnotations[pageId] == null) return false;
+  bool deleteTextAnnotation(String pageId, String annotationId, bool isBubble) {
+    if (_pageTextAnnotations[pageId] == null && isBubble == false) return false;
+    if (_pageBubbleAnnotations[pageId] == null && isBubble == true)
+      return false;
 
-    final index =
-        _pageTextAnnotations[pageId]!.indexWhere((a) => a.id == annotationId);
-    if (index == -1) return false;
+    if (isBubble) {
+      final index = _pageBubbleAnnotations[pageId]!
+          .indexWhere((a) => a.id == annotationId);
+      if (index == -1) return false;
 
-    final annotation = _pageTextAnnotations[pageId]![index];
+      final annotation = _pageBubbleAnnotations[pageId]![index];
 
-    // Only save state if we're deleting a non-empty annotation
-    if (annotation.text.trim().isNotEmpty) {
-      _saveStateForUndo();
-      _redoStack.clear();
+      // Only save state if we're deleting a non-empty annotation
+      if (annotation.text.trim().isNotEmpty) {
+        _saveStateForUndo();
+        _redoStack.clear();
+      }
+
+      _pageBubbleAnnotations[pageId]!.removeAt(index);
+
+      if (_selectedTextAnnotation?.id == annotationId) {
+        _selectedTextAnnotation = null;
+      }
+
+      return true;
+    } else {
+      final index =
+          _pageTextAnnotations[pageId]!.indexWhere((a) => a.id == annotationId);
+      if (index == -1) return false;
+
+      final annotation = _pageTextAnnotations[pageId]![index];
+
+      // Only save state if we're deleting a non-empty annotation
+      if (annotation.text.trim().isNotEmpty) {
+        _saveStateForUndo();
+        _redoStack.clear();
+      }
+
+      _pageTextAnnotations[pageId]!.removeAt(index);
+
+      if (_selectedTextAnnotation?.id == annotationId) {
+        _selectedTextAnnotation = null;
+      }
+
+      return true;
     }
-
-    _pageTextAnnotations[pageId]!.removeAt(index);
-
-    if (_selectedTextAnnotation?.id == annotationId) {
-      _selectedTextAnnotation = null;
-    }
-
-    return true;
   }
 
   // Returns true if any non-empty annotations were deselected
   bool deselectAllTextAnnotations(String pageId) {
-    if (_pageTextAnnotations[pageId] == null) return false;
+    final pageAnnotations = _pageTextAnnotations[pageId];
+    final bubbleAnnotations = _pageBubbleAnnotations[pageId];
 
-    final annotations = _pageTextAnnotations[pageId]!;
+    if (pageAnnotations == null || bubbleAnnotations == null) return false;
 
-    // Check if there are any non-empty selected annotations that were being edited
-    bool hadMeaningfulEdits = annotations
+    final combinedAnnotations = [...pageAnnotations, ...bubbleAnnotations];
+
+    // Check if there are any selected or editing annotations with non-empty text
+    bool hadMeaningfulEdits = combinedAnnotations
         .any((a) => (a.isSelected || a.isEditing) && a.text.trim().isNotEmpty);
 
-    // Check for empty annotations to remove
-    List<TextAnnotation> emptyAnnotations =
-        annotations.where((a) => a.text.trim().isEmpty).toList();
-
-    // If we had meaningful edits being committed, save state
+    // Save state if there were edits
     if (hadMeaningfulEdits) {
       _saveStateForUndo();
       _redoStack.clear();
     }
 
-    // Remove annotations with empty text
-    if (emptyAnnotations.isNotEmpty) {
-      annotations.removeWhere((annotation) => annotation.text.trim().isEmpty);
-    }
+    // Remove empty text annotations from both sources
+    pageAnnotations.removeWhere((a) => a.text.trim().isEmpty);
+    bubbleAnnotations.removeWhere((a) => a.text.trim().isEmpty);
 
-    // Deselect the rest
-    for (int i = 0; i < annotations.length; i++) {
-      annotations[i] = annotations[i].copyWith(
+    // Deselect and stop editing all remaining annotations
+    for (int i = 0; i < pageAnnotations.length; i++) {
+      pageAnnotations[i] = pageAnnotations[i].copyWith(
+        isSelected: false,
+        isEditing: false,
+      );
+    }
+    for (int i = 0; i < bubbleAnnotations.length; i++) {
+      bubbleAnnotations[i] = bubbleAnnotations[i].copyWith(
         isSelected: false,
         isEditing: false,
       );
@@ -651,60 +724,6 @@ class DrawingService {
 
     _selectedTextAnnotation = null;
     return hadMeaningfulEdits;
-  }
-
-  // Merge text annotations functionality
-  // Returns the ID of the merged annotation if successful, null otherwise
-  String? mergeTextAnnotations(String pageId, List<String> annotationIds) {
-    if (_pageTextAnnotations[pageId] == null || annotationIds.length < 2)
-      return null;
-
-    // Get all annotations to merge
-    final annotationsToMerge = _pageTextAnnotations[pageId]!
-        .where((a) => annotationIds.contains(a.id))
-        .toList();
-
-    if (annotationsToMerge.isEmpty) return null;
-
-    // Check if all annotations to merge have text
-    bool allHaveText =
-        annotationsToMerge.every((a) => a.text.trim().isNotEmpty);
-
-    if (allHaveText) {
-      _saveStateForUndo();
-      _redoStack.clear();
-    }
-
-    // Sort by vertical position (top to bottom)
-    annotationsToMerge.sort((a, b) => a.position.dy.compareTo(b.position.dy));
-
-    // Create merged text
-    final mergedText = annotationsToMerge.map((a) => a.text).join('\n');
-
-    // Use properties from the first annotation
-    final first = annotationsToMerge.first;
-    final String newId = DateTime.now().microsecondsSinceEpoch.toString();
-    final mergedAnnotation = TextAnnotation(
-      id: newId,
-      text: mergedText,
-      position: first.position,
-      color: first.color,
-      fontSize: first.fontSize,
-      isEditing: false,
-      isSelected: true,
-      isBold: first.isBold,
-      isItalic: first.isItalic,
-    );
-
-    // Remove old annotations
-    _pageTextAnnotations[pageId]!
-        .removeWhere((a) => annotationIds.contains(a.id));
-
-    // Add new merged annotation
-    _pageTextAnnotations[pageId]!.add(mergedAnnotation);
-    _selectedTextAnnotation = mergedAnnotation;
-
-    return newId;
   }
 }
 
