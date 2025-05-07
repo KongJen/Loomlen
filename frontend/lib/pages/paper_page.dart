@@ -21,7 +21,7 @@ import 'package:google_mlkit_digital_ink_recognition/google_mlkit_digital_ink_re
     as ml_kit;
 import 'package:frontend/services/textRecognition.dart';
 
-enum DrawingMode { pencil, eraser, handwriting, text, read }
+enum DrawingMode { pencil, eraser, handwriting, text, read, bubble }
 
 class PaperPage extends StatefulWidget {
   final String name;
@@ -374,6 +374,7 @@ class _PaperPageState extends State<PaperPage> {
                           pageId,
                           selectedAnnotation.id,
                           color: color,
+                          isBubble: false,
                         );
                         break;
                       }
@@ -399,6 +400,7 @@ class _PaperPageState extends State<PaperPage> {
                           pageId,
                           selectedAnnotation.id,
                           fontSize: value,
+                          isBubble: false,
                         );
                         break;
                       }
@@ -423,6 +425,7 @@ class _PaperPageState extends State<PaperPage> {
                         _drawingService.updateTextAnnotation(
                           pageId,
                           selectedAnnotation.id,
+                          isBubble: false,
                         );
                         break;
                       }
@@ -448,6 +451,7 @@ class _PaperPageState extends State<PaperPage> {
                           pageId,
                           selectedAnnotation.id,
                           isBold: value,
+                          isBubble: false,
                         );
                         break;
                       }
@@ -473,6 +477,7 @@ class _PaperPageState extends State<PaperPage> {
                           pageId,
                           selectedAnnotation.id,
                           isItalic: value,
+                          isBubble: false,
                         );
                         break;
                       }
@@ -520,6 +525,14 @@ class _PaperPageState extends State<PaperPage> {
           ),
           onPressed: () => setState(() => selectedMode = DrawingMode.eraser),
           tooltip: 'Eraser',
+        ),
+        IconButton(
+          icon: Icon(
+            Icons.circle,
+            color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
+          tooltip: 'Text',
         ),
         IconButton(
           icon: Icon(
@@ -659,7 +672,27 @@ class _PaperPageState extends State<PaperPage> {
         // Deselect all text annotations when tapping outside the paper
         for (String paperId
             in paperProvider.getPaperIdsByFileId(widget.fileId)) {
-          if (!_isDrawing) _drawingService.deselectAllTextAnnotations(paperId);
+          if (!_isDrawing) {
+            final annotations =
+                _drawingService.getTextAnnotationsForPage(paperId);
+            for (final annotation in annotations) {
+              if (annotation.isEditing) {
+                setState(() {
+                  _drawingService.updateTextAnnotation(
+                    paperId,
+                    annotation.id,
+                    isEditing: false,
+                    isSelected: false,
+                    isBubble: annotation.isBubble,
+                  );
+                  _isDrawing = false;
+                  _hasUnsavedChanges = true;
+                });
+              }
+            }
+            _drawingService.deselectAllTextAnnotations(paperId);
+          }
+          ;
         }
         setState(() {});
       },
@@ -806,34 +839,45 @@ class _PaperPageState extends State<PaperPage> {
                 .map((annotation) {
               return TextAnnotationWidget(
                 annotation: annotation,
+                // Pass canvas dimensions to constrain positions
+                canvasWidth: paperWidth,
+                canvasHeight: paperHeight,
                 onTextChanged: (text) {
-                  if (selectedMode == DrawingMode.text) {
+                  if ((selectedMode == DrawingMode.text &&
+                          !annotation.isBubble) ||
+                      (annotation.isBubble)) {
                     setState(() {
                       _isDrawing = true;
                       _drawingService.updateTextAnnotation(
                         paperId,
                         annotation.id,
                         text: text,
+                        isBubble: annotation.isBubble,
                       );
                       _hasUnsavedChanges = true;
                     });
                   }
                 },
                 onPositionChanged: (position) {
-                  if (selectedMode == DrawingMode.text) {
+                  if ((selectedMode == DrawingMode.text &&
+                          !annotation.isBubble) ||
+                      (annotation.isBubble)) {
                     setState(() {
                       _isDrawing = true;
                       _drawingService.updateTextAnnotation(
                         paperId,
                         annotation.id,
                         position: position,
+                        isBubble: annotation.isBubble,
                       );
                       _hasUnsavedChanges = true;
                     });
                   }
                 },
                 onStartEditing: () {
-                  if (selectedMode == DrawingMode.text) {
+                  if ((selectedMode == DrawingMode.text &&
+                          !annotation.isBubble) ||
+                      (annotation.isBubble)) {
                     _isDrawing = true;
                     setState(() {
                       _drawingService.updateTextAnnotation(
@@ -845,16 +889,22 @@ class _PaperPageState extends State<PaperPage> {
                         fontSize: selectedFontSize,
                         isBold: selectedTextBold,
                         isItalic: selectedTextItalic,
+                        isBubble: annotation.isBubble,
                       );
                     });
                   }
                 },
                 onDelete: () {
-                  if (selectedMode == DrawingMode.text) {
+                  if ((selectedMode == DrawingMode.text &&
+                          !annotation.isBubble) ||
+                      (annotation.isBubble)) {
                     setState(() {
                       _isDrawing = false;
                       _drawingService.deleteTextAnnotation(
-                          paperId, annotation.id);
+                        paperId,
+                        annotation.id,
+                        annotation.isBubble,
+                      );
                       _hasUnsavedChanges = true;
                     });
                   }
@@ -871,18 +921,22 @@ class _PaperPageState extends State<PaperPage> {
                       fontSize: selectedFontSize,
                       isBold: selectedTextBold,
                       isItalic: selectedTextItalic,
+                      isBubble: annotation.isBubble,
                     );
                     _hasUnsavedChanges = true;
                   });
                 },
                 onTap: () {
-                  if (selectedMode == DrawingMode.text) {
+                  if ((selectedMode == DrawingMode.text &&
+                          !annotation.isBubble) ||
+                      (annotation.isBubble)) {
                     setState(() {
                       _drawingService.updateTextAnnotation(
                         paperId,
                         annotation.id,
                         isSelected: true,
                         color: annotation.color,
+                        isBubble: annotation.isBubble,
                       );
                     });
                   }
@@ -944,6 +998,35 @@ class _PaperPageState extends State<PaperPage> {
 
     _drawingDelayTimer?.cancel();
     if (_activePointerCount == 1) {
+      // Regardless of mode, first check if any text annotation is currently in editing mode
+      // If so, save its changes and exit edit mode
+      bool foundEditingAnnotation = false;
+
+      for (final annotation
+          in _drawingService.getTextAnnotationsForPage(paperId)) {
+        if (annotation.isEditing) {
+          _drawingService.updateTextAnnotation(
+            paperId,
+            annotation.id,
+            isEditing: false,
+            isSelected: false,
+            isBubble: annotation.isBubble,
+          );
+
+          foundEditingAnnotation = true;
+          _hasUnsavedChanges = true;
+          setState(() {
+            _isDrawing = false;
+          });
+
+          // If we found an annotation in edit mode, exit early
+          // This prevents immediate creation of a new annotation
+          if (foundEditingAnnotation) {
+            return;
+          }
+        }
+      }
+
       if (selectedMode == DrawingMode.text) {
         // Check if we clicked on an existing text annotation
         bool clickedOnText = false;
@@ -973,11 +1056,8 @@ class _PaperPageState extends State<PaperPage> {
                 fontSize: annotation.fontSize,
                 isBold: annotation.isBold,
                 isItalic: annotation.isItalic,
+                isBubble: annotation.isBubble,
               );
-              // selectedColor = annotation.color;
-              // selectedFontSize = annotation.fontSize;
-              // selectedTextBold = annotation.isBold;
-              // selectedTextItalic = annotation.isItalic;
             });
             break;
           }
@@ -989,13 +1069,68 @@ class _PaperPageState extends State<PaperPage> {
             _isDrawing = true;
             _drawingService.deselectAllTextAnnotations(paperId);
             _drawingService.addTextAnnotation(
-              paperId,
-              localPosition,
-              selectedColor,
-              selectedFontSize,
-              selectedTextBold,
-              selectedTextItalic,
-            );
+                paperId,
+                localPosition,
+                selectedColor,
+                selectedFontSize,
+                selectedTextBold,
+                selectedTextItalic,
+                false);
+            _hasUnsavedChanges = true;
+          });
+        }
+        return;
+      }
+
+      if (selectedMode == DrawingMode.bubble) {
+        // Check if we clicked on an existing text annotation
+        bool clickedOnText = false;
+        final textAnnotations =
+            _drawingService.getTextAnnotationsForPage(paperId);
+
+        _drawingService.deselectAllTextAnnotations(paperId);
+
+        for (final annotation in textAnnotations) {
+          // Simple hit test - could be improved with more precise text bounds
+          final textWidth =
+              _calculateTextWidth(annotation.text, annotation.fontSize);
+          final textHeight =
+              annotation.fontSize * 1.5; // Approximate height based on fontSize
+
+          final rect = Rect.fromLTWH(annotation.position.dx,
+              annotation.position.dy, textWidth, textHeight);
+
+          if (rect.contains(localPosition)) {
+            clickedOnText = true;
+            setState(() {
+              _drawingService.updateTextAnnotation(
+                paperId,
+                annotation.id,
+                isSelected: true,
+                color: annotation.color,
+                fontSize: annotation.fontSize,
+                isBold: annotation.isBold,
+                isItalic: annotation.isItalic,
+                isBubble: annotation.isBubble,
+              );
+            });
+            break;
+          }
+        }
+
+        if (!clickedOnText) {
+          // Create a new text annotation at this position with current settings
+          setState(() {
+            _isDrawing = true;
+            _drawingService.deselectAllTextAnnotations(paperId);
+            _drawingService.addTextAnnotation(
+                paperId,
+                localPosition,
+                selectedColor,
+                selectedFontSize,
+                selectedTextBold,
+                selectedTextItalic,
+                true);
             _hasUnsavedChanges = true;
           });
         }
