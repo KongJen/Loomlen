@@ -35,8 +35,7 @@ class PdfService {
       double,
       double,
       String,
-    )
-    addPaper,
+    ) addPaper,
   }) async {
     try {
       FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -53,22 +52,23 @@ class PdfService {
         int pageCount = pdfDoc.pageCount;
         debugPrint('PDF has $pageCount pages');
 
-        String fileId;
+        Map<String, String> file;
         if (isInFolder) {
-          fileId = addFile(pdfName, parentFolderId: parentId);
+          file = addFile(pdfName, parentFolderId: parentId);
         } else {
-          fileId = addFile(pdfName, roomId: parentId);
+          file = addFile(pdfName, roomId: parentId);
         }
 
         showLoading();
 
-        await _processPdfPages(pdfDoc, pdfName, fileId, addPaper);
+        await _processPdfPages(
+            pdfDoc, pdfName, file['id'].toString(), addPaper);
 
         hideLoading();
         pdfDoc.dispose();
 
         showSuccess('PDF "$pdfName" imported as $pageCount pages');
-        onImportComplete(fileId, pdfName);
+        onImportComplete(file['id'].toString(), pdfName);
       }
     } catch (e) {
       debugPrint('Error importing PDF: $e');
@@ -88,8 +88,7 @@ class PdfService {
       double,
       double,
       String,
-    )
-    addPaper,
+    ) addPaper,
   ) async {
     for (int i = 1; i <= pdfDoc.pageCount; i++) {
       PdfPage page = await pdfDoc.getPage(i);
