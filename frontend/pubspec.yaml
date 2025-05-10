@@ -51,6 +51,7 @@ dependencies:
   mime: ^2.0.0
   cached_network_image: ^3.4.1
   font_awesome_flutter: ^10.8.0
+  flutter_colorpicker: ^1.1.0
 
 
 dev_dependencies:
