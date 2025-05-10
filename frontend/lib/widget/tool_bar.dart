@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/model/tools.dart';
+import 'package:frontend/widget/colorPicker.dart';
 
 // Builds the pencil settings bar widget
 Widget buildPencilSettingsBar({
@@ -30,30 +31,13 @@ Widget buildPencilSettingsBar({
             ),
           ],
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: availableColors
-              .map(
-                (color) => GestureDetector(
-                  onTap: () => onColorChanged(color),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: selectedColor == color
-                            ? Colors.white
-                            : Colors.transparent,
-                        width: 2.0,
-                      ),
-                    ),
-                  ),
-                ),
-              )
-              .toList(),
+        ColorPickerWidget(
+          currentColor: selectedColor,
+          onColorChanged: onColorChanged,
+          availableColors: availableColors,
+          labelText: null,
+          horizontalScrollable: true,
+          showCustomColorButton: true,
         ),
       ],
     ),
@@ -205,29 +189,13 @@ Widget buildTextSettingsBar({
             Expanded(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: availableColors
-                      .map(
-                        (color) => GestureDetector(
-                          onTap: () => onColorChanged(color),
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                            width: 30,
-                            height: 30,
-                            decoration: BoxDecoration(
-                              color: color,
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: selectedColor == color
-                                    ? Colors.white
-                                    : Colors.transparent,
-                                width: 2.0,
-                              ),
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
+                child: ColorPickerWidget(
+                  currentColor: selectedColor,
+                  onColorChanged: onColorChanged,
+                  availableColors: availableColors,
+                  labelText: null,
+                  horizontalScrollable: true,
+                  showCustomColorButton: true,
                 ),
               ),
             ),

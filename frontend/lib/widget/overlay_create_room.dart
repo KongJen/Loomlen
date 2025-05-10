@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:frontend/providers/room_provider.dart';
+import 'package:frontend/widget/colorPicker.dart';
 
 class OverlayCreateRoom extends StatefulWidget {
   final VoidCallback onClose;
@@ -123,48 +124,13 @@ class _OverlayCreateRoomState extends State<OverlayCreateRoom> {
                           ),
                         ),
                         SizedBox(height: 8),
-                        SizedBox(
-                          height: 50,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: colorOptions.length,
-                            itemBuilder: (context, index) {
-                              return Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 4),
-                                child: GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      selectedColor = colorOptions[index];
-                                    });
-                                  },
-                                  child: Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: colorOptions[index],
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color:
-                                            selectedColor == colorOptions[index]
-                                                ? Colors.white
-                                                : Colors.transparent,
-                                        width: 3,
-                                      ),
-                                      boxShadow: [
-                                        if (selectedColor ==
-                                            colorOptions[index])
-                                          BoxShadow(
-                                            color: Colors.black26,
-                                            blurRadius: 4,
-                                            spreadRadius: 1,
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                        ColorPickerWidget(
+                          currentColor: selectedColor,
+                          onColorChanged: (Color color) {
+                            setState(() {
+                              selectedColor = color;
+                            });
+                          },
                         ),
                         SizedBox(height: 20),
                         SizedBox(
