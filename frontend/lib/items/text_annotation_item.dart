@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 // Enhanced TextAnnotation class for text_annotation_item.dart
 
 class TextAnnotation {
-  final String id;
+  final int id;
   final String text;
   final Offset position;
   final Color color;
@@ -58,11 +58,11 @@ class TextAnnotation {
   // Create from JSON
   factory TextAnnotation.fromJson(Map<String, dynamic> json) {
     return TextAnnotation(
-      id: json['id'] as String,
+      id: json['id'] as int,
       text: json['text'] as String,
       position: Offset(
-        json['position']['dx'] as double,
-        json['position']['dy'] as double,
+        (json['position']['x'] as num).toDouble(),
+        (json['position']['y'] as num).toDouble(),
       ),
       color: Color(json['color'] as int),
       fontSize: (json['fontSize'] as num?)?.toDouble() ?? 16.0,
@@ -80,8 +80,8 @@ class TextAnnotation {
       'id': id,
       'text': text,
       'position': {
-        'dx': position.dx,
-        'dy': position.dy,
+        'x': position.dx,
+        'y': position.dy,
       },
       'color': color.value,
       'fontSize': fontSize,

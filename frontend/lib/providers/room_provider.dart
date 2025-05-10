@@ -333,6 +333,7 @@ class RoomProvider extends ChangeNotifier {
       print("Added paper: ${paper['id']} to file: $newFileId");
 
       await _apiService.addDraw(paperId, paper['drawingData']);
+      await _apiService.addText(paperId, paper['drawingData']);
     }
   }
 

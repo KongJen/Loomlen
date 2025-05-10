@@ -61,6 +61,8 @@ class _PaperPageState extends State<PaperPage> {
   bool selectedTextItalic = false;
   bool get isReadOnly => selectedMode == DrawingMode.read;
 
+  final GlobalKey _settingsBarKey = GlobalKey();
+
   final List<Color> availableColors = const [
     Colors.black,
     Colors.red,
@@ -355,6 +357,7 @@ class _PaperPageState extends State<PaperPage> {
           // Add the text settings bar when in text mode
           if (selectedMode == DrawingMode.text)
             buildTextSettingsBar(
+              key: _settingsBarKey,
               selectedColor: selectedColor,
               availableColors: availableColors,
               onColorChanged: (color) {
@@ -532,7 +535,7 @@ class _PaperPageState extends State<PaperPage> {
             color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
           ),
           onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
-          tooltip: 'Text',
+          tooltip: 'Bubble',
         ),
         IconButton(
           icon: Icon(
@@ -948,6 +951,7 @@ class _PaperPageState extends State<PaperPage> {
                 fontSize: selectedFontSize,
                 isBold: selectedTextBold,
                 isItalic: selectedTextItalic,
+                settingsBarKey: _settingsBarKey,
               );
             }).toList()),
           ],

@@ -325,6 +325,156 @@ func AddDrawingPoint(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func AddTextAnnotation(w http.ResponseWriter, r *http.Request) {
+	paperID := r.Header.Get("paper_id")
+	if paperID == "" {
+		http.Error(w, "Missing paper_id header", http.StatusBadRequest)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+
+	// Convert paper ID to ObjectID
+	paperObjID, err := primitive.ObjectIDFromHex(paperID)
+	if err != nil {
+		http.Error(w, "Invalid paper ID format", http.StatusBadRequest)
+		return
+	}
+
+	// Define a struct to match the incoming data structure
+	var textRequests []struct {
+		Type string `json:"type"`
+		Data struct {
+			ID       int64  `json:"id"`
+			Text     string `json:"text"`
+			Position struct {
+				X float64 `json:"x"`
+				Y float64 `json:"y"`
+			} `json:"position"`
+			Color    int     `json:"color"`
+			FontSize float64 `json:"font_size"`
+			IsBold   bool    `json:"is_bold"`
+			IsItalic bool    `json:"is_italic"`
+			IsBubble bool    `json:"is_bubble"`
+		} `json:"data"`
+		Timestamp int64 `json:"timestamp"`
+	}
+
+	// Unmarshal the JSON data
+	if err := json.Unmarshal(body, &textRequests); err != nil {
+		http.Error(w, "Invalid request format", http.StatusBadRequest)
+		return
+	}
+
+	// Validate input
+	if len(textRequests) == 0 {
+		// If no drawing data, set the drawing data to null in the database
+		update := bson.M{
+			"$set": bson.M{
+				"text_data":  nil,
+				"updated_at": time.Now(),
+			},
+		}
+
+		// Update the paper with null drawing data
+		paperCollection := config.GetPaperCollection()
+		_, err := paperCollection.UpdateOne(context.Background(), bson.M{"_id": paperObjID}, update)
+		if err != nil {
+			http.Error(w, "Failed to update paper", http.StatusInternalServerError)
+			return
+		}
+
+		// Send success response for no drawing data
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"message":   "Text data set to null successfully",
+			"paper_id":  paperID,
+			"room_id":   "", // Empty room_id for no data
+			"file_id":   "", // Empty file_id for no data
+			"timestamp": time.Now().Format(time.RFC3339),
+		})
+		return
+	}
+
+	// If there is drawing data, convert it to DrawingPoints
+	var textAnnotations []models.TextAnnotation
+	for _, req := range textRequests {
+		if req.Type != "text" {
+			continue // Skip non-drawing types
+		}
+
+		// Create DrawingPoint
+		textAnnotation := models.TextAnnotation{
+			ID:   int(req.Data.ID),
+			Type: "text",
+			Text: req.Data.Text,
+			Position: models.Offset{
+				X: req.Data.Position.X,
+				Y: req.Data.Position.Y,
+			},
+			Color:    req.Data.Color,
+			FontSize: req.Data.FontSize,
+			IsBold:   req.Data.IsBold,
+			IsItalic: req.Data.IsItalic,
+			IsBubble: req.Data.IsBubble,
+		}
+		textAnnotations = append(textAnnotations, textAnnotation)
+	}
+
+	// Replace drawing points instead of appending
+	paperCollection := config.GetPaperCollection()
+	var paper models.Paper
+	filter := bson.M{"_id": paperObjID}
+	err = paperCollection.FindOne(context.Background(), filter).Decode(&paper)
+
+	// If paper not found, return an error
+	if err != nil {
+		http.Error(w, "Paper not found", http.StatusNotFound)
+		return
+	}
+
+	// Update the paper's drawing data and timestamp
+	update := bson.M{
+		"$set": bson.M{
+			"text_data":  textAnnotations,
+			"updated_at": time.Now(),
+		},
+	}
+
+	_, err = paperCollection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		http.Error(w, "Failed to update paper", http.StatusInternalServerError)
+		return
+	}
+
+	// Broadcast to socket if needed
+	socketServer := socketio.ServerInstance
+	if socketServer != nil {
+		var papers []models.Paper
+		cursor, _ := paperCollection.Find(context.Background(), bson.M{"room_id": paper.RoomID})
+		cursor.All(context.Background(), &papers)
+
+		socketServer.BroadcastToRoom("", paper.RoomID, "paper_list_updated", map[string]interface{}{
+			"roomID": paper.RoomID,
+			"papers": papers,
+		})
+	}
+
+	// Send success response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"message":   "Text data replaced successfully",
+		"paper_id":  paperID,
+		"room_id":   paper.RoomID,
+		"file_id":   paper.FileID,
+		"timestamp": time.Now().Format(time.RFC3339),
+	})
+}
+
 func DeletePaper(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {

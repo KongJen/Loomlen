@@ -459,6 +459,8 @@ class DrawingService {
         });
       }
 
+      print("CleanHistory: $cleanHistory");
+
       await paperProvider.updatePaperDrawingData(pageId, cleanHistory);
 
       // Save recognized texts
@@ -494,7 +496,7 @@ class DrawingService {
   // Returns true if update was successful
   bool updateTextAnnotation(
     String pageId,
-    String annotationId, {
+    int annotationId, {
     String? text,
     Offset? position,
     Color? color,
@@ -505,7 +507,6 @@ class DrawingService {
     bool? isItalic,
     bool? isBubble,
   }) {
-    print("isBubble: $isBubble");
     if (_pageTextAnnotations[pageId] == null && isBubble == false) return false;
     if (_pageBubbleAnnotations[pageId] == null && isBubble == true)
       return false;
@@ -602,13 +603,9 @@ class DrawingService {
   }
 
   // Returns the ID of the new annotation if successful, null otherwise
-  String? addTextAnnotation(String pageId, Offset position, Color color,
+  int? addTextAnnotation(String pageId, Offset position, Color color,
       double fontSize, bool isBold, bool isItalic, bool isBubble) {
-    // We'll save state only when the annotation is completed (not empty text)
-    // So we don't save state here, but when the user finishes editing
-
-    final String annotationId =
-        DateTime.now().microsecondsSinceEpoch.toString();
+    final int annotationId = DateTime.now().microsecondsSinceEpoch;
     final newAnnotation = TextAnnotation(
       id: annotationId,
       text: '',
@@ -637,7 +634,7 @@ class DrawingService {
   }
 
   // Returns true if deletion was successful
-  bool deleteTextAnnotation(String pageId, String annotationId, bool isBubble) {
+  bool deleteTextAnnotation(String pageId, int annotationId, bool isBubble) {
     if (_pageTextAnnotations[pageId] == null && isBubble == false) return false;
     if (_pageBubbleAnnotations[pageId] == null && isBubble == true)
       return false;
