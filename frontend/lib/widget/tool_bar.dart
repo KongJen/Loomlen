@@ -145,8 +145,8 @@ Widget buildTextSettingsBar({
               child: Slider(
                 value: fontSize,
                 min: 10.0,
-                max: 36.0,
-                divisions: 13,
+                max: 100.0,
+                divisions: 1,
                 label: fontSize.round().toString(),
                 onChanged: onFontSizeChanged,
               ),
