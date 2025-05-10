@@ -88,6 +88,12 @@ class _PaperPageState extends State<PaperPage> {
   @override
   void initState() {
     super.initState();
+    final isPhone = WidgetsBinding.instance.window.physicalSize.width /
+            WidgetsBinding.instance.window.devicePixelRatio <
+        600;
+
+    if (isPhone) selectedMode = DrawingMode.read;
+
     _drawingService = DrawingService();
     _paperService = PaperService();
     _pdfExportService = PDFExportService();
@@ -378,181 +384,187 @@ class _PaperPageState extends State<PaperPage> {
       cursor = SystemMouseCursors.text;
     }
 
-    return Scaffold(
-      appBar: buildAppBar(),
-      body: Column(
-        children: [
-          if (selectedMode == DrawingMode.pencil)
-            buildPencilSettingsBar(
-              selectedWidth: selectedWidth,
-              selectedColor: selectedColor,
-              availableColors: availableColors,
-              onWidthChanged: (value) => setState(() => selectedWidth = value),
-              onColorChanged: (color) => setState(() => selectedColor = color),
+    return SafeArea(
+      child: Scaffold(
+        appBar: buildAppBar(),
+        body: Column(
+          children: [
+            if (selectedMode == DrawingMode.pencil)
+              buildPencilSettingsBar(
+                selectedWidth: selectedWidth,
+                selectedColor: selectedColor,
+                availableColors: availableColors,
+                onWidthChanged: (value) =>
+                    setState(() => selectedWidth = value),
+                onColorChanged: (color) =>
+                    setState(() => selectedColor = color),
+              ),
+            if (selectedMode == DrawingMode.eraser)
+              buildEraserSettingsBar(
+                eraserWidth: _drawingService.getEraserWidth(),
+                eraserMode: _drawingService.getEraserMode(),
+                onWidthChanged: (value) {
+                  setState(() {
+                    _drawingService.setEraserWidth(value);
+                  });
+                },
+                onModeChanged: (mode) {
+                  setState(() {
+                    _drawingService.setEraserMode(mode);
+                  });
+                },
+              ),
+            // Add the text settings bar when in text mode
+            if (selectedMode == DrawingMode.text)
+              buildTextSettingsBar(
+                key: _settingsBarKey,
+                selectedColor: selectedColor,
+                availableColors: availableColors,
+                onColorChanged: (color) {
+                  setState(() {
+                    selectedColor = color;
+
+                    // Update the selected annotation if there is one
+                    final selectedAnnotation =
+                        _drawingService.getSelectedTextAnnotation();
+                    if (selectedAnnotation != null) {
+                      final pageIds = _drawingService.getPageIds();
+                      for (final pageId in pageIds) {
+                        final annotations =
+                            _drawingService.getTextAnnotationsForPage(pageId);
+                        if (annotations.contains(selectedAnnotation)) {
+                          _drawingService.updateTextAnnotation(
+                            pageId,
+                            selectedAnnotation.id,
+                            color: color,
+                            isBubble: false,
+                          );
+                          break;
+                        }
+                      }
+                    }
+                  });
+                },
+                fontSize: selectedFontSize,
+                onFontSizeChanged: (value) {
+                  setState(() {
+                    selectedFontSize = value;
+
+                    // Update the selected annotation if there is one
+                    final selectedAnnotation =
+                        _drawingService.getSelectedTextAnnotation();
+                    if (selectedAnnotation != null) {
+                      final pageIds = _drawingService.getPageIds();
+                      for (final pageId in pageIds) {
+                        final annotations =
+                            _drawingService.getTextAnnotationsForPage(pageId);
+                        if (annotations.contains(selectedAnnotation)) {
+                          _drawingService.updateTextAnnotation(
+                            pageId,
+                            selectedAnnotation.id,
+                            fontSize: value,
+                            isBubble: false,
+                          );
+                          break;
+                        }
+                      }
+                    }
+                  });
+                },
+                textAlign: selectedTextAlign,
+                onTextAlignChanged: (align) {
+                  setState(() {
+                    selectedTextAlign = align;
+
+                    // Update the selected annotation if there is one
+                    final selectedAnnotation =
+                        _drawingService.getSelectedTextAnnotation();
+                    if (selectedAnnotation != null) {
+                      final pageIds = _drawingService.getPageIds();
+                      for (final pageId in pageIds) {
+                        final annotations =
+                            _drawingService.getTextAnnotationsForPage(pageId);
+                        if (annotations.contains(selectedAnnotation)) {
+                          _drawingService.updateTextAnnotation(
+                            pageId,
+                            selectedAnnotation.id,
+                            isBubble: false,
+                          );
+                          break;
+                        }
+                      }
+                    }
+                  });
+                },
+                isBold: selectedTextBold,
+                onBoldChanged: (value) {
+                  setState(() {
+                    selectedTextBold = value;
+
+                    // Update the selected annotation if there is one
+                    final selectedAnnotation =
+                        _drawingService.getSelectedTextAnnotation();
+                    if (selectedAnnotation != null) {
+                      final pageIds = _drawingService.getPageIds();
+                      for (final pageId in pageIds) {
+                        final annotations =
+                            _drawingService.getTextAnnotationsForPage(pageId);
+                        if (annotations.contains(selectedAnnotation)) {
+                          _drawingService.updateTextAnnotation(
+                            pageId,
+                            selectedAnnotation.id,
+                            isBold: value,
+                            isBubble: false,
+                          );
+                          break;
+                        }
+                      }
+                    }
+                  });
+                },
+                isItalic: selectedTextItalic,
+                onItalicChanged: (value) {
+                  setState(() {
+                    selectedTextItalic = value;
+
+                    // Update the selected annotation if there is one
+                    final selectedAnnotation =
+                        _drawingService.getSelectedTextAnnotation();
+                    if (selectedAnnotation != null) {
+                      final pageIds = _drawingService.getPageIds();
+                      for (final pageId in pageIds) {
+                        final annotations =
+                            _drawingService.getTextAnnotationsForPage(pageId);
+                        if (annotations.contains(selectedAnnotation)) {
+                          _drawingService.updateTextAnnotation(
+                            pageId,
+                            selectedAnnotation.id,
+                            isItalic: value,
+                            isBubble: false,
+                          );
+                          break;
+                        }
+                      }
+                    }
+                  });
+                },
+              ),
+            Expanded(
+              child: MouseRegion(
+                cursor: cursor,
+                child: buildPaperCanvas(
+                    totalHeight, papers, paperProvider, paperDBProvider),
+              ),
             ),
-          if (selectedMode == DrawingMode.eraser)
-            buildEraserSettingsBar(
-              eraserWidth: _drawingService.getEraserWidth(),
-              eraserMode: _drawingService.getEraserMode(),
-              onWidthChanged: (value) {
-                setState(() {
-                  _drawingService.setEraserWidth(value);
-                });
-              },
-              onModeChanged: (mode) {
-                setState(() {
-                  _drawingService.setEraserMode(mode);
-                });
-              },
-            ),
-          // Add the text settings bar when in text mode
-          if (selectedMode == DrawingMode.text)
-            buildTextSettingsBar(
-              key: _settingsBarKey,
-              selectedColor: selectedColor,
-              availableColors: availableColors,
-              onColorChanged: (color) {
-                setState(() {
-                  selectedColor = color;
-
-                  // Update the selected annotation if there is one
-                  final selectedAnnotation =
-                      _drawingService.getSelectedTextAnnotation();
-                  if (selectedAnnotation != null) {
-                    final pageIds = _drawingService.getPageIds();
-                    for (final pageId in pageIds) {
-                      final annotations =
-                          _drawingService.getTextAnnotationsForPage(pageId);
-                      if (annotations.contains(selectedAnnotation)) {
-                        _drawingService.updateTextAnnotation(
-                          pageId,
-                          selectedAnnotation.id,
-                          color: color,
-                          isBubble: false,
-                        );
-                        break;
-                      }
-                    }
-                  }
-                });
-              },
-              fontSize: selectedFontSize,
-              onFontSizeChanged: (value) {
-                setState(() {
-                  selectedFontSize = value;
-
-                  // Update the selected annotation if there is one
-                  final selectedAnnotation =
-                      _drawingService.getSelectedTextAnnotation();
-                  if (selectedAnnotation != null) {
-                    final pageIds = _drawingService.getPageIds();
-                    for (final pageId in pageIds) {
-                      final annotations =
-                          _drawingService.getTextAnnotationsForPage(pageId);
-                      if (annotations.contains(selectedAnnotation)) {
-                        _drawingService.updateTextAnnotation(
-                          pageId,
-                          selectedAnnotation.id,
-                          fontSize: value,
-                          isBubble: false,
-                        );
-                        break;
-                      }
-                    }
-                  }
-                });
-              },
-              textAlign: selectedTextAlign,
-              onTextAlignChanged: (align) {
-                setState(() {
-                  selectedTextAlign = align;
-
-                  // Update the selected annotation if there is one
-                  final selectedAnnotation =
-                      _drawingService.getSelectedTextAnnotation();
-                  if (selectedAnnotation != null) {
-                    final pageIds = _drawingService.getPageIds();
-                    for (final pageId in pageIds) {
-                      final annotations =
-                          _drawingService.getTextAnnotationsForPage(pageId);
-                      if (annotations.contains(selectedAnnotation)) {
-                        _drawingService.updateTextAnnotation(
-                          pageId,
-                          selectedAnnotation.id,
-                          isBubble: false,
-                        );
-                        break;
-                      }
-                    }
-                  }
-                });
-              },
-              isBold: selectedTextBold,
-              onBoldChanged: (value) {
-                setState(() {
-                  selectedTextBold = value;
-
-                  // Update the selected annotation if there is one
-                  final selectedAnnotation =
-                      _drawingService.getSelectedTextAnnotation();
-                  if (selectedAnnotation != null) {
-                    final pageIds = _drawingService.getPageIds();
-                    for (final pageId in pageIds) {
-                      final annotations =
-                          _drawingService.getTextAnnotationsForPage(pageId);
-                      if (annotations.contains(selectedAnnotation)) {
-                        _drawingService.updateTextAnnotation(
-                          pageId,
-                          selectedAnnotation.id,
-                          isBold: value,
-                          isBubble: false,
-                        );
-                        break;
-                      }
-                    }
-                  }
-                });
-              },
-              isItalic: selectedTextItalic,
-              onItalicChanged: (value) {
-                setState(() {
-                  selectedTextItalic = value;
-
-                  // Update the selected annotation if there is one
-                  final selectedAnnotation =
-                      _drawingService.getSelectedTextAnnotation();
-                  if (selectedAnnotation != null) {
-                    final pageIds = _drawingService.getPageIds();
-                    for (final pageId in pageIds) {
-                      final annotations =
-                          _drawingService.getTextAnnotationsForPage(pageId);
-                      if (annotations.contains(selectedAnnotation)) {
-                        _drawingService.updateTextAnnotation(
-                          pageId,
-                          selectedAnnotation.id,
-                          isItalic: value,
-                          isBubble: false,
-                        );
-                        break;
-                      }
-                    }
-                  }
-                });
-              },
-            ),
-          Expanded(
-            child: MouseRegion(
-              cursor: cursor,
-              child: buildPaperCanvas(
-                  totalHeight, papers, paperProvider, paperDBProvider),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   AppBar buildAppBar() {
+    final isPhone = MediaQuery.of(context).size.width < 600;
+
     return AppBar(
       leading: IconButton(
         icon: const Icon(Icons.arrow_back, color: Colors.black),
@@ -563,160 +575,213 @@ class _PaperPageState extends State<PaperPage> {
       ),
       backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       title: Text(widget.name),
-      actions: [
-        IconButton(
-          icon: Icon(
-            Icons.edit,
-            color: selectedMode == DrawingMode.pencil ? Colors.blue : null,
-          ),
-          onPressed: () => setState(() => selectedMode = DrawingMode.pencil),
-          tooltip: 'Pencil',
-        ),
-        IconButton(
-          icon: FaIcon(
-            FontAwesomeIcons.eraser,
-            color: selectedMode == DrawingMode.eraser ? Colors.blue : null,
-          ),
-          onPressed: () => setState(() => selectedMode = DrawingMode.eraser),
-          tooltip: 'Eraser',
-        ),
-        IconButton(
-          icon: Icon(
-            Icons.circle,
-            color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
-          ),
-          onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
-          tooltip: 'Bubble',
-        ),
-        IconButton(
-          icon: Icon(
-            Icons.text_fields,
-            color: selectedMode == DrawingMode.text ? Colors.blue : null,
-          ),
-          onPressed: () => setState(() => selectedMode = DrawingMode.text),
-          tooltip: 'Text',
-        ),
-        IconButton(
-          // Add pointing finger icon for reading mode
-          icon: FaIcon(
-            FontAwesomeIcons
-                .handPointer, // Or Icons.touch_app for Material icon
-            color: selectedMode == DrawingMode.read ? Colors.blue : null,
-          ),
-          onPressed: () => setState(() => selectedMode = DrawingMode.read),
-          tooltip: 'Reading Mode',
-        ),
-        IconButton(
-          icon: const Icon(Icons.undo),
-          onPressed: _drawingService.canUndo()
-              ? () => setState(() => _drawingService.undo())
-              : null,
-          tooltip: 'Undo',
-        ),
-        IconButton(
-          icon: const Icon(Icons.redo),
-          onPressed: _drawingService.canRedo()
-              ? () => setState(() => _drawingService.redo())
-              : null,
-          tooltip: 'Redo',
-        ),
-        IconButton(
-          icon: const Icon(Icons.save),
-          onPressed: _saveDrawing,
-          tooltip: 'Save Drawing',
-        ),
-        _isHandwritingMode
-            ? IconButton(
-                icon: const Icon(
-                  Icons.check,
-                  color: Colors.red, // Use red to indicate "confirm" action
-                ),
-                onPressed: () {
-                  // Process the handwriting when confirm button is clicked
-                  _processHandwritingConfirm();
-
-                  // Toggle handwriting mode off
-                  setState(() {
-                    _isHandwritingMode = false;
-                    selectedMode =
-                        DrawingMode.pencil; // Switch back to pencil mode
-                  });
-                },
-                tooltip: 'Confirm Handwriting',
-              )
-            : IconButton(
-                icon: FaIcon(FontAwesomeIcons.signature),
-                onPressed: () {
-                  _onHandwritingModeSelected();
-                },
-                tooltip: 'Handwriting Mode',
-              ),
-        IconButton(
-          icon: FaIcon(
-            FontAwesomeIcons.shareFromSquare,
-          ),
-          onPressed: exportToPdf,
-          tooltip: 'Export to PDF',
-        ),
-        IconButton(
-          icon: FaIcon(
-            FontAwesomeIcons.bars,
-          ),
-          onPressed: () {
-            showGeneralDialog(
-              context: context,
-              barrierDismissible: true,
-              barrierLabel: 'Dismiss',
-              pageBuilder: (context, animation, secondaryAnimation) {
-                return Align(
-                  alignment: Alignment.centerRight,
-                  child: Material(
-                    color: Colors.white,
-                    elevation: 8,
-                    child: SizedBox(
-                      width: MediaQuery.of(context).size.width *
-                          0.35, // Adjust width as needed
-                      height: MediaQuery.of(context).size.height,
-                      child: ManagePaperPage(
-                        fileId: widget.fileId,
-                        paperProvider: Provider.of<PaperProvider>(context),
-                      ),
-                    ),
-                  ),
-                );
-              },
-              transitionDuration: const Duration(milliseconds: 300),
-              transitionBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                return SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(1, 0), // From right
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
-                );
-              },
-            ).then((_) {
-              // Call _reloadPaperData when the dialog is closed
-              _reloadPaperData();
-            });
-          },
-          tooltip: 'Edit Paper',
-        )
-
-        // IconButton(
-        //   icon: const Icon(Icons.share),
-        //   tooltip: 'Share this file',
-        //   onPressed: () {
-        //     showDialog(
-        //       context: context,
-        //       builder: (context) =>
-        //           ShareDialog(fileId: widget.fileId, fileName: widget.name),
-        //     );
-        //   },
-        // ),
-      ],
+      actions: isPhone
+          ? _buildPhoneActions() // 🔧 Phone layout
+          : _buildFullActions(), // 💻 Tablet/Desktop layout
     );
+  }
+
+  List<Widget> _buildPhoneActions() {
+    return [
+      IconButton(
+        icon: FaIcon(
+          FontAwesomeIcons.handPointer,
+          color: selectedMode == DrawingMode.read ? Colors.blue : null,
+        ),
+        onPressed: () => setState(() => selectedMode = DrawingMode.read),
+        tooltip: 'Reading Mode',
+      ),
+      IconButton(
+        icon: Icon(
+          Icons.circle,
+          color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
+        ),
+        onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
+        tooltip: 'Bubble',
+      ),
+      PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert),
+        onSelected: _handleMoreMenuAction,
+        itemBuilder: (context) => const [
+          PopupMenuItem(value: 'Pencil', child: Text('Pencil')),
+          PopupMenuItem(value: 'Eraser', child: Text('Eraser')),
+          PopupMenuItem(value: 'Text', child: Text('Text Mode')),
+          PopupMenuItem(value: 'Undo', child: Text('Undo')),
+          PopupMenuItem(value: 'Redo', child: Text('Redo')),
+          PopupMenuItem(value: 'Handwriting', child: Text('Handwriting')),
+          PopupMenuItem(value: 'Export PDF', child: Text('Export to PDF')),
+          PopupMenuItem(value: 'Edit Paper', child: Text('Edit Paper')),
+          PopupMenuItem(value: 'Save', child: Text('Save Drawing')),
+        ],
+      ),
+    ];
+  }
+
+  void _handleMoreMenuAction(String value) {
+    switch (value) {
+      case 'Pencil':
+        setState(() => selectedMode = DrawingMode.pencil);
+        break;
+      case 'Eraser':
+        setState(() => selectedMode = DrawingMode.eraser);
+        break;
+      case 'Text':
+        setState(() => selectedMode = DrawingMode.text);
+        break;
+      case 'Undo':
+        if (_drawingService.canUndo()) {
+          setState(() => _drawingService.undo());
+        }
+        break;
+      case 'Redo':
+        if (_drawingService.canRedo()) {
+          setState(() => _drawingService.redo());
+        }
+        break;
+      case 'Handwriting':
+        _onHandwritingModeSelected();
+        break;
+      case 'Export PDF':
+        exportToPdf();
+        break;
+      case 'Edit Paper':
+        _showEditPaperDialog();
+        break;
+      case 'Save':
+        _saveDrawing();
+        break;
+    }
+  }
+
+  List<Widget> _buildFullActions() {
+    return [
+      IconButton(
+        icon: Icon(
+          Icons.edit,
+          color: selectedMode == DrawingMode.pencil ? Colors.blue : null,
+        ),
+        onPressed: () => setState(() => selectedMode = DrawingMode.pencil),
+        tooltip: 'Pencil',
+      ),
+      IconButton(
+        icon: FaIcon(
+          FontAwesomeIcons.eraser,
+          color: selectedMode == DrawingMode.eraser ? Colors.blue : null,
+        ),
+        onPressed: () => setState(() => selectedMode = DrawingMode.eraser),
+        tooltip: 'Eraser',
+      ),
+      IconButton(
+        icon: Icon(
+          Icons.circle,
+          color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
+        ),
+        onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
+        tooltip: 'Bubble',
+      ),
+      IconButton(
+        icon: Icon(
+          Icons.text_fields,
+          color: selectedMode == DrawingMode.text ? Colors.blue : null,
+        ),
+        onPressed: () => setState(() => selectedMode = DrawingMode.text),
+        tooltip: 'Text',
+      ),
+      IconButton(
+        icon: FaIcon(
+          FontAwesomeIcons.handPointer,
+          color: selectedMode == DrawingMode.read ? Colors.blue : null,
+        ),
+        onPressed: () => setState(() => selectedMode = DrawingMode.read),
+        tooltip: 'Reading Mode',
+      ),
+      IconButton(
+        icon: const Icon(Icons.undo),
+        onPressed: _drawingService.canUndo()
+            ? () => setState(() => _drawingService.undo())
+            : null,
+        tooltip: 'Undo',
+      ),
+      IconButton(
+        icon: const Icon(Icons.redo),
+        onPressed: _drawingService.canRedo()
+            ? () => setState(() => _drawingService.redo())
+            : null,
+        tooltip: 'Redo',
+      ),
+      IconButton(
+        icon: const Icon(Icons.save),
+        onPressed: _saveDrawing,
+        tooltip: 'Save Drawing',
+      ),
+      _isHandwritingMode
+          ? IconButton(
+              icon: const Icon(Icons.check, color: Colors.red),
+              onPressed: () {
+                _processHandwritingConfirm();
+                setState(() {
+                  _isHandwritingMode = false;
+                  selectedMode = DrawingMode.pencil;
+                });
+              },
+              tooltip: 'Confirm Handwriting',
+            )
+          : IconButton(
+              icon: FaIcon(FontAwesomeIcons.signature),
+              onPressed: _onHandwritingModeSelected,
+              tooltip: 'Handwriting Mode',
+            ),
+      IconButton(
+        icon: FaIcon(FontAwesomeIcons.shareFromSquare),
+        onPressed: exportToPdf,
+        tooltip: 'Export to PDF',
+      ),
+      IconButton(
+        icon: FaIcon(FontAwesomeIcons.bars),
+        onPressed: _showEditPaperDialog,
+        tooltip: 'Edit Paper',
+      ),
+    ];
+  }
+
+  void _showEditPaperDialog() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isPhone = screenWidth < 600;
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Align(
+          alignment: Alignment.centerRight,
+          child: Material(
+            color: Colors.white,
+            elevation: 8,
+            child: SizedBox(
+              width: isPhone ? screenWidth * 0.7 : screenWidth * 0.35,
+              height: MediaQuery.of(context).size.height,
+              child: ManagePaperPage(
+                fileId: widget.fileId,
+                paperProvider: Provider.of<PaperProvider>(context),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionDuration: const Duration(milliseconds: 300),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(1, 0),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        );
+      },
+    ).then((_) {
+      _reloadPaperData();
+    });
   }
 
   Widget buildPaperCanvas(double totalHeight, List<Map<String, dynamic>> papers,
@@ -1408,8 +1473,9 @@ class _PaperPageState extends State<PaperPage> {
       final handwritingHeight = maxY - minY;
       final handwritingWidth = maxX - minX;
 
-      double fontSize = handwritingHeight * 0.7;
-      fontSize = fontSize.clamp(12.0, 48.0);
+      final isPhone = MediaQuery.of(context).size.width < 600;
+      double fontSize = handwritingHeight * (isPhone ? 0.8 : 0.7);
+      fontSize = fontSize.clamp(isPhone ? 14.0 : 12.0, isPhone ? 52.0 : 48.0);
 
       final aspectRatio = handwritingWidth / handwritingHeight;
       if (aspectRatio > 8) fontSize *= 0.7;
