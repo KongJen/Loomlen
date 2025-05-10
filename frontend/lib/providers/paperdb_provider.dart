@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:frontend/api/apiService.dart';
 import 'package:frontend/items/drawingpoint_item.dart';
 import 'package:frontend/items/template_item.dart';
+import 'package:frontend/items/text_annotation_item.dart';
 import 'package:uuid/uuid.dart';
 
 class PaperDBProvider extends ChangeNotifier {
@@ -141,6 +142,11 @@ class PaperDBProvider extends ChangeNotifier {
 
   void saveDrawingData(String pageId, List<DrawingPoint> points) {
     _apiService.updateDraw(pageId, points);
+  }
+
+  void saveTextData(String pageId, List<TextAnnotation> texts) {
+    print(texts);
+    _apiService.updateText(pageId, texts);
   }
 
   void removePaper(String paperId) {
