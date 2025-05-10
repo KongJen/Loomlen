@@ -649,12 +649,16 @@ class _PaperPageState extends State<PaperPage> {
                 tooltip: 'Handwriting Mode',
               ),
         IconButton(
-          icon: Icon(Icons.picture_as_pdf),
+          icon: FaIcon(
+            FontAwesomeIcons.shareFromSquare,
+          ),
           onPressed: exportToPdf,
           tooltip: 'Export to PDF',
         ),
         IconButton(
-          icon: const Icon(Icons.book),
+          icon: FaIcon(
+            FontAwesomeIcons.bars,
+          ),
           onPressed: () {
             showGeneralDialog(
               context: context,
