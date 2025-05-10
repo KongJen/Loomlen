@@ -14,6 +14,7 @@ class FolderItem extends BaseItem {
   final String? parentFolderId;
   final String? role;
   final Color color;
+  final bool isListView;
 
   const FolderItem({
     super.key,
@@ -25,6 +26,7 @@ class FolderItem extends BaseItem {
     this.parentFolderId,
     this.role,
     required this.color,
+    this.isListView = false,
   });
 
   @override
@@ -35,6 +37,56 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+
+    if (widget.isListView) {
+      // List view layout
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.folder_open, size: 70, color: widget.color),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatDate(widget.createdDate),
+                      style: TextStyle(
+                        fontSize: screenWidth < 600 ? 10 : 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (widget.role == 'owner' ||
+                widget.role == 'write' ||
+                widget.originalId == null)
+              IconButton(
+                icon: const Icon(Icons.keyboard_control_key,
+                    color: Colors.blueAccent),
+                onPressed: () => _showOptionsOverlay(context),
+              ),
+          ],
+        ),
+      );
+    }
+
+    // Grid view layout
     final iconSize = screenWidth < 600 ? 120.0 : 170.0;
 
     return Padding(
@@ -56,15 +108,42 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
           _buildItemNameRow(context, screenWidth),
           const SizedBox(height: 2.0),
           Text(
-            widget.createdDate,
+            _formatDate(widget.createdDate),
             style: TextStyle(
-              fontSize: screenWidth < 600 ? 8 : 10,
+              fontSize: screenWidth < 600 ? 10 : 12,
               color: Colors.grey,
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _formatDate(String rawDate) {
+    try {
+      final date = DateTime.parse(rawDate);
+      return "${_monthName(date.month)} ${date.day}, ${date.year}";
+    } catch (_) {
+      return rawDate; // fallback for invalid date
+    }
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return months[month - 1];
   }
 
   Widget _buildItemNameRow(BuildContext context, double screenWidth) {

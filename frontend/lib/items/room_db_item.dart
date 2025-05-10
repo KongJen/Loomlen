@@ -13,8 +13,8 @@ class RoomDBItem extends BaseItem {
   final String originalId;
   final String role;
   final VoidCallback onToggleFavorite;
-
   final String updatedAt;
+  final bool isListView;
 
   const RoomDBItem({
     super.key,
@@ -27,6 +27,7 @@ class RoomDBItem extends BaseItem {
     required this.role,
     required this.onToggleFavorite,
     required this.updatedAt,
+    this.isListView = false,
   });
 
   @override
@@ -38,6 +39,62 @@ class _RoomDBItemState extends State<RoomDBItem>
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+
+    if (widget.isListView) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.home_filled, size: 70, color: widget.color),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Padding(
+                padding:
+                    const EdgeInsets.only(top: 12.0), // shifts name downward
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatDate(widget.createdDate),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.star_rate_rounded,
+                    color: widget.is_favorite ? Colors.red : Colors.grey,
+                  ),
+                  onPressed: widget.onToggleFavorite,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.keyboard_control_key,
+                      color: Colors.blueAccent),
+                  onPressed: () => _showOptionsOverlay(context),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 🟦 Grid-style layout (default)
     final iconSize = screenWidth < 600 ? 120.0 : 170.0;
     final starIconSize = iconSize * 0.3;
 
@@ -81,15 +138,42 @@ class _RoomDBItemState extends State<RoomDBItem>
           const SizedBox(height: 4),
           _buildItemNameRow(context, screenWidth),
           Text(
-            'Created At: ${widget.createdDate}',
+            '${_formatDate(widget.createdDate)}',
             style: TextStyle(
-              fontSize: screenWidth < 600 ? 8 : 10,
+              fontSize: screenWidth < 600 ? 10 : 12,
               color: Colors.grey,
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _formatDate(String rawDate) {
+    try {
+      final date = DateTime.parse(rawDate);
+      return "${_monthName(date.month)} ${date.day}, ${date.year}";
+    } catch (_) {
+      return rawDate;
+    }
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return months[month - 1];
   }
 
   Widget _buildItemNameRow(BuildContext context, double screenWidth) {

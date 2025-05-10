@@ -5,7 +5,45 @@ class UIComponents {
   static Widget createAddButton({
     required double itemSize,
     String label = "New",
+    bool isListView = false,
   }) {
+    if (isListView) {
+      // 📋 Custom list-style layout with large icon
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        child: Row(
+          children: [
+            DottedBorder(
+              borderType: BorderType.RRect,
+              radius: const Radius.circular(8.0),
+              dashPattern: const [4, 3],
+              color: Colors.blue,
+              strokeWidth: 2,
+              child: Container(
+                width: 70,
+                height: 70,
+                alignment: Alignment.center,
+                child: const Icon(Icons.add, size: 30, color: Colors.blue),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Padding(
+              padding: const EdgeInsets.only(top: 12.0),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 18,
+                  color: Colors.blue,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 🟦 Grid-style Add button (default)
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -41,48 +79,6 @@ class UIComponents {
         ),
         const SizedBox(height: 12),
       ],
-    );
-  }
-
-  static PreferredSize createTitleAppBar({
-    required BuildContext context,
-    required String title,
-    List<Widget>? actions,
-    Widget? leading,
-    double height = 100.0,
-  }) {
-    return PreferredSize(
-      preferredSize: Size.fromHeight(height),
-      child: AppBar(
-        elevation: 0,
-        leading: leading,
-        actions: actions,
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
-          ),
-          child: Padding(
-            padding: EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top + 35,
-              left: 60,
-              right: 16,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }
