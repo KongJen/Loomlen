@@ -20,6 +20,9 @@ class DrawingDBService {
   List<String> _pageIds = [];
   Map<String, PaperTemplate> _paperTemplates = {};
   DrawingPoint? _currentDrawingPoint;
+  final Map<String, DrawingPoint> _currentUserDrawingPoints = {};
+  final Map<String, EraserTool> _userErasers = {};
+
   TextAnnotation? _selectedTextAnnotation;
   String _roomId = '';
   String _fileId = '';
@@ -63,7 +66,8 @@ class DrawingDBService {
     // Listen for drawing updates from other clients
     _socketService!.on('drawing', (data) {
       if (data['fileId'] == _fileId) {
-        _handleIncomingDrawing(data['drawing'], data['pageId'], data['state']);
+        _handleIncomingDrawing(
+            data['drawing'], data['pageId'], data['state'], data['sender']);
       }
     });
 
@@ -84,8 +88,8 @@ class DrawingDBService {
     // Add listener for eraser events
     _socketService!.on('eraser', (data) {
       if (data['fileId'] == _fileId) {
-        _handleIncomingEraser(
-            data['eraserAction'], data['pageId'], data['state']);
+        _handleIncomingEraser(data['eraserAction'], data['pageId'],
+            data['state'], data['sender']);
       }
     });
 
@@ -355,6 +359,7 @@ class DrawingDBService {
     Map<String, dynamic> data,
     String pageId,
     String state,
+    String senderId,
   ) {
     // Check if offsets data is properly formatted
     List<dynamic> offsetsData = data['offsets'];
@@ -370,15 +375,25 @@ class DrawingDBService {
       width: data['width'].toDouble(),
       tool: data['tool'],
     );
+
     if (state == 'start') {
       _saveStateForUndo();
       _redoStack.clear();
       _pageDrawingPoints[pageId] ??= [];
+      _currentUserDrawingPoints[senderId] = drawingPoint;
       _pageDrawingPoints[pageId]!.add(drawingPoint);
     } else if (state == 'continue') {
-      _pageDrawingPoints[pageId]!.last = drawingPoint;
-    } else {
-      _currentDrawingPoint = null;
+      if (_currentUserDrawingPoints.containsKey(senderId)) {
+        _currentUserDrawingPoints[senderId] = drawingPoint;
+        // Replace the last stroke from this user only
+        int index = _pageDrawingPoints[pageId]!
+            .lastIndexWhere((p) => p.id == drawingPoint.id);
+        if (index != -1) {
+          _pageDrawingPoints[pageId]![index] = drawingPoint;
+        }
+      }
+    } else if (state == 'end') {
+      _currentUserDrawingPoints.remove(senderId);
     }
 
     if (onDataChanged != null) {
@@ -386,8 +401,8 @@ class DrawingDBService {
     }
   }
 
-  void _handleIncomingEraser(
-      Map<String, dynamic> eraserAction, String pageId, String state) {
+  void _handleIncomingEraser(Map<String, dynamic> eraserAction, String pageId,
+      String state, String senderId) {
     if (!_pageDrawingPoints.containsKey(pageId)) {
       _pageDrawingPoints[pageId] = [];
     }
@@ -398,31 +413,30 @@ class DrawingDBService {
         Offset(positionData['x'].toDouble(), positionData['y'].toDouble());
     double width = eraserAction['width'].toDouble();
 
-    // Create or update the eraser tool
     if (state == 'start') {
       _saveStateForUndo();
       _redoStack.clear();
 
-      // Create a new eraser tool for the session
-      _eraserTool = EraserTool(
+      final eraserTool = EraserTool(
         eraserWidth: width,
         eraserMode: type == 'point' ? EraserMode.point : EraserMode.stroke,
         pageDrawingPoints: _pageDrawingPoints,
         onStateChanged: () {
-          if (onDataChanged != null) {
-            onDataChanged!();
-          }
+          if (onDataChanged != null) onDataChanged!();
         },
         currentPaperId: pageId,
       );
+
+      _userErasers[senderId] = eraserTool;
     }
 
-    // Apply the eraser action
-    _eraserTool.handleErasing(position);
+    if (_userErasers.containsKey(senderId)) {
+      _userErasers[senderId]!.handleErasing(position);
+    }
 
-    // Finish erasing if this is the end state
     if (state == 'end') {
-      _eraserTool.finishErasing();
+      _userErasers[senderId]?.finishErasing();
+      _userErasers.remove(senderId);
     }
   }
 
@@ -560,6 +574,7 @@ class DrawingDBService {
         "position": {"x": position.dx, "y": position.dy},
         "width": _eraserWidth,
       },
+      "sender": getId(),
       "state": state
     };
     _socketService!.emit('eraser', data);
@@ -576,6 +591,7 @@ class DrawingDBService {
         "position": {"x": position.dx, "y": position.dy},
         "width": _eraserWidth,
       },
+      "sender": getId(),
       "state": state,
     };
     _socketService!.emit('eraser', data);
