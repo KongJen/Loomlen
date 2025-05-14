@@ -125,6 +125,8 @@ class PaperProvider extends ChangeNotifier {
     _savePapers();
     notifyListeners();
 
+    print("paperIdddddddddddd: $newPaperId");
+
     return newPaperId;
   }
 

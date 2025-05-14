@@ -198,6 +198,66 @@ func SetupSocketIO(router *mux.Router) *socketio.Server {
 		server.BroadcastToRoom("", roomID, "drawing", data)
 	})
 
+	server.OnEvent("/", "text", func(s socketio.Conn, data map[string]interface{}) {
+
+		// Check if the roomId exists and is a string
+		roomID, ok := data["roomId"].(string)
+		if !ok || roomID == "" {
+			fmt.Println("Invalid or missing roomId in drawing event")
+			return
+		}
+
+		// Check if pageId is also received (for verification)
+		pageID, pageOk := data["pageId"].(string)
+		if pageOk {
+			fmt.Printf("Received pageId: %s\n", pageID)
+			fmt.Printf("Received text data: %v\n", data)
+		}
+
+		// Broadcast the drawing data to all users in the room
+		server.BroadcastToRoom("", roomID, "text", data)
+	})
+
+	server.OnEvent("/", "updatetext", func(s socketio.Conn, data map[string]interface{}) {
+
+		// Check if the roomId exists and is a string
+		roomID, ok := data["roomId"].(string)
+		if !ok || roomID == "" {
+			fmt.Println("Invalid or missing roomId in drawing event")
+			return
+		}
+
+		// Check if pageId is also received (for verification)
+		pageID, pageOk := data["pageId"].(string)
+		if pageOk {
+			fmt.Printf("Received pageId: %s\n", pageID)
+			fmt.Printf("Received updatetext data: %v\n", data)
+		}
+
+		// Broadcast the drawing data to all users in the room
+		server.BroadcastToRoom("", roomID, "updatetext", data)
+	})
+
+	server.OnEvent("/", "deletetext", func(s socketio.Conn, data map[string]interface{}) {
+
+		// Check if the roomId exists and is a string
+		roomID, ok := data["roomId"].(string)
+		if !ok || roomID == "" {
+			fmt.Println("Invalid or missing roomId in drawing event")
+			return
+		}
+
+		// Check if pageId is also received (for verification)
+		pageID, pageOk := data["pageId"].(string)
+		if pageOk {
+			fmt.Printf("Received pageId: %s\n", pageID)
+			fmt.Printf("Received deletetext: %v\n", data)
+		}
+
+		// Broadcast the drawing data to all users in the room
+		server.BroadcastToRoom("", roomID, "deletetext", data)
+	})
+
 	server.OnEvent("/", "eraser", func(s socketio.Conn, data map[string]interface{}) {
 		fmt.Println("📥 Received eraser event data: ", data)
 

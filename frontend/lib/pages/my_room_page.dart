@@ -17,6 +17,23 @@ class MyRoomPage extends StatefulWidget {
 }
 
 class _MyRoomPageState extends State<MyRoomPage> {
+  bool _isListView = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final screenWidth = MediaQuery.of(context).size.width;
+    if (screenWidth >= 600 && _isListView) {
+      _isListView = false; // Default to grid view on wider screens
+    }
+  }
+
+  void _toggleView() {
+    setState(() {
+      _isListView = !_isListView;
+    });
+  }
+
   void showCreateRoomOverlay() {
     OverlayService.showOverlay(
       context,
@@ -32,7 +49,11 @@ class _MyRoomPageState extends State<MyRoomPage> {
     final itemSize = screenSize.width < 600 ? 120.0 : 170.0;
 
     return Scaffold(
-      appBar: ReusableAppBar(title: 'My Room', showActionButtons: true),
+      appBar: ReusableAppBar(
+        title: 'My Room',
+        isListView: _isListView,
+        onToggleView: _toggleView,
+      ),
       body: Padding(
         padding: EdgeInsets.all(screenSize.width / 10000),
         child: Column(
@@ -43,6 +64,13 @@ class _MyRoomPageState extends State<MyRoomPage> {
           ],
         ),
       ),
+      floatingActionButton: (MediaQuery.of(context).size.width <= 600)
+          ? FloatingActionButton(
+              onPressed: showCreateRoomOverlay,
+              backgroundColor: Colors.blue,
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
     );
   }
 
@@ -52,17 +80,23 @@ class _MyRoomPageState extends State<MyRoomPage> {
     RoomProvider roomProvider,
     double itemSize,
   ) {
-    // Create room widgets list starting with the "New" button
-    List<Widget> gridItems = [
-      GestureDetector(
-        onTapDown: (TapDownDetails details) => showCreateRoomOverlay(),
-        child: UIComponents.createAddButton(
-          itemSize: itemSize,
-        ),
-      ),
-    ];
+    final isSmallScreen = MediaQuery.of(context).size.width <= 600;
 
-    // Add all room items
+    List<Widget> gridItems = [];
+
+    // Only show the add button inside the grid if it's a wide screen (no FAB)
+    if (!isSmallScreen) {
+      gridItems.add(
+        GestureDetector(
+          onTapDown: (TapDownDetails details) => showCreateRoomOverlay(),
+          child: UIComponents.createAddButton(
+            itemSize: itemSize,
+            isListView: _isListView,
+          ),
+        ),
+      );
+    }
+
     gridItems.addAll(
       rooms.map(
         (room) => GestureDetector(
@@ -75,12 +109,20 @@ class _MyRoomPageState extends State<MyRoomPage> {
                 (room['color'] is int) ? Color(room['color']) : room['color'],
             isFavorite: room['isFavorite'],
             onToggleFavorite: () => roomProvider.toggleFavorite(room['id']),
+            isListView: _isListView, // ✅ Pass current view mode
           ),
         ),
       ),
     );
 
-    return ResponsiveGridLayout(children: gridItems);
+    return _isListView
+        ? ListView.separated(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: gridItems.length,
+            itemBuilder: (context, index) => gridItems[index],
+            separatorBuilder: (context, index) => const SizedBox(height: 10),
+          )
+        : ResponsiveGridLayout(children: gridItems);
   }
 
   void _navigateToRoomDetail(BuildContext context, Map<String, dynamic> room) {
