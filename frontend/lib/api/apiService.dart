@@ -745,10 +745,32 @@ class ApiService {
 
   Future<Map<String, dynamic>> addText(
     String paperId,
-    List<dynamic>
-        textData, // Assuming drawingData is a List of DrawingPoint objects
+    List<dynamic> allData, // mixed data: drawing + text
   ) async {
-    print("Drawing to db: $textData");
+    // Filter only items where type == 'text'
+    final textData = allData
+        .where((item) => item['type'] == 'text')
+        .map((item) => {
+              "type": item["type"],
+              "data": {
+                "id": item["data"]["id"],
+                "text": item["data"]["text"],
+                "position": {
+                  "x": item["data"]["position"]["x"],
+                  "y": item["data"]["position"]["y"],
+                },
+                "color": item["data"]["color"],
+                "font_size": item["data"]["fontSize"],
+                "is_bold": item["data"]["isBold"],
+                "is_italic": item["data"]["isItalic"],
+                "is_bubble": item["data"]["isBubble"],
+              },
+              "timestamp": item["timestamp"]
+            })
+        .toList();
+
+    print("Filtered text data to send: $textData");
+    print("JSON: ${jsonEncode(textData)}");
 
     final response = await authenticatedRequest(
       '$baseUrl/api/paper/text',
@@ -763,7 +785,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      throw Exception('Failed to update drawing: ${response.body}');
+      throw Exception('Failed to update text data: ${response.body}');
     }
   }
 
