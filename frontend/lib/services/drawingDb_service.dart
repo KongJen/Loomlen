@@ -137,10 +137,10 @@ class DrawingDBService {
       // Save points to the database for the given pageId
       // Example: paperDBProvider.saveDrawingData(pageId, points);
       List<TextAnnotation> texts = _pageTextAnnotations[pageId] ?? [];
-      paperDBProvider.saveTextData(pageId, texts);
-
       List<TextAnnotation> bubbles = _pageBubbleAnnotations[pageId] ?? [];
-      paperDBProvider.saveTextData(pageId, bubbles);
+      List<TextAnnotation> allAnnotations = [...texts, ...bubbles];
+
+      paperDBProvider.saveTextData(pageId, allAnnotations);
     }
   }
 
@@ -729,36 +729,39 @@ class DrawingDBService {
       // Check if 'drawing_data' is not null and is a list
       if (paperData['drawing_data'] != null || paperData['text_data'] != null) {
         try {
-          if (paperData['drawing_data'] != null) {
-            final List<dynamic> loadedStrokes = paperData['drawing_data'];
+          final List<dynamic> loadedStrokes = paperData['drawing_data'];
 
-            for (final stroke in loadedStrokes) {
-              if (stroke['type'] == 'drawing') {
-                final point = DrawingPoint.fromJson(stroke);
-                if (point.offsets.isNotEmpty) {
-                  pointsForPage.add(point);
-                }
-              }
-            }
-          } else {
-            final List<dynamic> loadedStrokes = paperData['text_data'];
-
-            for (final stroke in loadedStrokes) {
-              print("stroke: $stroke");
-              if (stroke['type'] == 'text') {
-                final annotation = TextAnnotation.fromJson(stroke);
-
-                if (annotation.isBubble) {
-                  BubbleAnnotationsForPage.add(annotation);
-                } else {
-                  textAnnotationsForPage.add(annotation);
-                }
+          for (final stroke in loadedStrokes) {
+            if (stroke['type'] == 'drawing') {
+              final point = DrawingPoint.fromJson(stroke);
+              if (point.offsets.isNotEmpty) {
+                pointsForPage.add(point);
               }
             }
           }
         } catch (e, stackTrace) {
           debugPrint(
             'Error loading drawing data for page $pageId: $e\n$stackTrace',
+          );
+        }
+        try {
+          final List<dynamic> loadedTypes = paperData['text_data'];
+
+          for (final stroke in loadedTypes) {
+            if (stroke['type'] == 'text') {
+              print("Storke: $stroke");
+              final annotation = TextAnnotation.fromJson(stroke);
+
+              if (annotation.isBubble) {
+                BubbleAnnotationsForPage.add(annotation);
+              } else {
+                textAnnotationsForPage.add(annotation);
+              }
+            }
+          }
+        } catch (e, stackTrace) {
+          debugPrint(
+            'Error loading typing data for page $pageId: $e\n$stackTrace',
           );
         }
       }
