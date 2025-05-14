@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:frontend/global.dart';
 import 'package:frontend/items/drawingpoint_item.dart';
+import 'package:frontend/items/text_annotation_item.dart';
 import 'package:frontend/providers/auth_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -654,6 +655,51 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> updateText(
+    String paperId,
+    List<TextAnnotation>
+        TextData, // Assuming drawingData is a List of DrawingPoint objects
+  ) async {
+    // Convert the drawing data to the correct format
+    List<Map<String, dynamic>> formattedTextData = TextData.map((text) {
+      return {
+        'type': 'text',
+        'data': {
+          'id': int.tryParse(text.id.toString()) ?? 0,
+          'text': text.text,
+          'position': {
+            'x': text.position.dx,
+            'y': text.position.dy,
+          },
+          'color': text.color.value,
+          'font_size': text.fontSize.toDouble(),
+          'is_bold': text.isBold,
+          'is_italic': text.isItalic,
+          'is_bubble': text.isBubble,
+        },
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
+    }).toList();
+
+    print(jsonEncode(formattedTextData));
+
+    final response = await authenticatedRequest(
+      '$baseUrl/api/paper/text',
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'paper_id': paperId,
+      },
+      body: jsonEncode(formattedTextData),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update text: ${response.body}');
+    }
+  }
+
   Future<Map<String, dynamic>> swapPage(
       String fileId, int fromIndex, int toIndex) async {
     final response = await authenticatedRequest(
@@ -688,6 +734,30 @@ class ApiService {
         'paper_id': paperId,
       },
       body: jsonEncode(drawingData),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update drawing: ${response.body}');
+    }
+  }
+
+  Future<Map<String, dynamic>> addText(
+    String paperId,
+    List<dynamic>
+        textData, // Assuming drawingData is a List of DrawingPoint objects
+  ) async {
+    print("Drawing to db: $textData");
+
+    final response = await authenticatedRequest(
+      '$baseUrl/api/paper/text',
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'paper_id': paperId,
+      },
+      body: jsonEncode(textData),
     );
 
     if (response.statusCode == 200) {

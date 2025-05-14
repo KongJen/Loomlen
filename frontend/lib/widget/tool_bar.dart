@@ -111,9 +111,12 @@ Widget buildEraserSettingsBar({
     ),
   );
 }
+
 // Add this enhanced version to tool_bar.dart
+final GlobalKey _settingsBarKey = GlobalKey();
 
 Widget buildTextSettingsBar({
+  required Key key,
   required Color selectedColor,
   required List<Color> availableColors,
   required ValueChanged<Color> onColorChanged,
@@ -127,6 +130,7 @@ Widget buildTextSettingsBar({
   ValueChanged<bool>? onItalicChanged,
 }) {
   return Container(
+    key: key,
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     color: Colors.grey.shade200,
     child: Column(
@@ -141,8 +145,8 @@ Widget buildTextSettingsBar({
               child: Slider(
                 value: fontSize,
                 min: 10.0,
-                max: 36.0,
-                divisions: 13,
+                max: 100.0,
+                divisions: 1,
                 label: fontSize.round().toString(),
                 onChanged: onFontSizeChanged,
               ),

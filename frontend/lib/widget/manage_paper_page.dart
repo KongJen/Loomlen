@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:frontend/items/template_item.dart';
+import 'package:frontend/pages/paper_page.dart';
 import 'package:frontend/widget/drawing_point_preview.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:frontend/providers/paperdb_provider.dart';

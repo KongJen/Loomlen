@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/items/room_db_item.dart';
 import 'package:frontend/providers/auth_provider.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
+import 'package:frontend/widget/app_bar.dart';
 import 'package:provider/provider.dart';
 import '../providers/room_provider.dart';
 import '../items/room_item.dart';
@@ -18,6 +19,14 @@ class FavoritesPage extends StatefulWidget {
 
 class _FavoritesPageState extends State<FavoritesPage>
     with AutomaticKeepAliveClientMixin, RouteAware {
+  bool _isListView = true;
+
+  void _toggleView() {
+    setState(() {
+      _isListView = !_isListView;
+    });
+  }
+
   RouteObserver<PageRoute>? routeObserver;
 
   Future<void> _loadRooms() async {
@@ -37,6 +46,10 @@ class _FavoritesPageState extends State<FavoritesPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final screenWidth = MediaQuery.of(context).size.width;
+    if (screenWidth >= 600 && _isListView) {
+      _isListView = false; // Default to grid view on wider screens
+    }
     routeObserver?.unsubscribe(this);
     routeObserver?.subscribe(this, ModalRoute.of(context) as PageRoute);
 
@@ -69,38 +82,36 @@ class _FavoritesPageState extends State<FavoritesPage>
     // Get favorite rooms from both providers
     final favoriteDBRooms =
         roomDBProvider.rooms.where((room) => room['is_favorite'] == true).map((
-          room,
-        ) {
-          // Normalize the room data structure
-          return {
-            'id': room['id'],
-            'name': room['name'],
-            'color': room['color'],
-            'createdDate':
-                room['created_at'] ??
-                room['createdAt'] ??
-                DateTime.now().toString(),
-            'isFavorite': true, // It's in the favorites list
-            'isFromDB': true, // Flag to identify source
-          };
-        }).toList();
+      room,
+    ) {
+      // Normalize the room data structure
+      return {
+        'id': room['id'],
+        'name': room['name'],
+        'color': room['color'],
+        'createdDate': room['created_at'] ??
+            room['createdAt'] ??
+            DateTime.now().toString(),
+        'isFavorite': true, // It's in the favorites list
+        'isFromDB': true, // Flag to identify source
+      };
+    }).toList();
 
     final favoriteRooms =
         roomProvider.rooms.where((room) => room['isFavorite'] == true).map((
-          room,
-        ) {
-          return {
-            'id': room['id'],
-            'name': room['name'],
-            'color': room['color'],
-            'createdDate':
-                room['createdDate'] ??
-                room['created_at'] ??
-                DateTime.now().toString(),
-            'isFavorite': true,
-            'isFromDB': false,
-          };
-        }).toList();
+      room,
+    ) {
+      return {
+        'id': room['id'],
+        'name': room['name'],
+        'color': room['color'],
+        'createdDate': room['createdDate'] ??
+            room['created_at'] ??
+            DateTime.now().toString(),
+        'isFavorite': true,
+        'isFromDB': false,
+      };
+    }).toList();
 
     // Combine both lists
     final allFavoriteRooms = [...favoriteDBRooms, ...favoriteRooms];
@@ -115,30 +126,30 @@ class _FavoritesPageState extends State<FavoritesPage>
         uniqueRooms.values.toList();
 
     return Scaffold(
-      appBar: UIComponents.createTitleAppBar(
-        context: context,
-        title: 'Favorites',
+      appBar: ReusableAppBar(
+        title: 'My Room',
+        isListView: _isListView,
+        onToggleView: _toggleView,
       ),
-      body:
-          combinedFavoriteRooms.isEmpty
-              ? const Center(child: Text('No favorite rooms yet'))
-              : Padding(
-                padding: EdgeInsets.all(
-                  MediaQuery.of(context).size.width / 10000,
-                ),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: _buildRoomGrid(
-                        context,
-                        combinedFavoriteRooms,
-                        roomProvider,
-                        roomDBProvider,
-                      ),
-                    ),
-                  ],
-                ),
+      body: combinedFavoriteRooms.isEmpty
+          ? const Center(child: Text('No favorite rooms yet'))
+          : Padding(
+              padding: EdgeInsets.all(
+                MediaQuery.of(context).size.width / 10000,
               ),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: _buildRoomGrid(
+                      context,
+                      combinedFavoriteRooms,
+                      roomProvider,
+                      roomDBProvider,
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 
@@ -148,53 +159,55 @@ class _FavoritesPageState extends State<FavoritesPage>
     RoomProvider roomProvider,
     RoomDBProvider roomDBProvider,
   ) {
-    final List<Widget> roomWidgets =
-        rooms.map((room) {
-          final roomColor =
-              (room['color'] is String)
-                  ? parseColor(room['color'])
-                  : (room['color'] is int)
-                  ? Color(room['color'])
-                  : room['color'] ?? Colors.grey;
+    final List<Widget> roomWidgets = rooms.map((room) {
+      final roomColor = (room['color'] is String)
+          ? parseColor(room['color'])
+          : (room['color'] is int)
+              ? Color(room['color'])
+              : room['color'] ?? Colors.grey;
 
-          return GestureDetector(
-            onTap: () => _navigateToRoomDetail(context, room),
-            child: RoomItem(
-              id: room['id'],
-              name: room['name'],
-              createdDate: room['createdDate'],
-              color: roomColor,
-              isFavorite: room['isFavorite'],
-              onToggleFavorite: () {
-                // Call the appropriate provider based on the source
-                if (room['isFromDB'] == true) {
-                  roomDBProvider.toggleFavorite(room['id']);
-                } else {
-                  roomProvider.toggleFavorite(room['id']);
-                }
-                // Update the UI immediately
-                setState(() {
-                  room['isFavorite'] = !room['isFavorite'];
-                });
-              },
-            ),
-          );
-        }).toList();
+      return GestureDetector(
+        onTap: () => _navigateToRoomDetail(context, room),
+        child: RoomItem(
+          id: room['id'],
+          name: room['name'],
+          createdDate: room['createdDate'],
+          color: roomColor,
+          isFavorite: room['isFavorite'],
+          onToggleFavorite: () {
+            if (room['isFromDB'] == true) {
+              roomDBProvider.toggleFavorite(room['id']);
+            } else {
+              roomProvider.toggleFavorite(room['id']);
+            }
+            setState(() {
+              room['isFavorite'] = !room['isFavorite'];
+            });
+          },
+          isListView: _isListView,
+        ),
+      );
+    }).toList();
 
-    return ResponsiveGridLayout(children: roomWidgets);
+    return _isListView
+        ? ListView.separated(
+            itemCount: roomWidgets.length,
+            itemBuilder: (context, index) => roomWidgets[index],
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+          )
+        : ResponsiveGridLayout(children: roomWidgets);
   }
 
   void _navigateToRoomDetail(BuildContext context, Map<String, dynamic> room) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (context) => RoomDetailPage(
-              room: room,
-              onRoomUpdated: () {
-                setState(() {}); // Refresh page after update
-              },
-            ),
+        builder: (context) => RoomDetailPage(
+          room: room,
+          onRoomUpdated: () {
+            setState(() {}); // Refresh page after update
+          },
+        ),
       ),
     );
   }
