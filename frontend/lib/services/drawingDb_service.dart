@@ -509,8 +509,9 @@ class DrawingDBService {
   }
 
   void _handleIncomingTextAnnotationDelete(
-      String annotationId, String pageId, bool isBubble) {
+      int annotationId, String pageId, bool isBubble) {
     // Handle based on whether it's a bubble annotation or regular text
+    print("HAAAAAAAAAAA");
     if (isBubble) {
       if (_pageBubbleAnnotations[pageId] == null) return;
 
