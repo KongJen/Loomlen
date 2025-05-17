@@ -1,6 +1,3 @@
-// Main file: paper_page.dart
-// ignore_for_file: curly_braces_in_flow_control_structures, use_build_context_synchronously
-
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -49,6 +46,9 @@ class _PaperPageState extends State<PaperPage> {
 
   final TransformationController _controller = TransformationController();
   final ScrollController _scrollController = ScrollController();
+
+  double _lastScale = 1.0;
+  double _lastScrollOffset = 0.0;
 
   DrawingMode selectedMode = DrawingMode.pencil;
   Color selectedColor = Colors.black;
@@ -107,6 +107,55 @@ class _PaperPageState extends State<PaperPage> {
 
       _loadDrawingData();
       _centerContent();
+
+      _setInitialScaleForPhone();
+    });
+  }
+
+  void _setInitialScaleForPhone() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final isPhone = MediaQuery.of(context).size.width < 600;
+      if (!isPhone) return; // Only apply for phones
+
+      final papers = _paperService.getPapersForFile(
+        context.read<PaperProvider>(),
+        context.read<PaperDBProvider>(),
+        widget.fileId,
+        false,
+      );
+
+      if (papers.isEmpty) return;
+
+      final firstPaper = papers.first;
+      final double paperWidth = firstPaper['width'] as double? ?? 595.0;
+      final double paperHeight = firstPaper['height'] as double? ?? 842.0;
+
+      final screenSize = MediaQuery.of(context).size;
+      final double screenWidth = screenSize.width;
+      final double screenHeight = screenSize.height;
+
+      double scaleForWidth = (screenWidth - 80) / paperWidth;
+      double scaleForHeight = (screenHeight - 120) / paperHeight;
+      double scale = min(scaleForWidth, scaleForHeight);
+      scale = scale.clamp(0.3, 0.8); // Adjusted scale range for phones
+
+      final double xOffset = (screenWidth - (paperWidth * scale)) / 2;
+      final double yOffset = 20; // Small top margin
+
+      _controller.value = Matrix4.identity()
+        ..translate(xOffset, yOffset)
+        ..scale(scale);
+
+      _lastScale = scale;
+
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+        _lastScrollOffset = 0;
+      }
+
+      setState(() {});
     });
   }
 
@@ -244,6 +293,7 @@ class _PaperPageState extends State<PaperPage> {
 
       if (papers.isEmpty) return;
 
+      final isPhone = MediaQuery.of(context).size.width < 600;
       final firstPaper = papers.first;
       final double paperWidth = firstPaper['width'] as double? ?? 595.0;
       final double paperHeight = firstPaper['height'] as double? ?? 842.0;
@@ -253,17 +303,36 @@ class _PaperPageState extends State<PaperPage> {
       final double screenWidth = screenSize.width;
       final double screenHeight = screenSize.height;
 
-      // Calculate the center position
-      final double xOffset = max(0, (screenWidth - paperWidth) / 2);
-      final double yOffset = max(0, (screenHeight - totalHeight) / 2);
+      if (isPhone) {
+        double scaleForWidth = (screenWidth - 80) / paperWidth;
+        double scaleForHeight = (screenHeight - 120) / paperHeight;
 
-      // Reset to identity matrix and then translate
-      _controller.value = Matrix4.identity()..translate(xOffset, yOffset);
+        double scale = min(scaleForWidth, scaleForHeight);
 
-      // Force scroll to top when app restarts
+        scale = scale.clamp(0.25, 0.8);
+
+        final double xOffset = (screenWidth - (paperWidth * scale)) / 2;
+        final double yOffset = 20;
+
+        _controller.value = Matrix4.identity()
+          ..translate(xOffset, yOffset)
+          ..scale(scale);
+
+        _lastScale = scale;
+      } else {
+        final double xOffset = max(0, (screenWidth - paperWidth) / 2);
+        final double yOffset = max(0, (screenHeight - totalHeight) / 2);
+
+        _controller.value = Matrix4.identity()..translate(xOffset, yOffset);
+        _lastScale = 1.0;
+      }
+
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(0);
+        _lastScrollOffset = 0;
       }
+
+      setState(() {});
     });
   }
 
@@ -274,9 +343,7 @@ class _PaperPageState extends State<PaperPage> {
       paperProvider,
       widget.fileId,
       onDataLoaded: () {
-        setState(() {
-          // Update UI after data is loaded
-        });
+        setState(() {});
       },
     );
   }
@@ -424,7 +491,6 @@ class _PaperPageState extends State<PaperPage> {
                   setState(() {
                     selectedColor = color;
 
-                    // Update the selected annotation if there is one
                     final selectedAnnotation =
                         _drawingService.getSelectedTextAnnotation();
                     if (selectedAnnotation != null) {
@@ -449,8 +515,6 @@ class _PaperPageState extends State<PaperPage> {
                 onFontSizeChanged: (value) {
                   setState(() {
                     selectedFontSize = value;
-
-                    // Update the selected annotation if there is one
                     final selectedAnnotation =
                         _drawingService.getSelectedTextAnnotation();
                     if (selectedAnnotation != null) {
@@ -476,7 +540,6 @@ class _PaperPageState extends State<PaperPage> {
                   setState(() {
                     selectedTextAlign = align;
 
-                    // Update the selected annotation if there is one
                     final selectedAnnotation =
                         _drawingService.getSelectedTextAnnotation();
                     if (selectedAnnotation != null) {
@@ -500,8 +563,6 @@ class _PaperPageState extends State<PaperPage> {
                 onBoldChanged: (value) {
                   setState(() {
                     selectedTextBold = value;
-
-                    // Update the selected annotation if there is one
                     final selectedAnnotation =
                         _drawingService.getSelectedTextAnnotation();
                     if (selectedAnnotation != null) {
@@ -526,8 +587,6 @@ class _PaperPageState extends State<PaperPage> {
                 onItalicChanged: (value) {
                   setState(() {
                     selectedTextItalic = value;
-
-                    // Update the selected annotation if there is one
                     final selectedAnnotation =
                         _drawingService.getSelectedTextAnnotation();
                     if (selectedAnnotation != null) {
@@ -575,9 +634,7 @@ class _PaperPageState extends State<PaperPage> {
       ),
       backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       title: Text(widget.name),
-      actions: isPhone
-          ? _buildPhoneActions() // 🔧 Phone layout
-          : _buildFullActions(), // 💻 Tablet/Desktop layout
+      actions: isPhone ? _buildPhoneActions() : _buildFullActions(),
     );
   }
 
@@ -598,6 +655,11 @@ class _PaperPageState extends State<PaperPage> {
         ),
         onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
         tooltip: 'Bubble',
+      ),
+      IconButton(
+        icon: Icon(Icons.fit_screen),
+        onPressed: _resetScale,
+        tooltip: 'Reset Zoom',
       ),
       PopupMenuButton<String>(
         icon: const Icon(Icons.more_vert),
@@ -788,90 +850,156 @@ class _PaperPageState extends State<PaperPage> {
 
   Widget buildPaperCanvas(double totalHeight, List<Map<String, dynamic>> papers,
       PaperProvider paperProvider, PaperDBProvider paperDBProvider) {
+    // Get device size and calculate scaling factor
+    final deviceSize = MediaQuery.of(context).size;
+    final isPhone = deviceSize.width < 600;
+
+    final minScale = isPhone ? 0.557 : 1.0;
+
+    final maxScale = isPhone ? 1.0 : 3.0;
+
+    final scale = _controller.value.getMaxScaleOnAxis();
+
+    final adjustedHeight = (totalHeight * scale) + 40;
+
     return GestureDetector(
-      // Detect taps on the background (outside paper)
       onTapDown: (TapDownDetails details) {
-        // Deselect all text annotations when tapping outside the paper
         for (String paperId
             in paperProvider.getPaperIdsByFileId(widget.fileId)) {
           if (!_isDrawing) {
             _drawingService.deselectAllTextAnnotations(paperId);
-            final annotations =
-                _drawingService.getTextAnnotationsForPage(paperId);
-            for (final annotation in annotations) {
-              if (annotation.isEditing) {
-                setState(() {
-                  _drawingService.updateTextAnnotation(
-                    paperId,
-                    annotation.id,
-                    isEditing: false,
-                    isSelected: false,
-                    isBubble: annotation.isBubble,
-                  );
-                  _isDrawing = false;
-                  _hasUnsavedChanges = true;
-                });
-              }
-            }
           }
-          ;
         }
         setState(() {});
       },
       behavior: HitTestBehavior.translucent,
-      child: Scrollbar(
-        controller: _scrollController,
-        thumbVisibility: true,
-        thickness: 8.0,
-        radius: const Radius.circular(4.0),
-        interactive: true,
-        child: SingleChildScrollView(
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          // Save the current scroll position when user stops scrolling
+          if (notification is ScrollEndNotification) {
+            _lastScrollOffset = _scrollController.offset;
+          }
+          return false;
+        },
+        child: Scrollbar(
           controller: _scrollController,
-          physics: _isDrawing
-              ? const NeverScrollableScrollPhysics()
-              : const AlwaysScrollableScrollPhysics(),
-          child: SizedBox(
-            height: totalHeight,
-            child: InteractiveViewer(
-              transformationController: _controller,
-              minScale: 1.0,
-              maxScale: 2.0,
-              boundaryMargin: EdgeInsets.symmetric(
-                horizontal: max(
-                  (MediaQuery.of(context).size.width -
-                          (papers.isNotEmpty
-                              ? papers.first['width'] as double? ?? 595.0
-                              : 595.0)) /
-                      2,
-                  0,
-                ),
-                vertical: 20,
-              ),
-              constrained: false,
-              panEnabled: !_isDrawing,
-              scaleEnabled: !_isDrawing,
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width,
+          thumbVisibility: true,
+          thickness: 8.0,
+          radius: const Radius.circular(4.0),
+          interactive: true,
+          child: SingleChildScrollView(
+            controller: _scrollController,
+            physics: _isDrawing
+                ? const NeverScrollableScrollPhysics()
+                : const AlwaysScrollableScrollPhysics(),
+            child: SizedBox(
+                height: adjustedHeight,
+                child: InteractiveViewer(
+                  transformationController: _controller,
+                  minScale: minScale,
+                  maxScale: maxScale,
+                  boundaryMargin: EdgeInsets.symmetric(
+                    horizontal: isPhone
+                        ? deviceSize.width *
+                            0.5 // More horizontal margin on phones
+                        : max(
+                            (MediaQuery.of(context).size.width -
+                                    (papers.isNotEmpty
+                                        ? papers.first['width'] as double? ??
+                                            595.0
+                                        : 595.0)) /
+                                2,
+                            0,
+                          ),
+                    vertical: isPhone
+                        ? 100.0
+                        : 20.0, // More vertical margin on phones
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: paperProvider
-                        .getPaperIdsByFileId(widget.fileId)
-                        .map(
-                          (paperId) => _buildPaperPage(
-                              paperId, paperProvider, paperDBProvider),
-                        )
-                        .toList(),
+                  constrained: false,
+                  // Disable panning when at minimum scale or when drawing
+                  panEnabled: !_isDrawing &&
+                      _controller.value.getMaxScaleOnAxis() > minScale * 1.1,
+                  scaleEnabled: !_isDrawing,
+                  onInteractionStart: (_) {
+                    print(
+                        'Interaction started: ${_controller.value.getMaxScaleOnAxis()}');
+                    _lastScale = _controller.value.getMaxScaleOnAxis();
+                  },
+                  onInteractionUpdate: (details) {
+                    final currentScale = _controller.value.getMaxScaleOnAxis();
+                    print('Interaction update: $currentScale');
+                    if ((currentScale - _lastScale).abs() > 0.01) {
+                      setState(() {});
+                    }
+                  },
+                  onInteractionEnd: (details) {
+                    final currentScale = _controller.value.getMaxScaleOnAxis();
+                    setState(() {}); // Rebuild
+
+                    if (currentScale < 0.2) {
+                      _setInitialScaleForPhone();
+                    }
+
+                    _adjustScrollAfterScaling(currentScale, _lastScale);
+                  },
+
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: isPhone
+                            ? deviceSize.width *
+                                2 // Allow more width on phones for panning
+                            : MediaQuery.of(context).size.width,
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: paperProvider
+                            .getPaperIdsByFileId(widget.fileId)
+                            .map(
+                              (paperId) => _buildPaperPage(
+                                  paperId, paperProvider, paperDBProvider),
+                            )
+                            .toList(),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
+                )),
           ),
         ),
       ),
     );
+  }
+
+  void _adjustScrollAfterScaling(double currentScale, double previousScale) {
+    if (!_scrollController.hasClients) return;
+
+    if (currentScale != previousScale) {
+      // Calculate the factor by which we scaled
+      final scaleFactor = currentScale / previousScale;
+
+      // Adjust scroll offset proportionally to scaling
+      final newScrollOffset = _lastScrollOffset * scaleFactor;
+
+      // Ensure we don't scroll beyond bounds
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final adjustedOffset = min(newScrollOffset, maxScroll);
+
+      // Apply the new scroll position
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(adjustedOffset);
+        }
+      });
+    }
+  }
+
+  void _resetScale() {
+    final isPhone = MediaQuery.of(context).size.width < 600;
+    if (isPhone) {
+      _setInitialScaleForPhone();
+    } else {
+      _centerContent();
+    }
   }
 
   Widget _buildPaperPage(String paperId, PaperProvider paperProvider,

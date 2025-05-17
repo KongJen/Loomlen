@@ -63,6 +63,9 @@ class _PaperDBPageState extends State<PaperDBPage> {
   final TransformationController _controller = TransformationController();
   final ScrollController _scrollController = ScrollController();
 
+  double _lastScale = 1.0;
+  double _lastScrollOffset = 0.0;
+
   late String role;
   VoidCallback? _roleUpdateListener;
 
@@ -130,6 +133,55 @@ class _PaperDBPageState extends State<PaperDBPage> {
       _subscribeToRoleChanges();
       _loadDrawingData();
       _centerContent();
+
+      _setInitialScaleForPhone();
+    });
+  }
+
+  void _setInitialScaleForPhone() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final isPhone = MediaQuery.of(context).size.width < 600;
+      if (!isPhone) return; // Only apply for phones
+
+      final papers = _paperService.getPapersForFile(
+        context.read<PaperProvider>(),
+        context.read<PaperDBProvider>(),
+        widget.fileId,
+        true,
+      );
+
+      if (papers.isEmpty) return;
+
+      final firstPaper = papers.first;
+      final double paperWidth = firstPaper['width'] as double? ?? 595.0;
+      final double paperHeight = firstPaper['height'] as double? ?? 842.0;
+
+      final screenSize = MediaQuery.of(context).size;
+      final double screenWidth = screenSize.width;
+      final double screenHeight = screenSize.height;
+
+      double scaleForWidth = (screenWidth - 80) / paperWidth;
+      double scaleForHeight = (screenHeight - 120) / paperHeight;
+      double scale = min(scaleForWidth, scaleForHeight);
+      scale = scale.clamp(0.3, 0.8); // Adjusted scale range for phones
+
+      final double xOffset = (screenWidth - (paperWidth * scale)) / 2;
+      final double yOffset = 20; // Small top margin
+
+      _controller.value = Matrix4.identity()
+        ..translate(xOffset, yOffset)
+        ..scale(scale);
+
+      _lastScale = scale;
+
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+        _lastScrollOffset = 0;
+      }
+
+      setState(() {});
     });
   }
 
@@ -246,11 +298,12 @@ class _PaperDBPageState extends State<PaperDBPage> {
         context.read<PaperProvider>(),
         context.read<PaperDBProvider>(),
         widget.fileId,
-        widget.collab,
+        true,
       );
 
       if (papers.isEmpty) return;
 
+      final isPhone = MediaQuery.of(context).size.width < 600;
       final firstPaper = papers.first;
       final double paperWidth = firstPaper['width'] as double? ?? 595.0;
       final double paperHeight = firstPaper['height'] as double? ?? 842.0;
@@ -260,17 +313,36 @@ class _PaperDBPageState extends State<PaperDBPage> {
       final double screenWidth = screenSize.width;
       final double screenHeight = screenSize.height;
 
-      // Calculate the center position
-      final double xOffset = max(0, (screenWidth - paperWidth) / 2);
-      final double yOffset = max(0, (screenHeight - totalHeight) / 2);
+      if (isPhone) {
+        double scaleForWidth = (screenWidth - 80) / paperWidth;
+        double scaleForHeight = (screenHeight - 120) / paperHeight;
 
-      // Reset to identity matrix and then translate
-      _controller.value = Matrix4.identity()..translate(xOffset, yOffset);
+        double scale = min(scaleForWidth, scaleForHeight);
 
-      // Force scroll to top when app restarts
+        scale = scale.clamp(0.25, 0.8);
+
+        final double xOffset = (screenWidth - (paperWidth * scale)) / 2;
+        final double yOffset = 20;
+
+        _controller.value = Matrix4.identity()
+          ..translate(xOffset, yOffset)
+          ..scale(scale);
+
+        _lastScale = scale;
+      } else {
+        final double xOffset = max(0, (screenWidth - paperWidth) / 2);
+        final double yOffset = max(0, (screenHeight - totalHeight) / 2);
+
+        _controller.value = Matrix4.identity()..translate(xOffset, yOffset);
+        _lastScale = 1.0;
+      }
+
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(0);
+        _lastScrollOffset = 0;
       }
+
+      setState(() {});
     });
   }
 
@@ -598,35 +670,55 @@ class _PaperDBPageState extends State<PaperDBPage> {
 
   List<Widget> _buildPhoneActions() {
     return [
-      IconButton(
-        icon: FaIcon(
-          FontAwesomeIcons.handPointer,
-          color: selectedMode == DrawingMode.read ? Colors.blue : null,
+      if (isReadOnly)
+        IconButton(
+          icon: FaIcon(
+            FontAwesomeIcons.handPointer,
+            color: selectedMode == DrawingMode.read ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.read),
+          tooltip: 'Reading Mode',
+        )
+      else ...[
+        IconButton(
+          icon: FaIcon(
+            FontAwesomeIcons.handPointer,
+            color: selectedMode == DrawingMode.read ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.read),
+          tooltip: 'Reading Mode',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.read),
-        tooltip: 'Reading Mode',
-      ),
-      IconButton(
-        icon: Icon(
-          Icons.circle,
-          color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
+        IconButton(
+          icon: Icon(
+            Icons.circle,
+            color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
+          tooltip: 'Bubble',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
-        tooltip: 'Bubble',
-      ),
+        IconButton(
+          icon: Icon(Icons.fit_screen),
+          onPressed: _resetScale,
+          tooltip: 'Reset Zoom',
+        ),
+      ],
       PopupMenuButton<String>(
         icon: const Icon(Icons.more_vert),
         onSelected: _handleMoreMenuAction,
-        itemBuilder: (context) => const [
-          PopupMenuItem(value: 'Pencil', child: Text('Pencil')),
-          PopupMenuItem(value: 'Eraser', child: Text('Eraser')),
-          PopupMenuItem(value: 'Text', child: Text('Text Mode')),
-          PopupMenuItem(value: 'Undo', child: Text('Undo')),
-          PopupMenuItem(value: 'Redo', child: Text('Redo')),
-          PopupMenuItem(value: 'Handwriting', child: Text('Handwriting')),
-          PopupMenuItem(value: 'Export PDF', child: Text('Export to PDF')),
-          PopupMenuItem(value: 'Edit Paper', child: Text('Edit Paper')),
-          PopupMenuItem(value: 'Save', child: Text('Save Drawing')),
+        itemBuilder: (context) => [
+          if (isReadOnly)
+            PopupMenuItem(value: 'Export PDF', child: Text('Export to PDF'))
+          else ...[
+            PopupMenuItem(value: 'Pencil', child: Text('Pencil')),
+            PopupMenuItem(value: 'Eraser', child: Text('Eraser')),
+            PopupMenuItem(value: 'Text', child: Text('Text Mode')),
+            PopupMenuItem(value: 'Undo', child: Text('Undo')),
+            PopupMenuItem(value: 'Redo', child: Text('Redo')),
+            PopupMenuItem(value: 'Handwriting', child: Text('Handwriting')),
+            PopupMenuItem(value: 'Export PDF', child: Text('Export to PDF')),
+            PopupMenuItem(value: 'Edit Paper', child: Text('Edit Paper')),
+            PopupMenuItem(value: 'Save', child: Text('Save Drawing')),
+          ],
         ],
       ),
     ];
@@ -670,155 +762,164 @@ class _PaperDBPageState extends State<PaperDBPage> {
 
   List<Widget> _buildFullActions() {
     return [
-      if (_isHandwritingMode) ...[
-        IconButton(
-          icon: const Icon(Icons.check, color: Color.fromARGB(255, 0, 0, 0)),
-          onPressed: _activePaperId == null
-              ? null
-              : () {
-                  _processHandwritingConfirm(_activePaperId!);
-                  setState(() {
-                    _isHandwritingMode = false;
-                    selectedMode = DrawingMode.pencil;
-                  });
-                },
-          tooltip: 'Confirm Handwriting',
-        )
-      ] else ...[
-        IconButton(
-          icon: Icon(
-            Icons.edit,
-            color: selectedMode == DrawingMode.pencil ? Colors.blue : null,
-          ),
-          onPressed: () => setState(() => selectedMode = DrawingMode.pencil),
-          tooltip: 'Pencil',
-        ),
-        IconButton(
-          icon: FaIcon(
-            FontAwesomeIcons.eraser,
-            color: selectedMode == DrawingMode.eraser ? Colors.blue : null,
-          ),
-          onPressed: () => setState(() => selectedMode = DrawingMode.eraser),
-          tooltip: 'Eraser',
-        ),
-        IconButton(
-          icon: Icon(
-            Icons.circle,
-            color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
-          ),
-          onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
-          tooltip: 'Bubble',
-        ),
-        IconButton(
-          icon: Icon(
-            Icons.text_fields,
-            color: selectedMode == DrawingMode.text ? Colors.blue : null,
-          ),
-          onPressed: () => setState(() => selectedMode = DrawingMode.text),
-          tooltip: 'Text',
-        ),
-        IconButton(
-          // Add pointing finger icon for reading mode
-          icon: FaIcon(
-            FontAwesomeIcons
-                .handPointer, // Or Icons.touch_app for Material icon
-            color: selectedMode == DrawingMode.read ? Colors.blue : null,
-          ),
-          onPressed: () => setState(() => selectedMode = DrawingMode.read),
-          tooltip: 'Reading Mode',
-        ),
-        IconButton(
-          icon: const Icon(Icons.undo),
-          onPressed: _drawingDBService.canUndo()
-              ? () => setState(() => _drawingDBService.clickUndo())
-              : null,
-          tooltip: 'Undo',
-        ),
-        IconButton(
-          icon: const Icon(Icons.redo),
-          onPressed: _drawingDBService.canRedo()
-              ? () => setState(() => _drawingDBService.clickRedo())
-              : null,
-          tooltip: 'Redo',
-        ),
-        IconButton(
-          icon: const Icon(Icons.save),
-          onPressed: _saveDrawing,
-          tooltip: 'Save Drawing',
-        ),
-        IconButton(
-          icon: FaIcon(FontAwesomeIcons.signature),
-          onPressed: _onHandwritingModeSelected,
-          tooltip: 'Handwriting Mode',
-        ),
-        IconButton(
-          icon: const Icon(Icons.add),
-          onPressed: _addNewPaperPage,
-          tooltip: 'Add New Page',
-        ),
+      if (isReadOnly)
         IconButton(
           icon: Icon(Icons.picture_as_pdf),
           onPressed: exportToPdf,
           tooltip: 'Export to PDF',
-        ),
-        IconButton(
-          icon: const Icon(Icons.book),
-          onPressed: () {
-            showGeneralDialog(
-              context: context,
-              barrierDismissible: true,
-              barrierLabel: 'Dismiss',
-              pageBuilder: (context, animation, secondaryAnimation) {
-                return Align(
-                  alignment: Alignment.centerRight,
-                  child: Material(
-                    color: Colors.white,
-                    elevation: 8,
-                    child: SizedBox(
-                      width: MediaQuery.of(context).size.width *
-                          0.35, // Adjust width as needed
-                      height: MediaQuery.of(context).size.height,
-                      child: ManagePaperDBPage(
-                        fileId: widget.fileId,
-                        paperDBProvider: Provider.of<PaperDBProvider>(context),
-                        roomId: widget.roomId,
-                        drawingDBService: _drawingDBService,
+        )
+      else ...[
+        if (_isHandwritingMode) ...[
+          IconButton(
+            icon: const Icon(Icons.check, color: Color.fromARGB(255, 0, 0, 0)),
+            onPressed: _activePaperId == null
+                ? null
+                : () {
+                    _processHandwritingConfirm(_activePaperId!);
+                    setState(() {
+                      _isHandwritingMode = false;
+                      selectedMode = DrawingMode.pencil;
+                    });
+                  },
+            tooltip: 'Confirm Handwriting',
+          )
+        ] else ...[
+          IconButton(
+            icon: Icon(
+              Icons.edit,
+              color: selectedMode == DrawingMode.pencil ? Colors.blue : null,
+            ),
+            onPressed: () => setState(() => selectedMode = DrawingMode.pencil),
+            tooltip: 'Pencil',
+          ),
+          IconButton(
+            icon: FaIcon(
+              FontAwesomeIcons.eraser,
+              color: selectedMode == DrawingMode.eraser ? Colors.blue : null,
+            ),
+            onPressed: () => setState(() => selectedMode = DrawingMode.eraser),
+            tooltip: 'Eraser',
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.circle,
+              color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
+            ),
+            onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
+            tooltip: 'Bubble',
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.text_fields,
+              color: selectedMode == DrawingMode.text ? Colors.blue : null,
+            ),
+            onPressed: () => setState(() => selectedMode = DrawingMode.text),
+            tooltip: 'Text',
+          ),
+          IconButton(
+            // Add pointing finger icon for reading mode
+            icon: FaIcon(
+              FontAwesomeIcons
+                  .handPointer, // Or Icons.touch_app for Material icon
+              color: selectedMode == DrawingMode.read ? Colors.blue : null,
+            ),
+            onPressed: () => setState(() => selectedMode = DrawingMode.read),
+            tooltip: 'Reading Mode',
+          ),
+          IconButton(
+            icon: const Icon(Icons.undo),
+            onPressed: _drawingDBService.canUndo()
+                ? () => setState(() => _drawingDBService.clickUndo())
+                : null,
+            tooltip: 'Undo',
+          ),
+          IconButton(
+            icon: const Icon(Icons.redo),
+            onPressed: _drawingDBService.canRedo()
+                ? () => setState(() => _drawingDBService.clickRedo())
+                : null,
+            tooltip: 'Redo',
+          ),
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _saveDrawing,
+            tooltip: 'Save Drawing',
+          ),
+          IconButton(
+            icon: FaIcon(FontAwesomeIcons.signature),
+            onPressed: _onHandwritingModeSelected,
+            tooltip: 'Handwriting Mode',
+          ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: _addNewPaperPage,
+            tooltip: 'Add New Page',
+          ),
+          IconButton(
+            icon: Icon(Icons.picture_as_pdf),
+            onPressed: exportToPdf,
+            tooltip: 'Export to PDF',
+          ),
+          IconButton(
+            icon: const Icon(Icons.book),
+            onPressed: () {
+              showGeneralDialog(
+                context: context,
+                barrierDismissible: true,
+                barrierLabel: 'Dismiss',
+                pageBuilder: (context, animation, secondaryAnimation) {
+                  return Align(
+                    alignment: Alignment.centerRight,
+                    child: Material(
+                      color: Colors.white,
+                      elevation: 8,
+                      child: SizedBox(
+                        width: MediaQuery.of(context).size.width *
+                            0.35, // Adjust width as needed
+                        height: MediaQuery.of(context).size.height,
+                        child: ManagePaperDBPage(
+                          fileId: widget.fileId,
+                          paperDBProvider:
+                              Provider.of<PaperDBProvider>(context),
+                          roomId: widget.roomId,
+                          drawingDBService: _drawingDBService,
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
-              transitionDuration: const Duration(milliseconds: 300),
-              transitionBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                return SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(1, 0), // From right
-                    end: Offset.zero,
-                  ).animate(animation),
-                  child: child,
-                );
-              },
-            ).then((_) {
-              // Call _reloadPaperData when the dialog is closed
-              _reloadPaperData();
-            });
-          },
-          tooltip: 'Edit Paper',
-        )
-      ]
+                  );
+                },
+                transitionDuration: const Duration(milliseconds: 300),
+                transitionBuilder:
+                    (context, animation, secondaryAnimation, child) {
+                  return SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(1, 0), // From right
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  );
+                },
+              ).then((_) {
+                // Call _reloadPaperData when the dialog is closed
+                _reloadPaperData();
+              });
+            },
+            tooltip: 'Edit Paper',
+          )
+        ]
 
-      // IconButton(
-      //   icon: const Icon(Icons.share),
-      //   tooltip: 'Share this file',
-      //   onPressed: () {
-      //     showDialog(
-      //       context: context,
-      //       builder: (context) => ShareDialog(
-      //           fileId: widget.fileId, fileName: widget.name),
-      //     );
-      //   },
-      // ),
+        // IconButton(
+        //   icon: const Icon(Icons.share),
+        //   tooltip: 'Share this file',
+        //   onPressed: () {
+        //     showDialog(
+        //       context: context,
+        //       builder: (context) => ShareDialog(
+        //           fileId: widget.fileId, fileName: widget.name),
+        //     );
+        //   },
+        // ),
+      ],
     ];
   }
 
@@ -866,6 +967,16 @@ class _PaperDBPageState extends State<PaperDBPage> {
 
   Widget buildPaperCanvas(double totalHeight, List<Map<String, dynamic>> papers,
       PaperProvider paperProvider, PaperDBProvider paperDBProvider) {
+    final deviceSize = MediaQuery.of(context).size;
+    final isPhone = deviceSize.width < 600;
+
+    final minScale = isPhone ? 0.557 : 1.0;
+
+    final maxScale = isPhone ? 1.0 : 3.0;
+
+    final scale = _controller.value.getMaxScaleOnAxis();
+
+    final adjustedHeight = (totalHeight * scale) + 40;
     return GestureDetector(
       // Detect taps on the background (outside paper)
       onTapDown: (TapDownDetails details) {
@@ -911,22 +1022,50 @@ class _PaperDBPageState extends State<PaperDBPage> {
             height: totalHeight,
             child: InteractiveViewer(
               transformationController: _controller,
-              minScale: 1.0,
-              maxScale: 2.0,
+              minScale: minScale,
+              maxScale: maxScale,
               boundaryMargin: EdgeInsets.symmetric(
-                horizontal: max(
-                  (MediaQuery.of(context).size.width -
-                          (papers.isNotEmpty
-                              ? papers.first['width'] as double? ?? 595.0
-                              : 595.0)) /
-                      2,
-                  0,
-                ),
-                vertical: 20,
+                horizontal: isPhone
+                    ? deviceSize.width * 0.5 // More horizontal margin on phones
+                    : max(
+                        (MediaQuery.of(context).size.width -
+                                (papers.isNotEmpty
+                                    ? papers.first['width'] as double? ?? 595.0
+                                    : 595.0)) /
+                            2,
+                        0,
+                      ),
+                vertical:
+                    isPhone ? 100.0 : 20.0, // More vertical margin on phones
               ),
               constrained: false,
-              panEnabled: !_isDrawing,
+              // Disable panning when at minimum scale or when drawing
+              panEnabled: !_isDrawing &&
+                  _controller.value.getMaxScaleOnAxis() > minScale * 1.1,
               scaleEnabled: !_isDrawing,
+              onInteractionStart: (_) {
+                print(
+                    'Interaction started: ${_controller.value.getMaxScaleOnAxis()}');
+                _lastScale = _controller.value.getMaxScaleOnAxis();
+              },
+              onInteractionUpdate: (details) {
+                final currentScale = _controller.value.getMaxScaleOnAxis();
+                print('Interaction update: $currentScale');
+                if ((currentScale - _lastScale).abs() > 0.01) {
+                  setState(() {});
+                }
+              },
+              onInteractionEnd: (details) {
+                final currentScale = _controller.value.getMaxScaleOnAxis();
+                setState(() {}); // Rebuild
+
+                if (currentScale < 0.2) {
+                  _setInitialScaleForPhone();
+                }
+
+                _adjustScrollAfterScaling(currentScale, _lastScale);
+              },
+
               child: Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
@@ -948,6 +1087,38 @@ class _PaperDBPageState extends State<PaperDBPage> {
         ),
       ),
     );
+  }
+
+  void _adjustScrollAfterScaling(double currentScale, double previousScale) {
+    if (!_scrollController.hasClients) return;
+
+    if (currentScale != previousScale) {
+      // Calculate the factor by which we scaled
+      final scaleFactor = currentScale / previousScale;
+
+      // Adjust scroll offset proportionally to scaling
+      final newScrollOffset = _lastScrollOffset * scaleFactor;
+
+      // Ensure we don't scroll beyond bounds
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final adjustedOffset = min(newScrollOffset, maxScroll);
+
+      // Apply the new scroll position
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.jumpTo(adjustedOffset);
+        }
+      });
+    }
+  }
+
+  void _resetScale() {
+    final isPhone = MediaQuery.of(context).size.width < 600;
+    if (isPhone) {
+      _setInitialScaleForPhone();
+    } else {
+      _centerContent();
+    }
   }
 
   Widget _buildPaperPage(String paperId, PaperProvider paperProvider,

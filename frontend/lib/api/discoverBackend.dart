@@ -13,7 +13,8 @@ class BackendDiscovery {
   BackendDiscovery._internal();
 
   final String _defaultUrl = "http://10.0.2.2:8080";
-  //For server : http://20.40.64.83:8080
+  //For server : http://40.81.28.113:8080
+  //For Test : http://10.0.2.2:8080
 
   String? _currentBackendUrl;
 
