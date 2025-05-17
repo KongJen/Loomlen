@@ -321,8 +321,7 @@ class _PaperPageState extends State<PaperPage> {
         _lastScale = scale;
       } else {
         final double xOffset = max(0, (screenWidth - paperWidth) / 2);
-        final double yOffset =
-            max(0, (screenHeight - min(totalHeight, screenHeight * 0.7)) / 2);
+        final double yOffset = max(0, (screenHeight - totalHeight) / 2);
 
         _controller.value = Matrix4.identity()..translate(xOffset, yOffset);
         _lastScale = 1.0;
@@ -855,7 +854,7 @@ class _PaperPageState extends State<PaperPage> {
 
     final minScale = isPhone ? 0.557 : 1.0;
 
-    final maxScale = isPhone ? 1.0 : 2.0;
+    final maxScale = isPhone ? 1.0 : 3.0;
 
     final scale = _controller.value.getMaxScaleOnAxis();
 
@@ -902,7 +901,7 @@ class _PaperPageState extends State<PaperPage> {
                         ? deviceSize.width *
                             0.5 // More horizontal margin on phones
                         : max(
-                            (deviceSize.width -
+                            (MediaQuery.of(context).size.width -
                                     (papers.isNotEmpty
                                         ? papers.first['width'] as double? ??
                                             595.0
@@ -922,43 +921,33 @@ class _PaperPageState extends State<PaperPage> {
                   onInteractionStart: (_) {
                     print(
                         'Interaction started: ${_controller.value.getMaxScaleOnAxis()}');
-                    // Store current scale when interaction starts
                     _lastScale = _controller.value.getMaxScaleOnAxis();
                   },
                   onInteractionUpdate: (details) {
-                    print(
-                        'Interaction update: ${_controller.value.getMaxScaleOnAxis()}');
-                    // Update UI when scaling changes
                     final currentScale = _controller.value.getMaxScaleOnAxis();
+                    print('Interaction update: $currentScale');
                     if ((currentScale - _lastScale).abs() > 0.01) {
-                      setState(() {
-                        // This will rebuild with new adjustedHeight
-                      });
+                      setState(() {});
                     }
                   },
                   onInteractionEnd: (details) {
                     final currentScale = _controller.value.getMaxScaleOnAxis();
-                    // Force rebuild to adjust container height after scaling
-                    setState(() {});
+                    setState(() {}); // Rebuild
 
-                    if (isPhone) {
-                      // When the user finishes zooming/panning, check if the scale is very small
-                      // and reset to the default view if needed
-                      if (currentScale < 0.2) {
-                        _setInitialScaleForPhone();
-                      }
+                    if (currentScale < 0.2) {
+                      _setInitialScaleForPhone();
                     }
 
-                    // Fix scroll after scaling
                     _adjustScrollAfterScaling(currentScale, _lastScale);
                   },
+
                   child: Center(
                     child: ConstrainedBox(
                       constraints: BoxConstraints(
                         maxWidth: isPhone
                             ? deviceSize.width *
                                 2 // Allow more width on phones for panning
-                            : deviceSize.width,
+                            : MediaQuery.of(context).size.width,
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
