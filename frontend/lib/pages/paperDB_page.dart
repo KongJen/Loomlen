@@ -23,8 +23,11 @@ import 'package:frontend/services/paper_service.dart';
 import 'package:collection/collection.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:google_mlkit_digital_ink_recognition/google_mlkit_digital_ink_recognition.dart'
+    as ml_kit;
+import 'package:shared_preferences/shared_preferences.dart';
 
-enum DrawingMode { pencil, eraser, text, read, bubble }
+enum DrawingMode { pencil, eraser, text, read, bubble, handwriting }
 
 class PaperDBPage extends StatefulWidget {
   final bool collab;
@@ -55,6 +58,7 @@ class _PaperDBPageState extends State<PaperDBPage> {
   late final DrawingDBService _drawingDBService;
   late final PaperService _paperService;
   late final PDFDBExportService _pdfDBExportService;
+  String? _activePaperId;
 
   final TransformationController _controller = TransformationController();
   final ScrollController _scrollController = ScrollController();
@@ -85,7 +89,17 @@ class _PaperDBPageState extends State<PaperDBPage> {
     Colors.yellow,
   ];
 
-  @override
+  bool _isHandwritingMode = false;
+  final ml_kit.DigitalInkRecognizer _digitalInkRecognizer =
+      ml_kit.DigitalInkRecognizer(languageCode: 'en');
+  final ml_kit.DigitalInkRecognizerModelManager _modelManager =
+      ml_kit.DigitalInkRecognizerModelManager();
+  final ml_kit.Ink _ink = ml_kit.Ink();
+  List<ml_kit.StrokePoint> _strokePoints = [];
+  String recognizedText = '';
+  bool _modelDownloaded = false;
+  var _language = 'en';
+
   @override
   void initState() {
     super.initState();
@@ -103,6 +117,8 @@ class _PaperDBPageState extends State<PaperDBPage> {
         socketService: widget.socket);
     _paperService = PaperService();
     _pdfDBExportService = PDFDBExportService();
+    _loadModelStatus();
+
     _drawingDBService.onDataChanged = () {
       if (mounted) setState(() {});
     };
@@ -115,6 +131,78 @@ class _PaperDBPageState extends State<PaperDBPage> {
       _loadDrawingData();
       _centerContent();
     });
+  }
+
+  Future<void> _loadModelStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isDownloaded = prefs.getBool('ml_model_downloaded') ?? false;
+    setState(() {
+      _modelDownloaded = isDownloaded;
+    });
+  }
+
+  void _onHandwritingModeSelected() async {
+    if (_modelDownloaded) {
+      setState(() {
+        selectedMode = DrawingMode.handwriting;
+        _isHandwritingMode = true;
+      });
+    } else {
+      final shouldDownload = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Download ML Model?'),
+          content: const Text(
+              'To use handwriting recognition, the language model needs to be downloaded. Do you want to download it now?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Download'),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldDownload == true) {
+        await _downloadModel();
+        if (_modelDownloaded) {
+          setState(() {
+            selectedMode = DrawingMode.handwriting;
+            _isHandwritingMode = true;
+          });
+        }
+      }
+    }
+  }
+
+  Future<void> _downloadModel() async {
+    try {
+      final bool response = await _modelManager.downloadModel(_language);
+      if (response) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('ml_model_downloaded', true);
+
+        setState(() {
+          _modelDownloaded = true;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Model downloaded successfully')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error downloading model: $e')),
+        );
+      }
+    }
   }
 
   void _subscribeToRoleChanges() {
@@ -565,6 +653,9 @@ class _PaperDBPageState extends State<PaperDBPage> {
           setState(() => _drawingDBService.redo());
         }
         break;
+      case 'Handwriting':
+        _onHandwritingModeSelected();
+        break;
       case 'Export PDF':
         exportToPdf();
         break;
@@ -579,120 +670,144 @@ class _PaperDBPageState extends State<PaperDBPage> {
 
   List<Widget> _buildFullActions() {
     return [
-      IconButton(
-        icon: Icon(
-          Icons.edit,
-          color: selectedMode == DrawingMode.pencil ? Colors.blue : null,
+      if (_isHandwritingMode) ...[
+        IconButton(
+          icon: const Icon(Icons.check, color: Color.fromARGB(255, 0, 0, 0)),
+          onPressed: _activePaperId == null
+              ? null
+              : () {
+                  _processHandwritingConfirm(_activePaperId!);
+                  setState(() {
+                    _isHandwritingMode = false;
+                    selectedMode = DrawingMode.pencil;
+                  });
+                },
+          tooltip: 'Confirm Handwriting',
+        )
+      ] else ...[
+        IconButton(
+          icon: Icon(
+            Icons.edit,
+            color: selectedMode == DrawingMode.pencil ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.pencil),
+          tooltip: 'Pencil',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.pencil),
-        tooltip: 'Pencil',
-      ),
-      IconButton(
-        icon: FaIcon(
-          FontAwesomeIcons.eraser,
-          color: selectedMode == DrawingMode.eraser ? Colors.blue : null,
+        IconButton(
+          icon: FaIcon(
+            FontAwesomeIcons.eraser,
+            color: selectedMode == DrawingMode.eraser ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.eraser),
+          tooltip: 'Eraser',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.eraser),
-        tooltip: 'Eraser',
-      ),
-      IconButton(
-        icon: Icon(
-          Icons.circle,
-          color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
+        IconButton(
+          icon: Icon(
+            Icons.circle,
+            color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
+          tooltip: 'Bubble',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
-        tooltip: 'Bubble',
-      ),
-      IconButton(
-        icon: Icon(
-          Icons.text_fields,
-          color: selectedMode == DrawingMode.text ? Colors.blue : null,
+        IconButton(
+          icon: Icon(
+            Icons.text_fields,
+            color: selectedMode == DrawingMode.text ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.text),
+          tooltip: 'Text',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.text),
-        tooltip: 'Text',
-      ),
-      IconButton(
-        // Add pointing finger icon for reading mode
-        icon: FaIcon(
-          FontAwesomeIcons.handPointer, // Or Icons.touch_app for Material icon
-          color: selectedMode == DrawingMode.read ? Colors.blue : null,
+        IconButton(
+          // Add pointing finger icon for reading mode
+          icon: FaIcon(
+            FontAwesomeIcons
+                .handPointer, // Or Icons.touch_app for Material icon
+            color: selectedMode == DrawingMode.read ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.read),
+          tooltip: 'Reading Mode',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.read),
-        tooltip: 'Reading Mode',
-      ),
-      IconButton(
-        icon: const Icon(Icons.undo),
-        onPressed: _drawingDBService.canUndo()
-            ? () => setState(() => _drawingDBService.clickUndo())
-            : null,
-        tooltip: 'Undo',
-      ),
-      IconButton(
-        icon: const Icon(Icons.redo),
-        onPressed: _drawingDBService.canRedo()
-            ? () => setState(() => _drawingDBService.clickRedo())
-            : null,
-        tooltip: 'Redo',
-      ),
-      IconButton(
-        icon: const Icon(Icons.save),
-        onPressed: _saveDrawing,
-        tooltip: 'Save Drawing',
-      ),
-      IconButton(
-        icon: const Icon(Icons.add),
-        onPressed: _addNewPaperPage,
-        tooltip: 'Add New Page',
-      ),
-      IconButton(
-        icon: Icon(Icons.picture_as_pdf),
-        onPressed: exportToPdf,
-        tooltip: 'Export to PDF',
-      ),
-      IconButton(
-        icon: const Icon(Icons.book),
-        onPressed: () {
-          showGeneralDialog(
-            context: context,
-            barrierDismissible: true,
-            barrierLabel: 'Dismiss',
-            pageBuilder: (context, animation, secondaryAnimation) {
-              return Align(
-                alignment: Alignment.centerRight,
-                child: Material(
-                  color: Colors.white,
-                  elevation: 8,
-                  child: SizedBox(
-                    width: MediaQuery.of(context).size.width *
-                        0.35, // Adjust width as needed
-                    height: MediaQuery.of(context).size.height,
-                    child: ManagePaperDBPage(
-                      fileId: widget.fileId,
-                      paperDBProvider: Provider.of<PaperDBProvider>(context),
-                      roomId: widget.roomId,
-                      drawingDBService: _drawingDBService,
+        IconButton(
+          icon: const Icon(Icons.undo),
+          onPressed: _drawingDBService.canUndo()
+              ? () => setState(() => _drawingDBService.clickUndo())
+              : null,
+          tooltip: 'Undo',
+        ),
+        IconButton(
+          icon: const Icon(Icons.redo),
+          onPressed: _drawingDBService.canRedo()
+              ? () => setState(() => _drawingDBService.clickRedo())
+              : null,
+          tooltip: 'Redo',
+        ),
+        IconButton(
+          icon: const Icon(Icons.save),
+          onPressed: _saveDrawing,
+          tooltip: 'Save Drawing',
+        ),
+        IconButton(
+          icon: FaIcon(FontAwesomeIcons.signature),
+          onPressed: _onHandwritingModeSelected,
+          tooltip: 'Handwriting Mode',
+        ),
+        IconButton(
+          icon: const Icon(Icons.add),
+          onPressed: _addNewPaperPage,
+          tooltip: 'Add New Page',
+        ),
+        IconButton(
+          icon: Icon(Icons.picture_as_pdf),
+          onPressed: exportToPdf,
+          tooltip: 'Export to PDF',
+        ),
+        IconButton(
+          icon: const Icon(Icons.book),
+          onPressed: () {
+            showGeneralDialog(
+              context: context,
+              barrierDismissible: true,
+              barrierLabel: 'Dismiss',
+              pageBuilder: (context, animation, secondaryAnimation) {
+                return Align(
+                  alignment: Alignment.centerRight,
+                  child: Material(
+                    color: Colors.white,
+                    elevation: 8,
+                    child: SizedBox(
+                      width: MediaQuery.of(context).size.width *
+                          0.35, // Adjust width as needed
+                      height: MediaQuery.of(context).size.height,
+                      child: ManagePaperDBPage(
+                        fileId: widget.fileId,
+                        paperDBProvider: Provider.of<PaperDBProvider>(context),
+                        roomId: widget.roomId,
+                        drawingDBService: _drawingDBService,
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
-            transitionDuration: const Duration(milliseconds: 300),
-            transitionBuilder: (context, animation, secondaryAnimation, child) {
-              return SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(1, 0), // From right
-                  end: Offset.zero,
-                ).animate(animation),
-                child: child,
-              );
-            },
-          ).then((_) {
-            // Call _reloadPaperData when the dialog is closed
-            _reloadPaperData();
-          });
-        },
-        tooltip: 'Edit Paper',
-      )
+                );
+              },
+              transitionDuration: const Duration(milliseconds: 300),
+              transitionBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(1, 0), // From right
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                );
+              },
+            ).then((_) {
+              // Call _reloadPaperData when the dialog is closed
+              _reloadPaperData();
+            });
+          },
+          tooltip: 'Edit Paper',
+        )
+      ]
+
       // IconButton(
       //   icon: const Icon(Icons.share),
       //   tooltip: 'Share this file',
@@ -838,7 +953,6 @@ class _PaperDBPageState extends State<PaperDBPage> {
   Widget _buildPaperPage(String paperId, PaperProvider paperProvider,
       PaperDBProvider paperDBProvider) {
     final paperDBData = paperDBProvider.getPaperDBById(paperId);
-
     final PaperTemplate template;
     final double paperWidth;
     final double paperHeight;
@@ -930,7 +1044,8 @@ class _PaperDBPageState extends State<PaperDBPage> {
                 onTextChanged: (text) {
                   if ((selectedMode == DrawingMode.text &&
                           !annotation.isBubble) ||
-                      (annotation.isBubble)) {
+                      (annotation.isBubble) ||
+                      (selectedMode == DrawingMode.handwriting)) {
                     setState(() {
                       _isDrawing = true;
                       _drawingDBService.updateTextAnnotation(
@@ -946,7 +1061,8 @@ class _PaperDBPageState extends State<PaperDBPage> {
                 onPositionChanged: (position) {
                   if ((selectedMode == DrawingMode.text &&
                           !annotation.isBubble) ||
-                      (annotation.isBubble)) {
+                      (annotation.isBubble) ||
+                      (selectedMode == DrawingMode.handwriting)) {
                     setState(() {
                       _isDrawing = true;
                       _drawingDBService.updateTextAnnotation(
@@ -962,7 +1078,8 @@ class _PaperDBPageState extends State<PaperDBPage> {
                 onStartEditing: () {
                   if ((selectedMode == DrawingMode.text &&
                           !annotation.isBubble) ||
-                      (annotation.isBubble)) {
+                      (annotation.isBubble) ||
+                      (selectedMode == DrawingMode.handwriting)) {
                     _isDrawing = true;
                     setState(() {
                       _drawingDBService.updateTextAnnotation(
@@ -982,7 +1099,8 @@ class _PaperDBPageState extends State<PaperDBPage> {
                 onDelete: () {
                   if ((selectedMode == DrawingMode.text &&
                           !annotation.isBubble) ||
-                      (annotation.isBubble)) {
+                      (annotation.isBubble) ||
+                      (selectedMode == DrawingMode.handwriting)) {
                     setState(() {
                       _isDrawing = false;
                       _drawingDBService.deleteTextAnnotation(
@@ -1015,7 +1133,8 @@ class _PaperDBPageState extends State<PaperDBPage> {
                 onTap: () {
                   if ((selectedMode == DrawingMode.text &&
                           !annotation.isBubble) ||
-                      (annotation.isBubble)) {
+                      (annotation.isBubble) ||
+                      (selectedMode == DrawingMode.handwriting)) {
                     setState(() {
                       _drawingDBService.updateTextAnnotation(
                         paperId,
@@ -1040,6 +1159,11 @@ class _PaperDBPageState extends State<PaperDBPage> {
     );
   }
 
+  void _clearHandwritingData() {
+    _ink.strokes.clear();
+    _strokePoints = [];
+  }
+
   int _activePointerCount = 0;
   Timer? _drawingDelayTimer;
   // static const _drawingDelayDuration = Duration(milliseconds: 80);
@@ -1051,6 +1175,12 @@ class _PaperDBPageState extends State<PaperDBPage> {
     double paperHeight,
   ) {
     _activePointerCount++;
+
+    if (_activePaperId != paperId) {
+      setState(() {
+        _activePaperId = paperId;
+      });
+    }
 
     final localPosition = details.localPosition;
     if (!_isWithinCanvas(localPosition, paperWidth, paperHeight)) return;
@@ -1192,6 +1322,66 @@ class _PaperDBPageState extends State<PaperDBPage> {
         }
         return;
       }
+
+      if (selectedMode == DrawingMode.handwriting && _isHandwritingMode) {
+        bool clickedOnText = false;
+        final textAnnotations =
+            _drawingDBService.getTextAnnotationsForPage(paperId);
+
+        _drawingDBService.deselectAllTextAnnotations(paperId);
+
+        for (final annotation in textAnnotations) {
+          // Simple hit test - could be improved with more precise text bounds
+          final textWidth =
+              _calculateTextWidth(annotation.text, annotation.fontSize);
+          final textHeight =
+              annotation.fontSize * 1.5; // Approximate height based on fontSize
+
+          final rect = Rect.fromLTWH(annotation.position.dx,
+              annotation.position.dy, textWidth, textHeight);
+
+          if (rect.contains(localPosition)) {
+            clickedOnText = true;
+            setState(() {
+              _drawingDBService.updateTextAnnotation(
+                paperId,
+                annotation.id,
+                isSelected: true,
+                color: annotation.color,
+                fontSize: annotation.fontSize,
+                isBold: annotation.isBold,
+                isItalic: annotation.isItalic,
+                isBubble: annotation.isBubble,
+              );
+            });
+            break;
+          }
+        }
+
+        if (!clickedOnText) {
+          // Start collecting stroke points for handwriting recognition
+          _drawingDBService.startDrawing(
+            paperId,
+            localPosition,
+            selectedColor,
+            selectedWidth,
+            isHandwriting: true, // Mark this stroke as handwriting
+          );
+
+          // Prepare for new stroke points
+          _strokePoints = [];
+
+          // Add the first point to our ML Kit stroke
+          final ml_kit.StrokePoint strokePoint = ml_kit.StrokePoint(
+            x: localPosition.dx,
+            y: localPosition.dy,
+            t: DateTime.now().millisecondsSinceEpoch,
+          );
+          _strokePoints.add(strokePoint);
+
+          setState(() {});
+        }
+      }
       // _drawingDelayTimer = Timer(_drawingDelayDuration, () {
       // Only proceed if we still have exactly one finger down
       if (_activePointerCount == 1 && mounted) {
@@ -1245,6 +1435,22 @@ class _PaperDBPageState extends State<PaperDBPage> {
         setState(() {
           _hasUnsavedChanges = true;
         });
+      } else if (selectedMode == DrawingMode.handwriting &&
+          _isHandwritingMode) {
+        // Continue drawing and collecting stroke points
+        _drawingDBService.continueDrawing(paperId, localPosition);
+
+        // Add point to our ML Kit stroke
+        final ml_kit.StrokePoint strokePoint = ml_kit.StrokePoint(
+          x: localPosition.dx,
+          y: localPosition.dy,
+          t: DateTime.now().millisecondsSinceEpoch,
+        );
+        _strokePoints.add(strokePoint);
+
+        setState(() {
+          _hasUnsavedChanges = true;
+        });
       }
     }
   }
@@ -1262,6 +1468,18 @@ class _PaperDBPageState extends State<PaperDBPage> {
         _drawingDBService.endDrawing(paperId);
       } else if (selectedMode == DrawingMode.eraser) {
         _drawingDBService.endErasing(paperId);
+      } else if (selectedMode == DrawingMode.handwriting) {
+        _drawingDBService.endDrawing(paperId);
+
+        // If we have collected points and in handwriting mode, add them to the ink
+        // but don't process them immediately
+        if (_strokePoints.isNotEmpty) {
+          // Add the stroke to the ink
+          _ink.strokes.add(ml_kit.Stroke()..points = _strokePoints);
+
+          // Clear stroke points for the next stroke
+          _strokePoints = [];
+        }
       }
     }
   }
@@ -1283,6 +1501,105 @@ class _PaperDBPageState extends State<PaperDBPage> {
         position.dy <= height;
   }
 
+  Future<void> _processHandwritingConfirm(String pageId) async {
+    if (!_modelDownloaded || _ink.strokes.isEmpty) return;
+
+    try {
+      final List<ml_kit.RecognitionCandidate> candidates =
+          await _digitalInkRecognizer.recognize(_ink);
+
+      if (candidates.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No text recognized')),
+        );
+        return;
+      }
+
+      final recognizedText = candidates.first.text;
+
+      // Determine bounds of handwriting
+      double minX = double.infinity, minY = double.infinity;
+      double maxX = -double.infinity, maxY = -double.infinity;
+
+      for (final stroke in _ink.strokes) {
+        for (final point in stroke.points) {
+          minX = min(minX, point.x);
+          maxX = max(maxX, point.x);
+          minY = min(minY, point.y);
+          maxY = max(maxY, point.y);
+        }
+      }
+
+      final position = Offset((minX + maxX) / 2, (minY + maxY) / 2);
+      final handwritingHeight = maxY - minY;
+      final handwritingWidth = maxX - minX;
+
+      final isPhone = MediaQuery.of(context).size.width < 600;
+      double fontSize = handwritingHeight * (isPhone ? 0.8 : 0.7);
+      fontSize = fontSize.clamp(isPhone ? 14.0 : 12.0, isPhone ? 52.0 : 48.0);
+
+      final aspectRatio = handwritingWidth / handwritingHeight;
+      if (aspectRatio > 8) fontSize *= 0.7;
+      if (aspectRatio < 1) fontSize *= 0.9;
+
+      setState(() {
+        final annotationId = _drawingDBService.addTextAnnotation(
+          pageId,
+          position,
+          selectedColor,
+          fontSize,
+          selectedTextBold,
+          selectedTextItalic,
+          false,
+        );
+
+        if (annotationId != null) {
+          final success = _drawingDBService.updateTextAnnotation(
+            pageId,
+            annotationId,
+            text: recognizedText,
+            isEditing: false,
+            isSelected: false,
+            isBubble: false,
+          );
+
+          print('Update annotation result: $success');
+          print(
+              'Current text annotations: ${_drawingDBService.getTextAnnotationsForPage(pageId).map((a) => a.text).toList()}');
+          print('page id: ${pageId}');
+          if (!success) {
+            debugPrint('⚠️ Failed to update annotation text.');
+          }
+        } else {
+          debugPrint('⚠️ Failed to add annotation.');
+        }
+
+        _drawingDBService.removeHandwritingStrokes(pageId);
+        _ink.strokes.clear();
+        _hasUnsavedChanges = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Recognized text: $recognizedText')),
+      );
+    } catch (e) {
+      debugPrint('❌ Error in handwriting confirm: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error recognizing text: $e')),
+      );
+    }
+  }
+
+  void removeLastStroke(String paperId) {
+    final pagePoints = _drawingDBService.getDrawingPointsForPage(paperId);
+    if (pagePoints.isNotEmpty) {
+      final lastStrokeId = pagePoints.last.id;
+      _drawingDBService
+          .getDrawingPointsForPage(paperId)
+          .removeWhere((point) => point.id == lastStrokeId);
+    }
+  }
+
   @override
   void dispose() {
     // if (_roleUpdateListener != null) {
@@ -1293,6 +1610,8 @@ class _PaperDBPageState extends State<PaperDBPage> {
     _scrollController.dispose();
     _drawingDBService.leavefile();
     _drawingDBService.disposeListeners();
+    _digitalInkRecognizer.close();
+    _clearHandwritingData();
     super.dispose();
   }
 }
