@@ -70,8 +70,8 @@ class ReusableAppBar extends StatelessWidget implements PreferredSizeWidget {
             // Action buttons positioned higher
             if (showActionButtons)
               Positioned(
-                top: MediaQuery.of(context).padding.top -
-                    2, // Position buttons higher
+                top: MediaQuery.of(context).padding.top +
+                    15, // Position buttons higher
                 right: 8,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
