@@ -14,6 +14,9 @@ class DrawingDBService {
   final Map<String, List<TextAnnotation>> _pageTextAnnotations = {};
   final Map<String, List<TextAnnotation>> _pageBubbleAnnotations = {};
   // final Map<String, List<DrawingPoint>> _pageDrawingPointsSocket = {};
+  final Map<String, List<TextAnnotation>> _pageRecognizedTexts = {};
+  final Set<int> _handwritingStrokeIds = {};
+  String? _currentDrawingPageId;
   final List<_DrawingState> _undoStack = [];
   final List<_DrawingState> _redoStack = [];
 
@@ -125,6 +128,10 @@ class DrawingDBService {
     });
   }
 
+  String getCurrentPageId() {
+    return _currentDrawingPageId ?? '';
+  }
+
 //--------------------------
   void saveAllDrawingsToDatabase() {
     // Implement your logic to save all drawings to the database
@@ -138,7 +145,15 @@ class DrawingDBService {
       // Example: paperDBProvider.saveDrawingData(pageId, points);
       List<TextAnnotation> texts = _pageTextAnnotations[pageId] ?? [];
       List<TextAnnotation> bubbles = _pageBubbleAnnotations[pageId] ?? [];
-      List<TextAnnotation> allAnnotations = [...texts, ...bubbles];
+      List<TextAnnotation> recognizedTexts = _pageRecognizedTexts[pageId] ?? [];
+      List<TextAnnotation> allAnnotations = [
+        ...texts,
+        ...bubbles,
+        ...recognizedTexts
+      ];
+      print("Saving Data... [texts: ${texts.map((t) => t.text).toList()} "
+          "[bubbles: ${bubbles.map((t) => t.text).toList()}] "
+          "[recognizedTexts: ${recognizedTexts.map((t) => t.text).toList()}]");
 
       paperDBProvider.saveTextData(pageId, allAnnotations);
     }
@@ -615,6 +630,10 @@ class DrawingDBService {
   Map<String, PaperTemplate> getPaperTemplates() => _paperTemplates;
   Map<String, List<DrawingPoint>> getPageDrawingPoints() => _pageDrawingPoints;
   String getId() => _socketService!.socket?.id ?? '';
+  Map<String, List<TextAnnotation>> getPageRecognizedTexts() =>
+      _pageRecognizedTexts;
+  List<TextAnnotation> getRecognizedTextsForPage(String pageId) =>
+      _pageRecognizedTexts[pageId] ?? [];
   List<DrawingPoint> getDrawingPointsForPage(String pageId) {
     final localPoints = _pageDrawingPoints[pageId] ?? [];
     return [...localPoints];
@@ -685,10 +704,37 @@ class DrawingDBService {
     _pageIds = papers.map((paper) => paper['id'].toString()).toList();
     _loadTemplatesForPapers(_pageIds, provider);
     loadDrawingPoints(_pageIds, provider);
+    loadRecognizedTexts(_pageIds, provider);
     print("paperID : $_pageIds");
 
     if (onDataLoaded != null) {
       onDataLoaded();
+    }
+  }
+
+  void loadRecognizedTexts(
+      List<String> pageIds, PaperDBProvider paperDBProvider) {
+    _pageRecognizedTexts.clear();
+
+    for (final pageId in pageIds) {
+      final paperData = paperDBProvider.getPaperDBById(pageId);
+      final List<TextAnnotation> textsForPage = [];
+
+      if (paperData?['recognizedTexts'] != null) {
+        try {
+          final List<dynamic> loadedTexts = paperData!['recognizedTexts'];
+          for (final textData in loadedTexts) {
+            final text = TextAnnotation.fromJson(textData);
+            textsForPage.add(text);
+          }
+        } catch (e, stackTrace) {
+          debugPrint(
+            'Error loading recognized texts for page $pageId: $e\n$stackTrace',
+          );
+        }
+      }
+
+      _pageRecognizedTexts[pageId] = textsForPage;
     }
   }
 
@@ -776,11 +822,19 @@ class DrawingDBService {
   }
 
   // Drawing operations
-  void startDrawing(String pageId, Offset position, Color color, double width) {
+  void startDrawing(String pageId, Offset position, Color color, double width,
+      {bool isHandwriting = false}) {
     // _saveStateForUndo();
     // _redoStack.clear();
+
+    final int strokeId = DateTime.now().microsecondsSinceEpoch;
+
+    if (isHandwriting) {
+      _handwritingStrokeIds.add(strokeId);
+    }
+
     _currentDrawingPoint = DrawingPoint(
-      id: DateTime.now().microsecondsSinceEpoch,
+      id: strokeId,
       offsets: [position],
       color: color,
       width: width,
@@ -1052,6 +1106,29 @@ class DrawingDBService {
     return result;
   }
 
+  void addRecognizedText(String pageId, TextAnnotation text) {
+    _pageRecognizedTexts[pageId] ??= [];
+    _pageRecognizedTexts[pageId]!.add(text);
+  }
+
+  void removeHandwritingStrokes(String pageId) {
+    if (!_pageDrawingPoints.containsKey(pageId)) return;
+
+    _saveStateForUndo();
+    final pointsList = _pageDrawingPoints[pageId]!;
+    pointsList.removeWhere((point) => _handwritingStrokeIds.contains(point.id));
+
+    _handwritingStrokeIds.clear();
+  }
+
+  bool isHandwritingStroke(int strokeId) {
+    return _handwritingStrokeIds.contains(strokeId);
+  }
+
+  void clearHandwritingData() {
+    _handwritingStrokeIds.clear();
+  }
+
 // Improved version of addTextAnnotation
   int? addTextAnnotation(String pageId, Offset position, Color color,
       double fontSize, bool isBold, bool isItalic, bool isBubble) {
@@ -1082,6 +1159,10 @@ class DrawingDBService {
     }
 
     _selectedTextAnnotation = newAnnotation;
+
+    if (onDataChanged != null) {
+      onDataChanged!();
+    }
 
     return annotationId;
   }
