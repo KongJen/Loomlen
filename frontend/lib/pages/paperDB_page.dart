@@ -529,16 +529,20 @@ class _PaperDBPageState extends State<PaperDBPage> {
       PopupMenuButton<String>(
         icon: const Icon(Icons.more_vert),
         onSelected: _handleMoreMenuAction,
-        itemBuilder: (context) => const [
-          PopupMenuItem(value: 'Pencil', child: Text('Pencil')),
-          PopupMenuItem(value: 'Eraser', child: Text('Eraser')),
-          PopupMenuItem(value: 'Text', child: Text('Text Mode')),
-          PopupMenuItem(value: 'Undo', child: Text('Undo')),
-          PopupMenuItem(value: 'Redo', child: Text('Redo')),
-          PopupMenuItem(value: 'Handwriting', child: Text('Handwriting')),
-          PopupMenuItem(value: 'Export PDF', child: Text('Export to PDF')),
-          PopupMenuItem(value: 'Edit Paper', child: Text('Edit Paper')),
-          PopupMenuItem(value: 'Save', child: Text('Save Drawing')),
+        itemBuilder: (context) => [
+          if (isReadOnly)
+            PopupMenuItem(value: 'Export PDF', child: Text('Export to PDF'))
+          else ...[
+            PopupMenuItem(value: 'Pencil', child: Text('Pencil')),
+            PopupMenuItem(value: 'Eraser', child: Text('Eraser')),
+            PopupMenuItem(value: 'Text', child: Text('Text Mode')),
+            PopupMenuItem(value: 'Undo', child: Text('Undo')),
+            PopupMenuItem(value: 'Redo', child: Text('Redo')),
+            PopupMenuItem(value: 'Handwriting', child: Text('Handwriting')),
+            PopupMenuItem(value: 'Export PDF', child: Text('Export to PDF')),
+            PopupMenuItem(value: 'Edit Paper', child: Text('Edit Paper')),
+            PopupMenuItem(value: 'Save', child: Text('Save Drawing')),
+          ],
         ],
       ),
     ];
@@ -579,120 +583,131 @@ class _PaperDBPageState extends State<PaperDBPage> {
 
   List<Widget> _buildFullActions() {
     return [
-      IconButton(
-        icon: Icon(
-          Icons.edit,
-          color: selectedMode == DrawingMode.pencil ? Colors.blue : null,
+      if (isReadOnly)
+        IconButton(
+          icon: Icon(Icons.picture_as_pdf),
+          onPressed: exportToPdf,
+          tooltip: 'Export to PDF',
+        )
+      else ...[
+        IconButton(
+          icon: Icon(
+            Icons.edit,
+            color: selectedMode == DrawingMode.pencil ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.pencil),
+          tooltip: 'Pencil',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.pencil),
-        tooltip: 'Pencil',
-      ),
-      IconButton(
-        icon: FaIcon(
-          FontAwesomeIcons.eraser,
-          color: selectedMode == DrawingMode.eraser ? Colors.blue : null,
+        IconButton(
+          icon: FaIcon(
+            FontAwesomeIcons.eraser,
+            color: selectedMode == DrawingMode.eraser ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.eraser),
+          tooltip: 'Eraser',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.eraser),
-        tooltip: 'Eraser',
-      ),
-      IconButton(
-        icon: Icon(
-          Icons.circle,
-          color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
+        IconButton(
+          icon: Icon(
+            Icons.circle,
+            color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
+          tooltip: 'Bubble',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
-        tooltip: 'Bubble',
-      ),
-      IconButton(
-        icon: Icon(
-          Icons.text_fields,
-          color: selectedMode == DrawingMode.text ? Colors.blue : null,
+        IconButton(
+          icon: Icon(
+            Icons.text_fields,
+            color: selectedMode == DrawingMode.text ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.text),
+          tooltip: 'Text',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.text),
-        tooltip: 'Text',
-      ),
-      IconButton(
-        // Add pointing finger icon for reading mode
-        icon: FaIcon(
-          FontAwesomeIcons.handPointer, // Or Icons.touch_app for Material icon
-          color: selectedMode == DrawingMode.read ? Colors.blue : null,
+        IconButton(
+          // Add pointing finger icon for reading mode
+          icon: FaIcon(
+            FontAwesomeIcons
+                .handPointer, // Or Icons.touch_app for Material icon
+            color: selectedMode == DrawingMode.read ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.read),
+          tooltip: 'Reading Mode',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.read),
-        tooltip: 'Reading Mode',
-      ),
-      IconButton(
-        icon: const Icon(Icons.undo),
-        onPressed: _drawingDBService.canUndo()
-            ? () => setState(() => _drawingDBService.clickUndo())
-            : null,
-        tooltip: 'Undo',
-      ),
-      IconButton(
-        icon: const Icon(Icons.redo),
-        onPressed: _drawingDBService.canRedo()
-            ? () => setState(() => _drawingDBService.clickRedo())
-            : null,
-        tooltip: 'Redo',
-      ),
-      IconButton(
-        icon: const Icon(Icons.save),
-        onPressed: _saveDrawing,
-        tooltip: 'Save Drawing',
-      ),
-      IconButton(
-        icon: const Icon(Icons.add),
-        onPressed: _addNewPaperPage,
-        tooltip: 'Add New Page',
-      ),
-      IconButton(
-        icon: Icon(Icons.picture_as_pdf),
-        onPressed: exportToPdf,
-        tooltip: 'Export to PDF',
-      ),
-      IconButton(
-        icon: const Icon(Icons.book),
-        onPressed: () {
-          showGeneralDialog(
-            context: context,
-            barrierDismissible: true,
-            barrierLabel: 'Dismiss',
-            pageBuilder: (context, animation, secondaryAnimation) {
-              return Align(
-                alignment: Alignment.centerRight,
-                child: Material(
-                  color: Colors.white,
-                  elevation: 8,
-                  child: SizedBox(
-                    width: MediaQuery.of(context).size.width *
-                        0.35, // Adjust width as needed
-                    height: MediaQuery.of(context).size.height,
-                    child: ManagePaperDBPage(
-                      fileId: widget.fileId,
-                      paperDBProvider: Provider.of<PaperDBProvider>(context),
-                      roomId: widget.roomId,
-                      drawingDBService: _drawingDBService,
+        IconButton(
+          icon: const Icon(Icons.undo),
+          onPressed: _drawingDBService.canUndo()
+              ? () => setState(() => _drawingDBService.clickUndo())
+              : null,
+          tooltip: 'Undo',
+        ),
+        IconButton(
+          icon: const Icon(Icons.redo),
+          onPressed: _drawingDBService.canRedo()
+              ? () => setState(() => _drawingDBService.clickRedo())
+              : null,
+          tooltip: 'Redo',
+        ),
+        IconButton(
+          icon: const Icon(Icons.save),
+          onPressed: _saveDrawing,
+          tooltip: 'Save Drawing',
+        ),
+        IconButton(
+          icon: const Icon(Icons.add),
+          onPressed: _addNewPaperPage,
+          tooltip: 'Add New Page',
+        ),
+        IconButton(
+          icon: Icon(Icons.picture_as_pdf),
+          onPressed: exportToPdf,
+          tooltip: 'Export to PDF',
+        ),
+        IconButton(
+          icon: const Icon(Icons.book),
+          onPressed: () {
+            showGeneralDialog(
+              context: context,
+              barrierDismissible: true,
+              barrierLabel: 'Dismiss',
+              pageBuilder: (context, animation, secondaryAnimation) {
+                return Align(
+                  alignment: Alignment.centerRight,
+                  child: Material(
+                    color: Colors.white,
+                    elevation: 8,
+                    child: SizedBox(
+                      width: MediaQuery.of(context).size.width *
+                          0.35, // Adjust width as needed
+                      height: MediaQuery.of(context).size.height,
+                      child: ManagePaperDBPage(
+                        fileId: widget.fileId,
+                        paperDBProvider: Provider.of<PaperDBProvider>(context),
+                        roomId: widget.roomId,
+                        drawingDBService: _drawingDBService,
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
-            transitionDuration: const Duration(milliseconds: 300),
-            transitionBuilder: (context, animation, secondaryAnimation, child) {
-              return SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(1, 0), // From right
-                  end: Offset.zero,
-                ).animate(animation),
-                child: child,
-              );
-            },
-          ).then((_) {
-            // Call _reloadPaperData when the dialog is closed
-            _reloadPaperData();
-          });
-        },
-        tooltip: 'Edit Paper',
-      )
+                );
+              },
+              transitionDuration: const Duration(milliseconds: 300),
+              transitionBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(1, 0), // From right
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: child,
+                );
+              },
+            ).then((_) {
+              // Call _reloadPaperData when the dialog is closed
+              _reloadPaperData();
+            });
+          },
+          tooltip: 'Edit Paper',
+        )
+      ],
+
       // IconButton(
       //   icon: const Icon(Icons.share),
       //   tooltip: 'Share this file',
