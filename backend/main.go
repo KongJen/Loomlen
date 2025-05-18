@@ -43,6 +43,7 @@ func main() {
 
 	// Define REST API routes
 	router.HandleFunc("/api/user/login", handlers.UserLogin).Methods("POST")
+	router.HandleFunc("/api/user/google-login", handlers.GoogleLogin).Methods("POST")
 	router.HandleFunc("/api/user/signup", handlers.UserSignup).Methods("POST")
 	router.HandleFunc("/api/user/logout", handlers.UserLogout).Methods("POST")
 	router.HandleFunc("/api/room", handlers.AddRoom).Methods("POST")
