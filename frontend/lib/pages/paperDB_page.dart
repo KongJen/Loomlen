@@ -956,7 +956,10 @@ class _PaperDBPageState extends State<PaperDBPage> {
               child: Center(
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width,
+                    maxWidth: isPhone
+                        ? deviceSize.width *
+                            2 // Allow more width on phones for panning
+                        : MediaQuery.of(context).size.width,
                   ),
                   child: Column(
                       mainAxisAlignment: MainAxisAlignment.start,
