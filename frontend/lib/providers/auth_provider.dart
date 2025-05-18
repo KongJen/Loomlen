@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/global.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthProvider with ChangeNotifier {
   final String baseUrl = baseurl;
@@ -32,6 +33,54 @@ class AuthProvider with ChangeNotifier {
     _isLoggedIn =
         _accessToken != null && _refreshToken != null && _email != null;
     notifyListeners();
+  }
+
+  Future<void> signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        throw Exception('Google sign-in aborted');
+      }
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      final String? idToken = googleAuth.idToken;
+
+      // Send idToken to your backend and get tokens/user info
+      final response = await http.post(
+        Uri.parse('$baseUrl/api/user/google-login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'id_token': idToken}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        _accessToken = data['access_token'];
+        _refreshToken = data['refresh_token'];
+        _email = data['user']['email'];
+        _name = data['user']['name'];
+        _userId = data['user']['_id'] ?? data['user']['id'];
+        _isLoggedIn = true;
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('access_token', _accessToken!);
+        await prefs.setString('refresh_token', _refreshToken!);
+        await prefs.setString('email', _email!);
+        await prefs.setString('user_id', _userId!);
+        await prefs.setString('name', _name ?? "");
+        await prefs.setString('last_login', DateTime.now().toIso8601String());
+        if (googleUser.photoUrl != null) {
+          await prefs.setString("photo_url", googleUser.photoUrl!);
+        }
+
+        notifyListeners();
+      } else {
+        throw Exception('Google login failed: ${response.body}');
+      }
+    } catch (e) {
+      print('Google sign-in error: $e');
+      rethrow;
+    }
   }
 
   Future<void> login(String email, String password) async {
@@ -160,6 +209,12 @@ class AuthProvider with ChangeNotifier {
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     final accessToken = prefs.getString('access_token');
+
+    try {
+      await googleSignIn.signOut();
+    } catch (e) {
+      print('Error signing out from Google: $e');
+    }
 
     if (accessToken != null) {
       try {
