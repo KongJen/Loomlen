@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "742680590651",
+    "project_id": "loomlen-loomlenapp",
+    "storage_bucket": "loomlen-loomlenapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:742680590651:android:73859a2563071d31ab9f1e",
+        "android_client_info": {
+          "package_name": "com.loomlen.app"
+        }
+      },
+      "oauth_client": [{
+    "client_id": "866885658869-abo5bnok75am8lbltqdj4b664n36m52h.apps.googleusercontent.com",
+    "client_type": 3
+  },
+  {
+    "client_id": "866885658869-abo5bnok75am8lbltqdj4b664n36m52h.apps.googleusercontent.com",
+    "client_type": 1,
+    "android_info": {
+      "package_name": "com.loomlen.app",
+      "certificate_hash": "24:5c:08:0a:10:c8:11:a7:92:1a:4a:3b:6a:e7:83:58:db:cc:7f:93"
+    }
+  }],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQFQGWXSYGXPXZro5ArZhGGevfQSCJ4PM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
