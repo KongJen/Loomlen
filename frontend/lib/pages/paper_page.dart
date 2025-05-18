@@ -231,54 +231,54 @@ class _PaperPageState extends State<PaperPage> {
     }
   }
 
-  Future<void> _recognizeText() async {
-    if (!_modelDownloaded) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please wait for the model to download'),
-        ),
-      );
-      return;
-    }
+  // Future<void> _recognizeText() async {
+  //   if (!_modelDownloaded) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(
+  //         content: Text('Please wait for the model to download'),
+  //       ),
+  //     );
+  //     return;
+  //   }
 
-    if (_ink.strokes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please write something first'),
-        ),
-      );
-      return;
-    }
+  //   if (_ink.strokes.isEmpty) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(
+  //         content: Text('Please write something first'),
+  //       ),
+  //     );
+  //     return;
+  //   }
 
-    try {
-      setState(() {
-        recognizedText = 'Recognizing...';
-      });
+  //   try {
+  //     setState(() {
+  //       recognizedText = 'Recognizing...';
+  //     });
 
-      final List<ml_kit.RecognitionCandidate> candidates =
-          await _digitalInkRecognizer.recognize(_ink);
+  //     final List<ml_kit.RecognitionCandidate> candidates =
+  //         await _digitalInkRecognizer.recognize(_ink);
 
-      if (candidates.isNotEmpty) {
-        setState(() {
-          recognizedText = candidates.first.text;
-          print('Recognized text: $recognizedText'); // For debugging
-        });
-      } else {
-        setState(() {
-          recognizedText = 'No text recognized';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        recognizedText = '';
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error recognizing text: $e')),
-        );
-      }
-    }
-  }
+  //     if (candidates.isNotEmpty) {
+  //       setState(() {
+  //         recognizedText = candidates.first.text;
+  //         print('Recognized text: $recognizedText'); // For debugging
+  //       });
+  //     } else {
+  //       setState(() {
+  //         recognizedText = 'No text recognized';
+  //       });
+  //     }
+  //   } catch (e) {
+  //     setState(() {
+  //       recognizedText = '';
+  //     });
+  //     if (mounted) {
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(content: Text('Error recognizing text: $e')),
+  //       );
+  //     }
+  //   }
+  // }
 
   void _centerContent() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -717,92 +717,94 @@ class _PaperPageState extends State<PaperPage> {
 
   List<Widget> _buildFullActions() {
     return [
-      IconButton(
-        icon: Icon(
-          Icons.edit,
-          color: selectedMode == DrawingMode.pencil ? Colors.blue : null,
+      if (_isHandwritingMode) ...[
+        IconButton(
+          icon: const Icon(Icons.check, color: Color.fromARGB(255, 0, 0, 0)),
+          onPressed: () {
+            _processHandwritingConfirm();
+            setState(() {
+              _isHandwritingMode = false;
+              selectedMode = DrawingMode.pencil;
+            });
+          },
+          tooltip: 'Confirm Handwriting',
+        )
+      ] else ...[
+        IconButton(
+          icon: Icon(
+            Icons.edit,
+            color: selectedMode == DrawingMode.pencil ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.pencil),
+          tooltip: 'Pencil',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.pencil),
-        tooltip: 'Pencil',
-      ),
-      IconButton(
-        icon: FaIcon(
-          FontAwesomeIcons.eraser,
-          color: selectedMode == DrawingMode.eraser ? Colors.blue : null,
+        IconButton(
+          icon: FaIcon(
+            FontAwesomeIcons.eraser,
+            color: selectedMode == DrawingMode.eraser ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.eraser),
+          tooltip: 'Eraser',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.eraser),
-        tooltip: 'Eraser',
-      ),
-      IconButton(
-        icon: Icon(
-          Icons.circle,
-          color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
+        IconButton(
+          icon: Icon(
+            Icons.circle,
+            color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
+          tooltip: 'Bubble',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
-        tooltip: 'Bubble',
-      ),
-      IconButton(
-        icon: Icon(
-          Icons.text_fields,
-          color: selectedMode == DrawingMode.text ? Colors.blue : null,
+        IconButton(
+          icon: Icon(
+            Icons.text_fields,
+            color: selectedMode == DrawingMode.text ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.text),
+          tooltip: 'Text',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.text),
-        tooltip: 'Text',
-      ),
-      IconButton(
-        icon: FaIcon(
-          FontAwesomeIcons.handPointer,
-          color: selectedMode == DrawingMode.read ? Colors.blue : null,
+        IconButton(
+          icon: FaIcon(
+            FontAwesomeIcons.handPointer,
+            color: selectedMode == DrawingMode.read ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.read),
+          tooltip: 'Reading Mode',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.read),
-        tooltip: 'Reading Mode',
-      ),
-      IconButton(
-        icon: const Icon(Icons.undo),
-        onPressed: _drawingService.canUndo()
-            ? () => setState(() => _drawingService.undo())
-            : null,
-        tooltip: 'Undo',
-      ),
-      IconButton(
-        icon: const Icon(Icons.redo),
-        onPressed: _drawingService.canRedo()
-            ? () => setState(() => _drawingService.redo())
-            : null,
-        tooltip: 'Redo',
-      ),
-      IconButton(
-        icon: const Icon(Icons.save),
-        onPressed: _saveDrawing,
-        tooltip: 'Save Drawing',
-      ),
-      _isHandwritingMode
-          ? IconButton(
-              icon: const Icon(Icons.check, color: Colors.red),
-              onPressed: () {
-                _processHandwritingConfirm();
-                setState(() {
-                  _isHandwritingMode = false;
-                  selectedMode = DrawingMode.pencil;
-                });
-              },
-              tooltip: 'Confirm Handwriting',
-            )
-          : IconButton(
-              icon: FaIcon(FontAwesomeIcons.signature),
-              onPressed: _onHandwritingModeSelected,
-              tooltip: 'Handwriting Mode',
-            ),
-      IconButton(
-        icon: FaIcon(FontAwesomeIcons.shareFromSquare),
-        onPressed: exportToPdf,
-        tooltip: 'Export to PDF',
-      ),
-      IconButton(
-        icon: FaIcon(FontAwesomeIcons.bars),
-        onPressed: _showEditPaperDialog,
-        tooltip: 'Edit Paper',
-      ),
+        IconButton(
+          icon: const Icon(Icons.undo),
+          onPressed: _drawingService.canUndo()
+              ? () => setState(() => _drawingService.undo())
+              : null,
+          tooltip: 'Undo',
+        ),
+        IconButton(
+          icon: const Icon(Icons.redo),
+          onPressed: _drawingService.canRedo()
+              ? () => setState(() => _drawingService.redo())
+              : null,
+          tooltip: 'Redo',
+        ),
+        IconButton(
+          icon: const Icon(Icons.save),
+          onPressed: _saveDrawing,
+          tooltip: 'Save Drawing',
+        ),
+        IconButton(
+          icon: FaIcon(FontAwesomeIcons.signature),
+          onPressed: _onHandwritingModeSelected,
+          tooltip: 'Handwriting Mode',
+        ),
+        IconButton(
+          icon: FaIcon(FontAwesomeIcons.shareFromSquare),
+          onPressed: exportToPdf,
+          tooltip: 'Export to PDF',
+        ),
+        IconButton(
+          icon: FaIcon(FontAwesomeIcons.bars),
+          onPressed: _showEditPaperDialog,
+          tooltip: 'Edit Paper',
+        ),
+      ],
     ];
   }
 
@@ -1207,28 +1209,28 @@ class _PaperPageState extends State<PaperPage> {
     );
   }
 
-  List<Widget> _buildRecognizedTexts(String paperId) {
-    final texts = _drawingService.getRecognizedTextsForPage(paperId);
-    if (texts.isEmpty) {
-      return [];
-    }
+  // List<Widget> _buildRecognizedTexts(String paperId) {
+  //   final texts = _drawingService.getRecognizedTextsForPage(paperId);
+  //   if (texts.isEmpty) {
+  //     return [];
+  //   }
 
-    return texts.map((result) {
-      return Positioned(
-        left:
-            result.position.dx - (result.text.length * result.fontSize * 0.25),
-        top: result.position.dy - (result.fontSize * 0.5),
-        child: Text(
-          result.text,
-          style: TextStyle(
-            color: result.color,
-            fontSize: result.fontSize,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      );
-    }).toList();
-  }
+  //   return texts.map((result) {
+  //     return Positioned(
+  //       left:
+  //           result.position.dx - (result.text.length * result.fontSize * 0.25),
+  //       top: result.position.dy - (result.fontSize * 0.5),
+  //       child: Text(
+  //         result.text,
+  //         style: TextStyle(
+  //           color: result.color,
+  //           fontSize: result.fontSize,
+  //           fontWeight: FontWeight.w500,
+  //         ),
+  //       ),
+  //     );
+  //   }).toList();
+  // }
 
   void _clearHandwritingData() {
     _ink.strokes.clear();
