@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.my_flutter_app"
+    namespace = "com.loomlen.app"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.my_flutter_app"
+        applicationId = "com.loomlen.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -41,4 +41,8 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+     implementation("com.google.android.gms:play-services-auth:20.4.1")
 }
