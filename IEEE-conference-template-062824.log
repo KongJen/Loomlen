@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999996 (MiKTeX 24.4) (preloaded format=xelatex 2024.12.4)  23 MAY 2025 20:49
+This is XeTeX, Version 3.141592653-2.6-0.999996 (MiKTeX 24.4) (preloaded format=xelatex 2024.12.4)  26 MAY 2025 00:33
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -232,8 +232,7 @@ File: l3backend-xetex.def 2024-05-08 L3 backend support: XeTeX
 \l__pdf_internal_box=\box56
 \g__pdf_backend_annotation_int=\count290
 \g__pdf_backend_link_int=\count291
-)
-No file IEEE-conference-template-062824.aux.
+) (IEEE-conference-template-062824.aux)
 \openout1 = `IEEE-conference-template-062824.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 14.
@@ -252,6 +251,7 @@ LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 14.
 LaTeX Font Info:    ... okay on input line 14.
 LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 14.
 LaTeX Font Info:    ... okay on input line 14.
+
 
 LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
 (Font)              using `TU/ptm/bx/n' instead on input line 14.
@@ -374,48 +374,6 @@ Underfull \hbox (badness 4673) in paragraph at lines 72--74
  []
 
 
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 88.
-
-
-LaTeX Warning: Reference `AA' on page 1 undefined on input line 88.
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 88.
-
-
-LaTeX Warning: Reference `FAT' on page 1 undefined on input line 88.
-
-
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 122.
-
-
-LaTeX Warning: Reference `eq' on page 1 undefined on input line 122.
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 122.
-
-
-LaTeX Warning: Reference `eq' on page 1 undefined on input line 122.
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 122.
-
-
-LaTeX Warning: Reference `eq' on page 1 undefined on input line 122.
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 123.
-
-
-LaTeX Warning: Reference `eq' on page 1 undefined on input line 123.
 
 
 
@@ -435,21 +393,7 @@ LaTeX Font Warning: Font shape `TU/pcr/m/n' undefined
 
 
 LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 176.
-
-
-LaTeX Warning: Citation `b7' on page 2 undefined on input line 176.
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
 (Font)              using `TU/ptm/bx/n' instead on input line 179.
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 212.
-
-
-LaTeX Warning: Reference `fig' on page 2 undefined on input line 212.
 
 
 
@@ -481,69 +425,6 @@ LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
 File: fig1.png Graphic file (type bmp)
 <fig1.png>
 
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 256.
-
-
-LaTeX Warning: Citation `b1' on page 3 undefined on input line 256.
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 257.
-
-
-LaTeX Warning: Citation `b2' on page 3 undefined on input line 257.
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 258.
-
-
-LaTeX Warning: Citation `b3' on page 3 undefined on input line 258.
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 258.
-
-
-LaTeX Warning: Citation `b3' on page 3 undefined on input line 258.
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 258.
-
-
-LaTeX Warning: Citation `b3' on page 3 undefined on input line 258.
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 259.
-
-
-LaTeX Warning: Citation `b3' on page 3 undefined on input line 259.
-
-
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 267.
-
-
-LaTeX Warning: Citation `b4' on page 3 undefined on input line 267.
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 268.
-
-
-LaTeX Warning: Citation `b5' on page 3 undefined on input line 268.
-
-
-LaTeX Font Warning: Font shape `TU/ptm/b/n' undefined
-(Font)              using `TU/ptm/bx/n' instead on input line 273.
-
-
-LaTeX Warning: Citation `b6' on page 3 undefined on input line 273.
 
 
 Underfull \hbox (badness 4217) in paragraph at lines 283--284
@@ -597,18 +478,12 @@ L3 programming layer <2024-11-02>
 
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
-
-LaTeX Warning: There were undefined references.
-
-
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
-
  ) 
 Here is how much of TeX's memory you used:
- 3814 strings out of 408789
- 59201 string characters out of 5748492
- 480186 words of memory out of 5000000
- 26698 multiletter control sequences out of 15000+600000
+ 3817 strings out of 408789
+ 59319 string characters out of 5748492
+ 480449 words of memory out of 5000000
+ 26699 multiletter control sequences out of 15000+600000
  567344 words of font info for 86 fonts, out of 8000000 for 9000
  1348 hyphenation exceptions out of 8191
  57i,11n,65p,667b,306s stack positions out of 10000i,1000n,20000p,200000b,200000s
