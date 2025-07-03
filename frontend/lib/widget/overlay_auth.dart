@@ -31,6 +31,7 @@ class _OverlayAuthState extends State<OverlayAuth> {
   bool isLogin = true;
   bool isAuthenticated = false; // Track login state
   String userEmail = ""; // Store logged-in email
+  bool isGoogleLogin = false;
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -62,7 +63,7 @@ class _OverlayAuthState extends State<OverlayAuth> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
     try {
-      if (isLogin) {
+      if (isLogin && !isGoogleLogin) {
         print('Attempting to login with email: ${emailController.text}');
         await authProvider.login(emailController.text, passwordController.text);
 
@@ -86,6 +87,26 @@ class _OverlayAuthState extends State<OverlayAuth> {
             currentState = AuthState.authenticated;
           });
         });
+      } else if (isGoogleLogin) {
+        print('Attempting to login with Google');
+        await authProvider.signInWithGoogle();
+
+        print('Login attempt completed');
+
+        if (!mounted) return;
+        setState(() {
+          isAuthenticated = true;
+          userEmail = authProvider.email ?? '';
+          currentState = AuthState.loginSuccess;
+        });
+        // Use a cancelable timer
+        _stateTransitionTimer = Future.delayed(Duration(seconds: 4), () {
+          if (!mounted) return;
+          setState(() {
+            currentState = AuthState.authenticated;
+          });
+        });
+        // Optionally close overlay or navigate
       } else {
         if (passwordController.text != confirmPasswordController.text) {
           throw Exception('Passwords do not match');
@@ -437,6 +458,19 @@ class _OverlayAuthState extends State<OverlayAuth> {
                   ),
                 ],
               ),
+              OutlinedButton.icon(
+                  icon: Image.asset(
+                    'assets/icon/google_logo.png',
+                    height: 24,
+                    width: 24,
+                  ),
+                  label: Text('Sign in with Google'),
+                  onPressed: () async {
+                    setState(() {
+                      isGoogleLogin = true;
+                    });
+                    await authenticate();
+                  }),
             ],
           ),
         ),

@@ -13,6 +13,9 @@ class ReusableAppBar extends StatelessWidget implements PreferredSizeWidget {
   final double? titleFontSize;
   final double? height;
 
+  final bool? isListView;
+  final VoidCallback? onToggleView;
+
   const ReusableAppBar({
     super.key,
     required this.title,
@@ -23,6 +26,8 @@ class ReusableAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.titleColor = Colors.black,
     this.titleFontSize,
     this.height,
+    this.isListView,
+    this.onToggleView,
   });
 
   @override
@@ -65,9 +70,8 @@ class ReusableAppBar extends StatelessWidget implements PreferredSizeWidget {
             // Action buttons positioned higher
             if (showActionButtons)
               Positioned(
-                top:
-                    MediaQuery.of(context).padding.top -
-                    2, // Position buttons higher
+                top: MediaQuery.of(context).padding.top +
+                    15, // Position buttons higher
                 right: 8,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -82,19 +86,27 @@ class ReusableAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   List<Widget> _buildActionButtonsList(BuildContext context) {
     return [
-      IconButton(
-        icon: const Icon(Icons.select_all, color: Colors.black),
-        onPressed: () {},
-      ),
-      IconButton(
-        icon: const Icon(Icons.settings, color: Colors.black),
-        onPressed: () {
-          OverlayService.showOverlay(
-            context,
-            OverlaySettings(onClose: OverlayService.hideOverlay),
-          );
-        },
-      ),
+      // IconButton(
+      //   icon: const Icon(Icons.select_all, color: Colors.black),
+      //   onPressed: () {},
+      // ),
+      // IconButton(
+      //   icon: const Icon(Icons.settings, color: Colors.black),
+      //   onPressed: () {
+      //     OverlayService.showOverlay(
+      //       context,
+      //       OverlaySettings(onClose: OverlayService.hideOverlay),
+      //     );
+      //   },
+      // ),
+      if (isListView != null && onToggleView != null)
+        IconButton(
+          icon: Icon(
+            isListView! ? Icons.grid_view : Icons.list,
+            color: Colors.black,
+          ),
+          onPressed: onToggleView,
+        ),
       IconButton(
         icon: const Icon(Icons.person, color: Colors.black),
         onPressed: () {

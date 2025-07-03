@@ -1,17 +1,11 @@
 // ignore_for_file: non_constant_identifier_names, avoid_types_as_parameter_names
 
 import 'package:flutter/material.dart';
-import 'package:frontend/api/apiService.dart';
-import 'package:frontend/providers/file_provider.dart';
-import 'package:frontend/providers/folder_provider.dart';
-import 'package:frontend/providers/paper_provider.dart';
-import 'package:frontend/providers/room_provider.dart';
 import 'package:frontend/providers/roomdb_provider.dart';
 import 'package:frontend/services/roomDB_dialog_service.dart';
 import 'package:provider/provider.dart';
 import 'base_item.dart';
 import 'item_behaviors.dart';
-import '../services/item_dialog_service.dart';
 
 class RoomDBItem extends BaseItem {
   final Color color;
@@ -19,8 +13,8 @@ class RoomDBItem extends BaseItem {
   final String originalId;
   final String role;
   final VoidCallback onToggleFavorite;
-
   final String updatedAt;
+  final bool isListView;
 
   const RoomDBItem({
     super.key,
@@ -33,6 +27,7 @@ class RoomDBItem extends BaseItem {
     required this.role,
     required this.onToggleFavorite,
     required this.updatedAt,
+    this.isListView = false,
   });
 
   @override
@@ -44,6 +39,62 @@ class _RoomDBItemState extends State<RoomDBItem>
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+
+    if (widget.isListView) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.home_filled, size: 70, color: widget.color),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Padding(
+                padding:
+                    const EdgeInsets.only(top: 12.0), // shifts name downward
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatDate(widget.createdDate),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.star_rate_rounded,
+                    color: widget.is_favorite ? Colors.red : Colors.grey,
+                  ),
+                  onPressed: widget.onToggleFavorite,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.keyboard_control_key,
+                      color: Colors.blueAccent),
+                  onPressed: () => _showOptionsOverlay(context),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 🟦 Grid-style layout (default)
     final iconSize = screenWidth < 600 ? 120.0 : 170.0;
     final starIconSize = iconSize * 0.3;
 
@@ -87,15 +138,42 @@ class _RoomDBItemState extends State<RoomDBItem>
           const SizedBox(height: 4),
           _buildItemNameRow(context, screenWidth),
           Text(
-            'Created At: ${widget.createdDate}',
+            '${_formatDate(widget.createdDate)}',
             style: TextStyle(
-              fontSize: screenWidth < 600 ? 8 : 10,
+              fontSize: screenWidth < 600 ? 10 : 12,
               color: Colors.grey,
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _formatDate(String rawDate) {
+    try {
+      final date = DateTime.parse(rawDate);
+      return "${_monthName(date.month)} ${date.day}, ${date.year}";
+    } catch (_) {
+      return rawDate;
+    }
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return months[month - 1];
   }
 
   Widget _buildItemNameRow(BuildContext context, double screenWidth) {
@@ -128,12 +206,36 @@ class _RoomDBItemState extends State<RoomDBItem>
   }
 
   void _showOptionsOverlay(BuildContext context) async {
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    final Offset position = renderBox.localToGlobal(Offset.zero);
+    final Size screenSize = MediaQuery.of(context).size;
+
+    // Get the icon's position
+    final iconButtonRenderBox = context.findRenderObject() as RenderBox;
+    final iconPosition = iconButtonRenderBox.localToGlobal(Offset.zero);
+
+    // Set overlay dimensions
+    const double overlayWidth = 350;
+    const double overlayHeight =
+        100; // Increased slightly to ensure all options fit
+    const double margin = 10;
+
+    // Calculate the position to display the overlay
+    // Start with the position of the clicked icon
+    double adjustedDx = iconPosition.dx;
+    double adjustedDy = iconPosition.dy;
+
+    // Adjust horizontal position if needed to stay on screen
+    if (adjustedDx + overlayWidth > screenSize.width) {
+      adjustedDx = screenSize.width - overlayWidth - margin;
+    }
+
+    // Adjust vertical position if needed to stay on screen
+    if (adjustedDy + overlayHeight > screenSize.height) {
+      adjustedDy = screenSize.height - overlayHeight - margin;
+    }
 
     await ItemRoomDialogService.showRoomOptionsOverlay(
       context: context,
-      position: position,
+      position: Offset(adjustedDx, adjustedDy),
       itemName: widget.name,
       onRename: () => _showRenameDialog(context),
       onDelete: () => _showDeleteConfirmationDialog(context),

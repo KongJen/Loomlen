@@ -28,21 +28,36 @@ class FileDBProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<String> addFile(
+  Future<Map<String, String>> addFile(
     String name, {
     required String roomId,
     required String parentFolderId,
   }) async {
+    String baseName = name.trim();
+    String uniqueName = baseName;
+    int counter = 1;
+
+    // Filter folders within the same room and parent
+    final existingFolders = _files.where((file) =>
+        file['room_id'].toString().trim() == roomId &&
+        file['sub_folder_id'].toString().trim() == parentFolderId);
+
+    // Ensure name is unique in this context
+    while (existingFolders.any((file) => file['name'] == uniqueName)) {
+      uniqueName = '$baseName ($counter)';
+      counter++;
+    }
+
     final String fileId = _uuid.v4();
     String fileDbId = await _apiService.addFile(
       id: fileId,
       roomId: roomId,
       subFolderId: parentFolderId,
-      name: name,
+      name: uniqueName,
     );
 
     notifyListeners();
-    return fileDbId;
+    return {'id': fileDbId, 'name': uniqueName};
   }
 
   Future<String> getId(String fileId) async {
@@ -67,7 +82,34 @@ class FileDBProvider extends ChangeNotifier {
     String fileId,
     String newName,
   ) async {
-    await _apiService.renameFile(fileId, newName);
+    final file = _files.firstWhere(
+      (f) => f['id'] == fileId,
+      orElse: () => <String, dynamic>{},
+    );
+
+    String baseName = newName.trim();
+    String uniqueName = baseName;
+    int counter = 1;
+
+    final roomId = file['room_id'].toString().trim();
+    final parentFolderId = file['sub_folder_id'].toString().trim();
+
+    // Filter existing files in the same room and folder, excluding the current file
+    final existingFiles = _files.where((f) =>
+        f['room_id'].toString().trim() == roomId &&
+        f['sub_folder_id'].toString().trim() == parentFolderId &&
+        f['id'] != fileId);
+
+    // Ensure unique name
+    while (existingFiles.any((f) => f['name'] == uniqueName)) {
+      uniqueName = '$baseName ($counter)';
+      counter++;
+    }
+
+    // Update in API and locally
+    await _apiService.renameFile(fileId, uniqueName);
+    file['name'] = uniqueName;
+
     notifyListeners();
   }
 }

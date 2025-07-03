@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/providers/file_provider.dart';
-import 'package:frontend/providers/filedb_provider.dart';
 import 'package:frontend/providers/folder_provider.dart';
 import 'package:frontend/providers/folderdb_provider.dart';
 import 'package:frontend/providers/paper_provider.dart';
-import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:provider/provider.dart';
 import 'base_item.dart';
 import 'item_behaviors.dart';
@@ -16,6 +14,7 @@ class FolderItem extends BaseItem {
   final String? parentFolderId;
   final String? role;
   final Color color;
+  final bool isListView;
 
   const FolderItem({
     super.key,
@@ -27,6 +26,7 @@ class FolderItem extends BaseItem {
     this.parentFolderId,
     this.role,
     required this.color,
+    this.isListView = false,
   });
 
   @override
@@ -37,6 +37,56 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+
+    if (widget.isListView) {
+      // List view layout
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.folder_open, size: 70, color: widget.color),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatDate(widget.createdDate),
+                      style: TextStyle(
+                        fontSize: screenWidth < 600 ? 10 : 12,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (widget.role == 'owner' ||
+                widget.role == 'write' ||
+                widget.originalId == null)
+              IconButton(
+                icon: const Icon(Icons.keyboard_control_key,
+                    color: Colors.blueAccent),
+                onPressed: () => _showOptionsOverlay(context),
+              ),
+          ],
+        ),
+      );
+    }
+
+    // Grid view layout
     final iconSize = screenWidth < 600 ? 120.0 : 170.0;
 
     return Padding(
@@ -58,15 +108,42 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
           _buildItemNameRow(context, screenWidth),
           const SizedBox(height: 2.0),
           Text(
-            widget.createdDate,
+            _formatDate(widget.createdDate),
             style: TextStyle(
-              fontSize: screenWidth < 600 ? 8 : 10,
+              fontSize: screenWidth < 600 ? 10 : 12,
               color: Colors.grey,
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _formatDate(String rawDate) {
+    try {
+      final date = DateTime.parse(rawDate);
+      return "${_monthName(date.month)} ${date.day}, ${date.year}";
+    } catch (_) {
+      return rawDate; // fallback for invalid date
+    }
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return months[month - 1];
   }
 
   Widget _buildItemNameRow(BuildContext context, double screenWidth) {
@@ -102,12 +179,36 @@ class _FolderItemState extends State<FolderItem> with Renamable, Deletable {
   }
 
   void _showOptionsOverlay(BuildContext context) async {
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    final Offset position = renderBox.localToGlobal(Offset.zero);
+    final Size screenSize = MediaQuery.of(context).size;
+
+    // Get the icon's position
+    final iconButtonRenderBox = context.findRenderObject() as RenderBox;
+    final iconPosition = iconButtonRenderBox.localToGlobal(Offset.zero);
+
+    // Set overlay dimensions
+    const double overlayWidth = 350;
+    const double overlayHeight =
+        100; // Increased slightly to ensure all options fit
+    const double margin = 10;
+
+    // Calculate the position to display the overlay
+    // Start with the position of the clicked icon
+    double adjustedDx = iconPosition.dx;
+    double adjustedDy = iconPosition.dy;
+
+    // Adjust horizontal position if needed to stay on screen
+    if (adjustedDx + overlayWidth > screenSize.width) {
+      adjustedDx = screenSize.width - overlayWidth - margin;
+    }
+
+    // Adjust vertical position if needed to stay on screen
+    if (adjustedDy + overlayHeight > screenSize.height) {
+      adjustedDy = screenSize.height - overlayHeight - margin;
+    }
 
     await ItemDialogService.showOptionsOverlay(
       context: context,
-      position: position,
+      position: Offset(adjustedDx, adjustedDy),
       itemName: widget.name,
       onRename: () => _showRenameDialog(context),
       onDelete: () => _showDeleteConfirmationDialog(context),

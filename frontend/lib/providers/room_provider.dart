@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:frontend/providers/file_provider.dart';
 import 'package:frontend/providers/folder_provider.dart';
@@ -33,11 +36,20 @@ class RoomProvider extends ChangeNotifier {
   }
 
   void addRoom(String name, Color color) {
+    String baseName = name.trim();
+    String uniqueName = baseName;
+    int counter = 1;
+
+    // Check for duplicate names
+    while (_rooms.any((room) => room['name'] == uniqueName)) {
+      uniqueName = '$baseName ($counter)';
+      counter++;
+    }
+
     final newRoom = {
       'id': _uuid.v4(),
-      'name': name,
+      'name': uniqueName,
       'createdDate': DateTime.now().toIso8601String(),
-      // ignore: deprecated_member_use
       'color': color.value,
       'isFavorite': false,
     };
@@ -49,11 +61,21 @@ class RoomProvider extends ChangeNotifier {
 
   void renameRoom(String roomId, String newName) {
     final room = _rooms.firstWhere((r) => r['id'] == roomId, orElse: () => {});
-    if (room.isNotEmpty) {
-      room['name'] = newName;
-      _saveRooms();
-      notifyListeners();
+    if (room.isEmpty) return;
+
+    String baseName = newName.trim();
+    String uniqueName = baseName;
+    int counter = 1;
+
+    // Check for duplicate names, excluding the current room
+    while (_rooms.any((r) => r['name'] == uniqueName && r['id'] != roomId)) {
+      uniqueName = '$baseName ($counter)';
+      counter++;
     }
+
+    room['name'] = uniqueName;
+    _saveRooms();
+    notifyListeners();
   }
 
   Future<void> deleteRoom(
@@ -276,19 +298,42 @@ class RoomProvider extends ChangeNotifier {
 
     print("Papers in file $originalFileId: ${papersInFile.length}");
 
+    final ApiService _apiService = ApiService();
+    final uuid = Uuid();
+
     for (var paper in papersInFile) {
+      String imageUrl = '';
+      if (paper['pdfPath'] != null) {
+        final pdfPath = paper['pdfPath'].toString();
+        final file = File(pdfPath);
+
+        if (await file.exists()) {
+          final Uint8List pngBytes = await file.readAsBytes();
+
+          final filename = '${uuid.v4()}_background_from_local.png';
+          imageUrl = await _apiService.addImage(pngBytes, filename: filename);
+
+          print("Image uploaded to: $imageUrl");
+
+          // Optionally: update paper['background_image'] = imageUrl;
+        } else {
+          print("File does not exist at path: $pdfPath");
+        }
+      }
+      print("imageUrl $imageUrl");
       final paperId = await _apiService.addPaper(
-        id: paper['id'],
-        roomId: roomId,
-        fileId: newFileId,
-        templateId: paper['templateId'],
-        pageNumber: paper['PageNumber'],
-        width: paper['width'],
-        height: paper['height'],
-      );
+          id: paper['id'],
+          roomId: roomId,
+          fileId: newFileId,
+          templateId: paper['templateId'],
+          pageNumber: paper['PageNumber'],
+          width: paper['width'],
+          height: paper['height'],
+          image: imageUrl);
       print("Added paper: ${paper['id']} to file: $newFileId");
 
       await _apiService.addDraw(paperId, paper['drawingData']);
+      await _apiService.addText(paperId, paper['drawingData']);
     }
   }
 

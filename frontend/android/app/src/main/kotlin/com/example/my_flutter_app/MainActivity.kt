@@ -1,4 +1,4 @@
-package com.example.my_flutter_app
+package com.loomlen.app
 
 import io.flutter.embedding.android.FlutterActivity
 

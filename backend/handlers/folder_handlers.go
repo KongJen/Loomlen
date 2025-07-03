@@ -289,22 +289,8 @@ func deleteFolderAndContents(folder models.Folder) (DeletionStats, error) {
 
 	// Delete all papers associated with these files
 	for _, file := range files {
-		log.Printf("Deleting papers for file: %s (ID: %s)", file.Name, file.ID.Hex())
-		paperResult, err := config.GetPaperCollection().DeleteMany(ctx, bson.M{"file_id": file.ID.Hex()})
-		if err != nil {
-			return stats, fmt.Errorf("failed to delete papers for file %s: %v", file.ID.Hex(), err)
-		}
-		log.Printf("Deleted %d papers from file %s", paperResult.DeletedCount, file.Name)
-		stats.Papers += paperResult.DeletedCount
+		deleteFileAndContents(file)
 	}
-
-	// Delete all files in the folder
-	fileResult, err := config.GetFileCollection().DeleteMany(ctx, fileFilter)
-	if err != nil {
-		return stats, fmt.Errorf("failed to delete files in folder: %v", err)
-	}
-	log.Printf("Deleted %d files from folder %s", fileResult.DeletedCount, folder.Name)
-	stats.Files += fileResult.DeletedCount
 
 	// Finally, delete the folder itself
 	folderResult, err := config.GetFolderCollection().DeleteOne(ctx, bson.M{"_id": folder.ID})

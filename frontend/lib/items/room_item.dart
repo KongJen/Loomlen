@@ -14,6 +14,7 @@ class RoomItem extends BaseItem {
   final Color color;
   final bool isFavorite;
   final VoidCallback onToggleFavorite;
+  final bool isListView;
 
   const RoomItem({
     super.key,
@@ -23,6 +24,7 @@ class RoomItem extends BaseItem {
     required this.color,
     required this.isFavorite,
     required this.onToggleFavorite,
+    this.isListView = false,
   });
 
   @override
@@ -34,6 +36,61 @@ class _RoomItemState extends State<RoomItem>
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+
+    if (widget.isListView) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start, // align name lower
+          children: [
+            Icon(Icons.home_filled, size: 70, color: widget.color),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12.0), // lower the name
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blueAccent,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatDate(widget.createdDate),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(
+                    Icons.star_rate_rounded,
+                    color: widget.isFavorite ? Colors.red : Colors.grey,
+                  ),
+                  onPressed: widget.onToggleFavorite,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.keyboard_control_key,
+                      color: Colors.blueAccent),
+                  onPressed: () => _showOptionsOverlay(context),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 🟦 Grid view layout
     final iconSize = screenWidth < 600 ? 120.0 : 170.0;
     final starIconSize = iconSize * 0.3;
 
@@ -78,15 +135,42 @@ class _RoomItemState extends State<RoomItem>
           _buildItemNameRow(context, screenWidth),
           const SizedBox(height: 2.0),
           Text(
-            widget.createdDate,
+            _formatDate(widget.createdDate),
             style: TextStyle(
-              fontSize: screenWidth < 600 ? 8 : 10,
+              fontSize: screenWidth < 600 ? 10 : 12,
               color: Colors.grey,
             ),
           ),
         ],
       ),
     );
+  }
+
+  String _formatDate(String rawDate) {
+    try {
+      final date = DateTime.parse(rawDate);
+      return "${_monthName(date.month)} ${date.day}, ${date.year}";
+    } catch (_) {
+      return rawDate; // fallback for invalid date
+    }
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return months[month - 1];
   }
 
   Widget _buildItemNameRow(BuildContext context, double screenWidth) {
@@ -118,13 +202,39 @@ class _RoomItemState extends State<RoomItem>
     );
   }
 
+  // In _RoomItemState class, replace the _showOptionsOverlay method with this improved version:
+
   void _showOptionsOverlay(BuildContext context) async {
-    final RenderBox renderBox = context.findRenderObject() as RenderBox;
-    final Offset position = renderBox.localToGlobal(Offset.zero);
+    final Size screenSize = MediaQuery.of(context).size;
+
+    // Get the icon's position
+    final iconButtonRenderBox = context.findRenderObject() as RenderBox;
+    final iconPosition = iconButtonRenderBox.localToGlobal(Offset.zero);
+
+    // Set overlay dimensions
+    const double overlayWidth = 350;
+    const double overlayHeight =
+        100; // Increased slightly to ensure all options fit
+    const double margin = 10;
+
+    // Calculate the position to display the overlay
+    // Start with the position of the clicked icon
+    double adjustedDx = iconPosition.dx;
+    double adjustedDy = iconPosition.dy;
+
+    // Adjust horizontal position if needed to stay on screen
+    if (adjustedDx + overlayWidth > screenSize.width) {
+      adjustedDx = screenSize.width - overlayWidth - margin;
+    }
+
+    // Adjust vertical position if needed to stay on screen
+    if (adjustedDy + overlayHeight > screenSize.height) {
+      adjustedDy = screenSize.height - overlayHeight - margin;
+    }
 
     await ItemDialogService.showOptionsOverlay(
       context: context,
-      position: position,
+      position: Offset(adjustedDx, adjustedDy),
       itemName: widget.name,
       onRename: () => _showRenameDialog(context),
       onDelete: () => _showDeleteConfirmationDialog(context),

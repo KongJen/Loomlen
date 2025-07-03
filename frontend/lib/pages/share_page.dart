@@ -19,6 +19,22 @@ class _SharePageState extends State<SharePage> {
   bool _isLoading = true;
 
   Timer? _pollingTimer;
+  bool _isListView = true;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final screenWidth = MediaQuery.of(context).size.width;
+    if (screenWidth >= 600 && _isListView) {
+      _isListView = false; // default to grid on wider screens
+    }
+  }
+
+  void _toggleView() {
+    setState(() {
+      _isListView = !_isListView;
+    });
+  }
 
   @override
   void initState() {
@@ -62,7 +78,11 @@ class _SharePageState extends State<SharePage> {
     final screenSize = MediaQuery.of(context).size;
 
     return Scaffold(
-      appBar: ReusableAppBar(title: 'Share', showActionButtons: true),
+      appBar: ReusableAppBar(
+        title: 'Shared Room',
+        isListView: _isListView,
+        onToggleView: _toggleView,
+      ),
       body: RefreshIndicator(
         onRefresh: _loadRooms,
         child: Padding(
@@ -115,12 +135,20 @@ class _SharePageState extends State<SharePage> {
             onToggleFavorite: () => roomDBProvider.toggleFavorite(room['id']),
             createdDate: room['createdAt'] ?? 'Unknown',
             updatedAt: room['updatedAt'] ?? 'Unknown',
+            isListView: _isListView,
           ),
         ),
       ),
     );
 
-    return ResponsiveGridLayout(children: gridItems);
+    return _isListView
+        ? ListView.separated(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: gridItems.length,
+            itemBuilder: (context, index) => gridItems[index],
+            separatorBuilder: (context, index) => const SizedBox(height: 10),
+          )
+        : ResponsiveGridLayout(children: gridItems);
   }
 
   void _navigateToRoomDetail(

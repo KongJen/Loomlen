@@ -43,6 +43,7 @@ func main() {
 
 	// Define REST API routes
 	router.HandleFunc("/api/user/login", handlers.UserLogin).Methods("POST")
+	router.HandleFunc("/api/user/google-login", handlers.GoogleLogin).Methods("POST")
 	router.HandleFunc("/api/user/signup", handlers.UserSignup).Methods("POST")
 	router.HandleFunc("/api/user/logout", handlers.UserLogout).Methods("POST")
 	router.HandleFunc("/api/room", handlers.AddRoom).Methods("POST")
@@ -61,9 +62,14 @@ func main() {
 	router.HandleFunc("/api/file/id", handlers.GetFileIDByOriginalID).Methods("GET")
 	router.HandleFunc("/api/file", handlers.DeleteFile).Methods("DELETE")
 	router.HandleFunc("/api/paper", handlers.AddPaper).Methods("POST")
+	router.HandleFunc("/api/paper/insert", handlers.InsertPaperAt).Methods("POST") // addmore
 	router.HandleFunc("/api/paper", handlers.GetPaper).Methods("GET")
 	router.HandleFunc("/api/paper", handlers.DeletePaper).Methods("DELETE")
 	router.HandleFunc("/api/paper/drawing", handlers.AddDrawingPoint).Methods("PUT")
+	router.HandleFunc("/api/paper/text", handlers.AddTextAnnotation).Methods("PUT")
+	router.HandleFunc("/api/paper/swap", handlers.SwapPaper).Methods("PUT") // addmore
+
+	router.HandleFunc("/api/paper/import", handlers.UploadHandler).Methods("POST")
 
 	// router.HandleFunc("/api/paper", handlers.AddDrawing).Methods("PUT")
 	router.HandleFunc("/api/shared", handlers.ShareFile).Methods("POST")
