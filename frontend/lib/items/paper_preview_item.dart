@@ -7,6 +7,7 @@ import 'package:frontend/items/template_item.dart';
 import 'package:frontend/widget/drawing_point_preview.dart';
 import 'package:frontend/providers/paper_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:frontend/services/textRecognition.dart';
 
 class PaperPreviewItem extends StatelessWidget {
   final String fileId;
@@ -32,7 +33,7 @@ class PaperPreviewItem extends StatelessWidget {
       );
     }
 
-    final firstPaper = papers.first;
+    final firstPaper = papers.firstWhere((p) => p['PageNumber'] == 1);
 
     double originalWidth = firstPaper['width'] as double? ?? 595.0;
     double originalHeight = firstPaper['height'] as double? ?? 842.0;
@@ -54,6 +55,14 @@ class PaperPreviewItem extends StatelessWidget {
     // Load drawing points
     final List<DrawingPoint> drawingPoints =
         paperProvider.getDrawingPointsForPage(firstPaper['id']);
+
+    final List<Map<String, dynamic>> recognizedTextsData =
+        paperProvider.getRecognizedTextsForPage(firstPaper['id']);
+
+    final List<TextRecognitionResult> recognizedTexts =
+        recognizedTextsData.map((textData) {
+      return TextRecognitionResult.fromJson(textData);
+    }).toList();
 
     return Center(
       child: Container(
@@ -103,6 +112,25 @@ class PaperPreviewItem extends StatelessWidget {
               ),
               size: Size(previewWidth, previewHeight),
             ),
+            ...recognizedTexts.map((textResult) {
+              return Positioned(
+                left: textResult.position.dx * scaleFactor -
+                    (textResult.text.length *
+                        textResult.fontSize *
+                        0.25 *
+                        scaleFactor),
+                top: textResult.position.dy * scaleFactor -
+                    (textResult.fontSize * 0.5 * scaleFactor),
+                child: Text(
+                  textResult.text,
+                  style: TextStyle(
+                    color: textResult.color,
+                    fontSize: textResult.fontSize * scaleFactor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              );
+            }).toList(),
           ],
         ),
       ),

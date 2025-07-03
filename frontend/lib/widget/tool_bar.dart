@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:frontend/model/tools.dart';
+import 'package:frontend/widget/colorPicker.dart';
 
 // Builds the pencil settings bar widget
 Widget buildPencilSettingsBar({
@@ -30,30 +31,13 @@ Widget buildPencilSettingsBar({
             ),
           ],
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: availableColors
-              .map(
-                (color) => GestureDetector(
-                  onTap: () => onColorChanged(color),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4.0),
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: selectedColor == color
-                            ? Colors.white
-                            : Colors.transparent,
-                        width: 2.0,
-                      ),
-                    ),
-                  ),
-                ),
-              )
-              .toList(),
+        ColorPickerWidget(
+          currentColor: selectedColor,
+          onColorChanged: onColorChanged,
+          availableColors: availableColors,
+          labelText: null,
+          horizontalScrollable: true,
+          showCustomColorButton: true,
         ),
       ],
     ),
@@ -120,6 +104,104 @@ Widget buildEraserSettingsBar({
                   child: Text('Stroke'),
                 ),
               ],
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+// Add this enhanced version to tool_bar.dart
+final GlobalKey _settingsBarKey = GlobalKey();
+
+Widget buildTextSettingsBar({
+  required Key key,
+  required Color selectedColor,
+  required List<Color> availableColors,
+  required ValueChanged<Color> onColorChanged,
+  required double fontSize,
+  required ValueChanged<double> onFontSizeChanged,
+  required TextAlign textAlign,
+  required ValueChanged<TextAlign> onTextAlignChanged,
+  bool isBold = false,
+  bool isItalic = false,
+  ValueChanged<bool>? onBoldChanged,
+  ValueChanged<bool>? onItalicChanged,
+}) {
+  return Container(
+    key: key,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    color: Colors.grey.shade200,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Font size row
+        Row(
+          children: [
+            const Text('Size: ', style: TextStyle(fontSize: 16)),
+            Expanded(
+              child: Slider(
+                value: fontSize,
+                min: 10.0,
+                max: 100.0,
+                divisions: 100,
+                label: fontSize.toInt().toString(),
+                onChanged: onFontSizeChanged,
+              ),
+            ),
+            Text('${fontSize.round()}', style: TextStyle(fontSize: 14)),
+          ],
+        ),
+
+        // Text alignment and style controls
+        Row(
+          children: [
+            if (onBoldChanged != null)
+              IconButton(
+                icon: Icon(Icons.format_bold),
+                isSelected: isBold,
+                selectedIcon: Icon(Icons.format_bold, color: Colors.blue),
+                onPressed: () => onBoldChanged(!isBold),
+                tooltip: 'Bold',
+                iconSize: 20,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minHeight: 32, minWidth: 32),
+              ),
+            if (onItalicChanged != null)
+              IconButton(
+                icon: Icon(Icons.format_italic),
+                isSelected: isItalic,
+                selectedIcon: Icon(Icons.format_italic, color: Colors.blue),
+                onPressed: () => onItalicChanged(!isItalic),
+                tooltip: 'Italic',
+                iconSize: 20,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minHeight: 32, minWidth: 32),
+              ),
+          ],
+        ),
+
+        const SizedBox(height: 8),
+
+        // Color selection row
+        Row(
+          children: [
+            const Text('Color: ', style: TextStyle(fontSize: 16)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ColorPickerWidget(
+                  currentColor: selectedColor,
+                  onColorChanged: onColorChanged,
+                  availableColors: availableColors,
+                  labelText: null,
+                  horizontalScrollable: true,
+                  showCustomColorButton: true,
+                ),
+              ),
             ),
           ],
         ),

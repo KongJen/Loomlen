@@ -11,28 +11,28 @@ import 'package:frontend/items/template_item.dart' as template_model;
 import 'package:frontend/items/template_item.dart';
 import 'package:frontend/model/tools.dart';
 import 'package:frontend/providers/paper_provider.dart';
+import 'package:frontend/providers/paperdb_provider.dart';
 import 'package:frontend/widget/export_dialog.dart';
 import 'package:frontend/widget/overlay_loading.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:screenshot/screenshot.dart';
 
-class PDFExportResult {
+class PDFDBExportResult {
   final bool success;
   final String? filePath;
 
-  PDFExportResult({required this.success, this.filePath});
+  PDFDBExportResult({required this.success, this.filePath});
 }
 
-class PDFExportService {
-  Future<PDFExportResult> exportNotesToPdf({
+class PDFDBExportService {
+  Future<PDFDBExportResult> exportNotesDBToPdf({
     required BuildContext context,
     required String fileName,
     required List<String> pageIds,
     required Map<String, template_model.PaperTemplate> paperTemplates,
     required Map<String, List<DrawingPoint>> pageDrawingPoints,
-    required PaperProvider paperProvider,
+    required PaperDBProvider paperDBProvider,
   }) async {
     // Show loading indicator
     final loadingOverlay = LoadingOverlay(
@@ -60,7 +60,7 @@ class PDFExportService {
 
       // If user cancelled the dialog, return
       if (exportOptions == null) {
-        return PDFExportResult(success: false);
+        return PDFDBExportResult(success: false);
       }
 
       // Show loading overlay
@@ -100,8 +100,7 @@ class PDFExportService {
 
       // Process each selected page
       for (final paperId in pagesToProcess) {
-        final paperData = paperProvider.getPaperById(paperId);
-        if (paperData == null) continue;
+        final paperData = paperDBProvider.getPaperDBById(paperId);
 
         final double paperWidth = paperData['width'] as double? ?? 595.0;
         final double paperHeight = paperData['height'] as double? ?? 842.0;
@@ -122,12 +121,18 @@ class PDFExportService {
                 size: Size(paperWidth, paperHeight),
               ),
               // PDF image if exists and should be included
-              if (includePdfBackgrounds && paperData['pdfPath'] != null)
-                Image.file(
-                  File(paperData['pdfPath']),
-                  width: paperWidth,
-                  height: paperHeight,
+              if (includePdfBackgrounds && paperData['background_image'] != '')
+                Image.network(
+                  paperData['background_image'],
                   fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Center(child: CircularProgressIndicator());
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    debugPrint('Error: $error');
+                    return Center(child: Text('Failed to load image'));
+                  },
                 ),
               // Drawings
               CustomPaint(
@@ -186,7 +191,7 @@ class PDFExportService {
       // Hide loading overlay
       loadingOverlay.hide();
 
-      return PDFExportResult(success: true, filePath: filePath);
+      return PDFDBExportResult(success: true, filePath: filePath);
     } catch (e, stackTrace) {
       // Hide loading overlay in case of error
       loadingOverlay.hide();
@@ -225,73 +230,4 @@ class PDFExportService {
       return null;
     }
   }
-
-  // Future<String?> _savePdfToDevice(String fileName, Uint8List pdfBytes) async {
-  //   String? filePath;
-
-  //   Future<File> _getUniqueFilePath(Directory dir, String baseName) async {
-  //     String nameWithoutExt = baseName.replaceAll(RegExp(r'\.pdf$'), '');
-  //     String path = '${dir.path}/$nameWithoutExt.pdf';
-  //     int counter = 1;
-
-  //     while (await File(path).exists()) {
-  //       path = '${dir.path}/$nameWithoutExt ($counter).pdf';
-  //       counter++;
-  //     }
-
-  //     return File(path);
-  //   }
-
-  //   if (Platform.isAndroid) {
-  //     // For Android
-  //     final directory = await getExternalStorageDirectory();
-  //     if (directory != null) {
-  //       String downloadPath = "";
-  //       List<String> paths = directory.path.split("/");
-  //       for (int i = 1; i < paths.length; i++) {
-  //         String folder = paths[i];
-  //         if (folder != "Android") {
-  //           downloadPath += "/$folder";
-  //         } else {
-  //           break;
-  //         }
-  //       }
-  //       downloadPath += "/Download";
-
-  //       final downloadsDir = Directory(downloadPath);
-
-  //       // Create Downloads directory if it doesn't exist
-  //       if (!await downloadsDir.exists()) {
-  //         await downloadsDir.create(recursive: true);
-  //       }
-
-  //       final file = await _getUniqueFilePath(downloadsDir, fileName);
-  //       await file.writeAsBytes(pdfBytes);
-  //       filePath = file.path;
-  //     }
-  //   } else if (Platform.isIOS) {
-  //     // For iOS:
-  //     final directory = await getApplicationDocumentsDirectory();
-  //     final file = File('${directory.path}/$fileName');
-  //     await file.writeAsBytes(pdfBytes);
-  //     filePath = file.path;
-  //   } else {
-  //     // Desktop
-  //     final directory =
-  //         await getDownloadsDirectory(); // Gets the Downloads folder on desktop
-  //     if (directory != null) {
-  //       final file = File('${directory.path}/$fileName');
-  //       await file.writeAsBytes(pdfBytes);
-  //       filePath = file.path;
-  //     } else {
-  //       // Fallback to application documents directory
-  //       final docDir = await getApplicationDocumentsDirectory();
-  //       final file = File('${docDir.path}/$fileName');
-  //       await file.writeAsBytes(pdfBytes);
-  //       filePath = file.path;
-  //     }
-  //   }
-
-  //   return filePath;
-  // }
 }

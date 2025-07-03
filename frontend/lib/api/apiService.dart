@@ -1,11 +1,16 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:frontend/global.dart';
 import 'package:frontend/items/drawingpoint_item.dart';
+import 'package:frontend/items/text_annotation_item.dart';
 import 'package:frontend/providers/auth_provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
+import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart';
 
 class ApiService {
   final String baseUrl = baseurl;
@@ -313,7 +318,8 @@ class ApiService {
       required String templateId,
       required int pageNumber,
       required double width,
-      required double height}) async {
+      required double height,
+      required String image}) async {
     try {
       // Convert the data to JSON strings
       final Map<String, dynamic> payload = {
@@ -324,11 +330,63 @@ class ApiService {
         'page_number': pageNumber,
         'width': width,
         'height': height,
+        'image': image
       };
 
       final bodyf = jsonEncode(payload);
 
       final response = await authenticatedRequest('$baseUrl/api/paper',
+          method: 'POST',
+          body: bodyf,
+          headers: {'Content-Type': 'application/json'});
+
+      // Check for error status codes
+      if (response.statusCode >= 400) {
+        throw Exception('Server error: ${response.statusCode}');
+      }
+
+      if (response.body.isEmpty) {
+        return {'message': 'Operation completed but server returned no data'};
+      }
+
+      // Try to parse the response
+      try {
+        final data = jsonDecode(response.body);
+        return data["paper_id"];
+      } catch (e) {
+        throw Exception('Invalid response format');
+      }
+    } catch (e) {
+      print('Error in addPaper: $e');
+      rethrow;
+    }
+  }
+
+  Future<dynamic> insertPaperAt(
+      {required String id,
+      required String roomId,
+      required String fileId,
+      required String templateId,
+      required int insertPosition,
+      required double width,
+      required double height,
+      required String image}) async {
+    try {
+      // Convert the data to JSON strings
+      final Map<String, dynamic> payload = {
+        'paper_id': id,
+        'file_id': fileId,
+        'room_id': roomId,
+        'insert_position': insertPosition,
+        'template_id': templateId,
+        'width': width,
+        'height': height,
+        'image': image
+      };
+
+      final bodyf = jsonEncode(payload);
+
+      final response = await authenticatedRequest('$baseUrl/api/paper/insert',
           method: 'POST',
           body: bodyf,
           headers: {'Content-Type': 'application/json'});
@@ -597,6 +655,70 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> updateText(
+    String paperId,
+    List<TextAnnotation>
+        TextData, // Assuming drawingData is a List of DrawingPoint objects
+  ) async {
+    // Convert the drawing data to the correct format
+    List<Map<String, dynamic>> formattedTextData = TextData.map((text) {
+      return {
+        'type': 'text',
+        'data': {
+          'id': int.tryParse(text.id.toString()) ?? 0,
+          'text': text.text,
+          'position': {
+            'x': text.position.dx,
+            'y': text.position.dy,
+          },
+          'color': text.color.value,
+          'font_size': text.fontSize.toDouble(),
+          'is_bold': text.isBold,
+          'is_italic': text.isItalic,
+          'is_bubble': text.isBubble,
+        },
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      };
+    }).toList();
+
+    print(jsonEncode(formattedTextData));
+
+    final response = await authenticatedRequest(
+      '$baseUrl/api/paper/text',
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'paper_id': paperId,
+      },
+      body: jsonEncode(formattedTextData),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update text: ${response.body}');
+    }
+  }
+
+  Future<Map<String, dynamic>> swapPage(
+      String fileId, int fromIndex, int toIndex) async {
+    final response = await authenticatedRequest(
+      '$baseUrl/api/paper/swap',
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(
+          {"file_id": fileId, "from_index": fromIndex, "to_index": toIndex}),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to swap page: ${response.body}');
+    }
+  }
+
   Future<Map<String, dynamic>> addDraw(
     String paperId,
     List<dynamic>
@@ -618,6 +740,100 @@ class ApiService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to update drawing: ${response.body}');
+    }
+  }
+
+  Future<Map<String, dynamic>> addText(
+    String paperId,
+    List<dynamic> allData, // mixed data: drawing + text
+  ) async {
+    // Filter only items where type == 'text'
+    final textData = allData
+        .where((item) => item['type'] == 'text')
+        .map((item) => {
+              "type": item["type"],
+              "data": {
+                "id": item["data"]["id"],
+                "text": item["data"]["text"],
+                "position": {
+                  "x": item["data"]["position"]["x"],
+                  "y": item["data"]["position"]["y"],
+                },
+                "color": item["data"]["color"],
+                "font_size": item["data"]["fontSize"],
+                "is_bold": item["data"]["isBold"],
+                "is_italic": item["data"]["isItalic"],
+                "is_bubble": item["data"]["isBubble"],
+              },
+              "timestamp": item["timestamp"]
+            })
+        .toList();
+
+    print("Filtered text data to send: $textData");
+    print("JSON: ${jsonEncode(textData)}");
+
+    final response = await authenticatedRequest(
+      '$baseUrl/api/paper/text',
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'paper_id': paperId,
+      },
+      body: jsonEncode(textData),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to update text data: ${response.body}');
+    }
+  }
+
+  Future<String> addImage(Uint8List bytes, {required String filename}) async {
+    final mimeType = lookupMimeType(filename) ?? 'application/octet-stream';
+    final mimeParts = mimeType.split('/');
+
+    try {
+      final request =
+          http.MultipartRequest('POST', Uri.parse('$baseUrl/api/paper/import'))
+            ..files.add(http.MultipartFile.fromBytes(
+              'file',
+              bytes,
+              filename: filename,
+              contentType: MediaType(mimeParts[0], mimeParts[1]),
+            ));
+
+      // Send request and get response
+      final streamedResponse = await request.send();
+      final responseBody = await streamedResponse.stream.bytesToString();
+
+      // Debugging response
+      print("Response status: ${streamedResponse.statusCode}");
+      print("Response body: $responseBody");
+
+      if (streamedResponse.statusCode == 200) {
+        print("Upload success!");
+
+        // Extract JSON part from the response body
+        int jsonStartIndex = responseBody.indexOf('{');
+        if (jsonStartIndex != -1) {
+          String jsonPart = responseBody.substring(jsonStartIndex);
+
+          // Parse the JSON part
+          final data = json.decode(jsonPart);
+          print("Parsed data: $data");
+
+          return data['link'];
+        } else {
+          throw Exception("No valid JSON found in the response.");
+        }
+      } else {
+        print("Upload failed: $responseBody");
+        throw Exception('Failed to upload image: $responseBody');
+      }
+    } catch (e) {
+      print("Error: $e");
+      throw Exception('Error during image upload: $e');
     }
   }
 

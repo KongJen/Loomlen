@@ -234,6 +234,26 @@ func deleteFileAndContents(file models.File) (FileDeleteStats, error) {
 	// Print debugging info
 	log.Printf("Deleting file: ID=%s, OriginalID=%s, Name=%s", file.ID.Hex(), file.OriginalID, file.Name)
 
+	cursor, err := config.GetPaperCollection().Find(ctx, bson.M{"file_id": file.ID.Hex()})
+	if err != nil {
+		return stats, fmt.Errorf("failed to retrieve papers for file %s: %v", file.ID.Hex(), err)
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var paper bson.M
+		if err := cursor.Decode(&paper); err != nil {
+			log.Printf("Failed to decode paper: %v", err)
+			continue
+		}
+
+		if urlStr, ok := paper["background_image"].(string); ok && urlStr != "" {
+			log.Printf("Deleting background image: %s", urlStr)
+			if err := DeleteByURL(urlStr); err != nil {
+				log.Printf("Failed to delete background image: %v", err)
+			}
+		}
+	}
 	// Delete all papers associated with this file
 	// IMPORTANT: Use the OriginalID field to find papers, not ID.Hex()
 	paperResult, err := config.GetPaperCollection().DeleteMany(ctx, bson.M{"file_id": file.ID.Hex()})

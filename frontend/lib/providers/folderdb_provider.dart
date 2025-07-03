@@ -38,11 +38,26 @@ class FolderDBProvider extends ChangeNotifier {
     required String roomId,
     required String parentFolderId,
   }) async {
+    String baseName = name.trim();
+    String uniqueName = baseName;
+    int counter = 1;
+
+    // Filter folders within the same room and parent
+    final existingFolders = _folders.where((folder) =>
+        folder['room_id'].toString().trim() == roomId &&
+        folder['sub_folder_id'].toString().trim() == parentFolderId);
+
+    // Ensure name is unique in this context
+    while (existingFolders.any((folder) => folder['name'] == uniqueName)) {
+      uniqueName = '$baseName ($counter)';
+      counter++;
+    }
+
     await _apiService.addFolder(
         id: _uuid.v4(),
         roomId: roomId,
         subFolderId: parentFolderId,
-        name: name,
+        name: uniqueName,
         color: color.value);
 
     notifyListeners();
@@ -61,7 +76,31 @@ class FolderDBProvider extends ChangeNotifier {
     String folderId,
     String newName,
   ) async {
-    await _apiService.renameFolder(folderId, newName);
+    final folder =
+        _folders.firstWhere((f) => f['id'] == folderId, orElse: () => {});
+    if (folder.isEmpty) return;
+
+    final roomId = folder['room_id'].toString().trim();
+    final parentFolderId = folder['sub_folder_id'].toString().trim();
+
+    String baseName = newName.trim();
+    String uniqueName = baseName;
+    int counter = 1;
+
+    // Filter sibling folders excluding the current one
+    final existingFolders = _folders.where((f) =>
+        f['room_id'].toString().trim() == roomId &&
+        f['sub_folder_id'].toString().trim() == parentFolderId &&
+        f['id'] != folderId);
+
+    // Ensure the new name is unique
+    while (existingFolders.any((f) => f['name'] == uniqueName)) {
+      uniqueName = '$baseName ($counter)';
+      counter++;
+    }
+
+    await _apiService.renameFolder(folderId, uniqueName);
+    folder['name'] = uniqueName;
     notifyListeners();
   }
 }

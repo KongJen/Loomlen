@@ -1,21 +1,24 @@
 // ignore_for_file: file_names
 
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:frontend/api/apiService.dart';
 import 'package:frontend/items/template_item.dart';
 import 'package:pdf_render/pdf_render.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 
-class PdfService {
+class PdfDBService {
   final Function(String message) showError;
   final Function(String message) showSuccess;
   final Function(String fileId, String name) onImportComplete;
   final Function() showLoading;
   final Function() hideLoading;
 
-  const PdfService({
+  const PdfDBService({
     required this.showError,
     required this.showSuccess,
     required this.onImportComplete,
@@ -23,17 +26,22 @@ class PdfService {
     required this.hideLoading,
   });
 
-  Future<void> importPDF({
+  Future<void> importPDFDB({
     required String parentId,
     required bool isInFolder,
-    required Function(String, {String? parentFolderId, String? roomId}) addFile,
-    required Function(
+    required String roomId,
+    required Future<Map<String, String>> Function(
+      String name, {
+      required String roomId,
+      required String parentFolderId,
+    }) addFile,
+    required Future<String> Function(
       PaperTemplate,
       int,
-      List<Map<String, dynamic>>?,
+      double,
+      double,
       String,
-      double,
-      double,
+      String,
       String,
     ) addPaper,
   }) async {
@@ -46,32 +54,39 @@ class PdfService {
       if (result != null && result.files.single.path != null) {
         String pdfPath = result.files.single.path!;
         String pdfName = result.files.single.name;
-        debugPrint('Selected PDF: $pdfPath');
+        print('Selected PDF: $pdfPath');
 
         PdfDocument pdfDoc = await PdfDocument.openFile(pdfPath);
         int pageCount = pdfDoc.pageCount;
-        debugPrint('PDF has $pageCount pages');
+        print('PDF has $pageCount pages');
 
-        Map<String, String> file;
+        String fileId;
+        String fileName;
         if (isInFolder) {
-          file = addFile(pdfName, parentFolderId: parentId);
+          final result =
+              await addFile(pdfName, roomId: roomId, parentFolderId: parentId);
+          fileId = result['id']!;
+          fileName = result['name']!;
         } else {
-          file = addFile(pdfName, roomId: parentId);
+          final result =
+              await addFile(pdfName, roomId: roomId, parentFolderId: 'Unknow');
+
+          fileId = result['id']!;
+          fileName = result['name']!;
         }
 
         showLoading();
 
-        await _processPdfPages(
-            pdfDoc, pdfName, file['id'].toString(), addPaper);
+        await _processPdfPages(pdfDoc, fileName, fileId, roomId, addPaper);
 
         hideLoading();
         pdfDoc.dispose();
 
         showSuccess('PDF "$pdfName" imported as $pageCount pages');
-        onImportComplete(file['id'].toString(), pdfName);
+        onImportComplete(fileId, fileName);
       }
     } catch (e) {
-      debugPrint('Error importing PDF: $e');
+      print('Error importing PDF: $e');
       showError('Error importing PDF: $e');
     }
   }
@@ -80,13 +95,14 @@ class PdfService {
     PdfDocument pdfDoc,
     String pdfName,
     String fileId,
-    Function(
+    String roomId,
+    Future<String> Function(
       PaperTemplate,
       int,
-      List<Map<String, dynamic>>?,
+      double,
+      double,
       String,
-      double,
-      double,
+      String,
       String,
     ) addPaper,
   ) async {
@@ -106,21 +122,24 @@ class PdfService {
         bytes: pageImage.pixels.buffer,
         order: img.ChannelOrder.rgba,
       );
-      final pngBytes = img.encodePng(image, level: 6);
+      final Uint8List pngBytes = img.encodePng(image, level: 6);
 
-      final directory = await getApplicationDocumentsDirectory();
-      String imagePath = '${directory.path}/${pdfName}_page_$i.png';
-      File imageFile = File(imagePath);
-      await imageFile.writeAsBytes(pngBytes);
+      final ApiService _apiService = ApiService();
+
+      final uuid = Uuid();
+      final filename = '${uuid.v4()}_${pdfName}_page_$i.png';
+
+      String imagePath =
+          await _apiService.addImage(pngBytes, filename: filename);
 
       addPaper(
         PaperTemplate(id: 'plain', name: 'Plain Paper', spacing: 30.0),
         i,
-        null,
-        imagePath,
         pdfWidth,
         pdfHeight,
         fileId,
+        roomId,
+        imagePath,
       );
 
       pageImage.dispose();

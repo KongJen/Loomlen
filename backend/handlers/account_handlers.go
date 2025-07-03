@@ -11,7 +11,9 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/argon2"
+	"google.golang.org/api/idtoken"
 
 	"backend/config"
 	"backend/models"
@@ -283,6 +285,78 @@ func UserLogin(response http.ResponseWriter, request *http.Request) {
 	}
 
 	json.NewEncoder(response).Encode(responseData)
+}
+
+func GoogleLogin(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var req struct {
+		IdToken string `json:"id_token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(`{"message":"Invalid request body"}`))
+		return
+	}
+
+	// Verify the ID token
+	payload, err := idtoken.Validate(context.Background(), req.IdToken, "866885658869-abo5bnok75am8lbltqdj4b664n36m52h.apps.googleusercontent.com")
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte(`{"message":"Invalid Google ID token"}`))
+		return
+	}
+
+	email, _ := payload.Claims["email"].(string)
+	name, _ := payload.Claims["name"].(string)
+
+	collection := config.GetUserCollection()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var dbUser models.User
+	err = collection.FindOne(ctx, bson.M{"email": email}).Decode(&dbUser)
+	if err != nil {
+		// User does not exist, create new user
+		newUser := models.User{
+			Email:     email,
+			Name:      name,
+			CreatedAt: time.Now(),
+			LastLogin: time.Now(),
+			Password:  "", // No password for Google users
+		}
+		result, err := collection.InsertOne(ctx, newUser)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(`{"message":"Error creating user"}`))
+			return
+		}
+		newUser.ID = result.InsertedID.(primitive.ObjectID)
+		dbUser = newUser
+	} else {
+		// Update last login
+		collection.UpdateOne(ctx, bson.M{"email": email}, bson.M{"$set": bson.M{"last_login": time.Now()}})
+	}
+
+	// Generate JWT tokens as in your normal login
+	tokenPair, err := GenerateTokenPair(dbUser.ID.Hex())
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"message":"Error generating tokens"}`))
+		return
+	}
+
+	dbUser.Password = "" // Don't send password
+	responseData := struct {
+		AccessToken  string      `json:"access_token"`
+		RefreshToken string      `json:"refresh_token"`
+		User         models.User `json:"user"`
+	}{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		User:         dbUser,
+	}
+
+	json.NewEncoder(w).Encode(responseData)
 }
 
 func UserLogout(response http.ResponseWriter, request *http.Request) {

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:frontend/api/apiService.dart';
 import 'package:frontend/items/drawingpoint_item.dart';
 import 'package:frontend/items/template_item.dart';
+import 'package:frontend/items/text_annotation_item.dart';
 import 'package:uuid/uuid.dart';
 
 class PaperDBProvider extends ChangeNotifier {
@@ -29,7 +30,7 @@ class PaperDBProvider extends ChangeNotifier {
   }
 
   void updatePaper(Map<String, dynamic> paperData) {
-    print("paperData: $paperData");
+    // print("paperData: $paperData");
     final index = _papers.indexWhere((paper) => paper['id'] == paperData['id']);
     if (index != -1) {
       _papers[index] = paperData;
@@ -47,6 +48,7 @@ class PaperDBProvider extends ChangeNotifier {
     double? height,
     String fileId,
     String roomId,
+    String? image,
   ) async {
     final String paperId = _uuid.v4();
     await _apiService.addPaper(
@@ -56,7 +58,32 @@ class PaperDBProvider extends ChangeNotifier {
         templateId: template.id,
         pageNumber: pageNumber,
         width: width ?? 595.0,
-        height: height ?? 842.0);
+        height: height ?? 842.0,
+        image: image ?? '');
+
+    notifyListeners();
+    return paperId;
+  }
+
+  Future<String> insertPaperAt(
+    String fileId,
+    String roomId,
+    int insertPosition,
+    PaperTemplate template,
+    String? image,
+    double? width,
+    double? height,
+  ) async {
+    final String paperId = _uuid.v4();
+    await _apiService.insertPaperAt(
+        id: paperId,
+        roomId: roomId,
+        fileId: fileId,
+        templateId: template.id,
+        insertPosition: insertPosition,
+        width: width ?? 595.0,
+        height: height ?? 842.0,
+        image: image ?? '');
 
     notifyListeners();
     return paperId;
@@ -70,23 +97,27 @@ class PaperDBProvider extends ChangeNotifier {
   }
 
   List<DrawingPoint> getDrawingPointsForPage(String pageId) {
-    final paperData = _papers.firstWhere(
-      (paper) => paper['id'] == pageId,
-      orElse: () => {},
-    );
+    final paperData = _papers.cast<Map<String, dynamic>>().firstWhere(
+          (paper) => paper['id'] == pageId,
+          orElse: () => {},
+        );
 
-    if (paperData['drawingData'] == null) {
-      return []; // No drawing data found
+    final drawingData = paperData['drawing_data'];
+    if (drawingData == null || drawingData is! List) {
+      return [];
     }
 
     final List<DrawingPoint> drawingPoints = [];
 
-    // Process the drawingData and create DrawingPoint objects
-    for (final stroke in paperData['drawingData']) {
+    for (final stroke in drawingData) {
       if (stroke['type'] == 'drawing') {
-        final point = DrawingPoint.fromJson(stroke['data']);
-        if (point.offsets.isNotEmpty) {
-          drawingPoints.add(point);
+        try {
+          final point = DrawingPoint.fromJson(stroke); // Use full stroke
+          if (point.offsets.isNotEmpty) {
+            drawingPoints.add(point);
+          }
+        } catch (e) {
+          debugPrint("Failed to parse stroke: $e");
         }
       }
     }
@@ -95,12 +126,14 @@ class PaperDBProvider extends ChangeNotifier {
   }
 
   List<String> getPaperIdsByFileId(String fileId) {
-    return _papers
-        .where(
-            (paper) => paper['file_id'] == fileId) // Filter papers by file_id
-        .map((paper) =>
-            paper['id'].toString()) // Map filtered papers to their id
-        .toList();
+    final filteredPapers =
+        _papers.where((paper) => paper['file_id'] == fileId).toList();
+
+    filteredPapers.sort(
+      (a, b) => (a['page_number'] as int).compareTo(b['page_number'] as int),
+    );
+
+    return filteredPapers.map((paper) => paper['id'].toString()).toList();
   }
 
   PaperTemplate getPaperTemplate(String templateId) {
@@ -109,5 +142,18 @@ class PaperDBProvider extends ChangeNotifier {
 
   void saveDrawingData(String pageId, List<DrawingPoint> points) {
     _apiService.updateDraw(pageId, points);
+  }
+
+  void saveTextData(String pageId, List<TextAnnotation> texts) {
+    print(texts);
+    _apiService.updateText(pageId, texts);
+  }
+
+  void removePaper(String paperId) {
+    _apiService.deletePaper(paperId);
+  }
+
+  void swapPaperOrder(String fileId, int fromIndex, int toIndex) {
+    _apiService.swapPage(fileId, fromIndex + 1, toIndex + 1);
   }
 }
