@@ -14,7 +14,8 @@ class BackendDiscovery {
 
   //final String _defaultUrl = "http://10.0.2.2:8080";
   //For server :
-  final String _defaultUrl = "http://40.81.28.113:8080";
+  final String _defaultUrl =
+      "https://loomlenbackdeploy.jollyhill-26ad4936.southeastasia.azurecontainerapps.io";
   //For Test : http://10.0.2.2:8080
 
   String? _currentBackendUrl;

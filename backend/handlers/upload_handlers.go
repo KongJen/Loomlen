@@ -26,9 +26,11 @@ var (
 )
 
 func init() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if os.Getenv("ENV") != "production" {
+		err := godotenv.Load()
+		if err != nil {
+			log.Println("Warning: .env file not loaded, using system environment variables")
+		}
 	}
 
 	accountName = os.Getenv("AZURE_STORAGE_ACCOUNT")

@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"backend/config"
 	"backend/handlers"
@@ -14,23 +15,22 @@ import (
 )
 
 func main() {
-
-	server, err := zeroconf.Register(
-		"my-backend", // service instance name
-		"_http._tcp", // service type and protocol
-		"local.",     // service domain
-		8080,         // service port
-		[]string{"txtv=1", "app=flutter-backend"}, // optional txt records
-		nil, // use default interface
-	)
-	if err != nil {
-		log.Fatal("mDNS register failed:", err)
+	if os.Getenv("ENABLE_MDNS") == "true" {
+		server, err := zeroconf.Register(
+			"my-backend", // service instance name
+			"_http._tcp", // service type and protocol
+			"local.",     // service domain
+			8080,         // service port
+			[]string{"txtv=1", "app=flutter-backend"}, // optional txt records
+			nil, // use default interface
+		)
+		if err != nil {
+			log.Fatal("mDNS register failed:", err)
+		} else {
+			defer server.Shutdown()
+			log.Println("mDNS registered")
+		}
 	}
-
-	log.Println("Successfully registered mDNS service:", server)
-	log.Println("Service name: my-backend._http._tcp.local")
-	log.Println("Service port: 8080")
-	defer server.Shutdown()
 
 	log.Println("Registered mDNS service: my-backend._http._tcp.local")
 
@@ -43,7 +43,6 @@ func main() {
 
 	// Define REST API routes
 	router.HandleFunc("/api/user/login", handlers.UserLogin).Methods("POST")
-	router.HandleFunc("/api/user/google-login", handlers.GoogleLogin).Methods("POST")
 	router.HandleFunc("/api/user/signup", handlers.UserSignup).Methods("POST")
 	router.HandleFunc("/api/user/logout", handlers.UserLogout).Methods("POST")
 	router.HandleFunc("/api/room", handlers.AddRoom).Methods("POST")
@@ -62,14 +61,9 @@ func main() {
 	router.HandleFunc("/api/file/id", handlers.GetFileIDByOriginalID).Methods("GET")
 	router.HandleFunc("/api/file", handlers.DeleteFile).Methods("DELETE")
 	router.HandleFunc("/api/paper", handlers.AddPaper).Methods("POST")
-	router.HandleFunc("/api/paper/insert", handlers.InsertPaperAt).Methods("POST") // addmore
 	router.HandleFunc("/api/paper", handlers.GetPaper).Methods("GET")
 	router.HandleFunc("/api/paper", handlers.DeletePaper).Methods("DELETE")
 	router.HandleFunc("/api/paper/drawing", handlers.AddDrawingPoint).Methods("PUT")
-	router.HandleFunc("/api/paper/text", handlers.AddTextAnnotation).Methods("PUT")
-	router.HandleFunc("/api/paper/swap", handlers.SwapPaper).Methods("PUT") // addmore
-
-	router.HandleFunc("/api/paper/import", handlers.UploadHandler).Methods("POST")
 
 	// router.HandleFunc("/api/paper", handlers.AddDrawing).Methods("PUT")
 	router.HandleFunc("/api/shared", handlers.ShareFile).Methods("POST")
