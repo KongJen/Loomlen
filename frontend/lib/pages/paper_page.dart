@@ -92,8 +92,6 @@ class _PaperPageState extends State<PaperPage> {
             WidgetsBinding.instance.window.devicePixelRatio <
         600;
 
-    if (isPhone) selectedMode = DrawingMode.read;
-
     _drawingService = DrawingService();
     _paperService = PaperService();
     _pdfExportService = PDFExportService();
@@ -230,55 +228,6 @@ class _PaperPageState extends State<PaperPage> {
       }
     }
   }
-
-  // Future<void> _recognizeText() async {
-  //   if (!_modelDownloaded) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(
-  //         content: Text('Please wait for the model to download'),
-  //       ),
-  //     );
-  //     return;
-  //   }
-
-  //   if (_ink.strokes.isEmpty) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       const SnackBar(
-  //         content: Text('Please write something first'),
-  //       ),
-  //     );
-  //     return;
-  //   }
-
-  //   try {
-  //     setState(() {
-  //       recognizedText = 'Recognizing...';
-  //     });
-
-  //     final List<ml_kit.RecognitionCandidate> candidates =
-  //         await _digitalInkRecognizer.recognize(_ink);
-
-  //     if (candidates.isNotEmpty) {
-  //       setState(() {
-  //         recognizedText = candidates.first.text;
-  //         print('Recognized text: $recognizedText'); // For debugging
-  //       });
-  //     } else {
-  //       setState(() {
-  //         recognizedText = 'No text recognized';
-  //       });
-  //     }
-  //   } catch (e) {
-  //     setState(() {
-  //       recognizedText = '';
-  //     });
-  //     if (mounted) {
-  //       ScaffoldMessenger.of(context).showSnackBar(
-  //         SnackBar(content: Text('Error recognizing text: $e')),
-  //       );
-  //     }
-  //   }
-  // }
 
   void _centerContent() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -640,42 +589,137 @@ class _PaperPageState extends State<PaperPage> {
 
   List<Widget> _buildPhoneActions() {
     return [
-      IconButton(
-        icon: FaIcon(
-          FontAwesomeIcons.handPointer,
-          color: selectedMode == DrawingMode.read ? Colors.blue : null,
+      if (_isHandwritingMode) ...[
+        IconButton(
+          icon: const Icon(Icons.check, color: Colors.green),
+          onPressed: () {
+            _processHandwritingConfirm();
+            setState(() {
+              _isHandwritingMode = false;
+              selectedMode = DrawingMode.pencil;
+            });
+          },
+          tooltip: 'Confirm Handwriting',
+        )
+      ] else ...[
+        IconButton(
+          icon: Icon(
+            Icons.edit,
+            color: selectedMode == DrawingMode.pencil ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.pencil),
+          tooltip: 'Pencil',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.read),
-        tooltip: 'Reading Mode',
-      ),
-      IconButton(
-        icon: Icon(
-          Icons.circle,
-          color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
+        IconButton(
+          icon: FaIcon(
+            FontAwesomeIcons.handPointer,
+            color: selectedMode == DrawingMode.read ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.read),
+          tooltip: 'Reading Mode',
         ),
-        onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
-        tooltip: 'Bubble',
-      ),
-      IconButton(
-        icon: Icon(Icons.fit_screen),
-        onPressed: _resetScale,
-        tooltip: 'Reset Zoom',
-      ),
-      PopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert),
-        onSelected: _handleMoreMenuAction,
-        itemBuilder: (context) => const [
-          PopupMenuItem(value: 'Pencil', child: Text('Pencil')),
-          PopupMenuItem(value: 'Eraser', child: Text('Eraser')),
-          PopupMenuItem(value: 'Text', child: Text('Text Mode')),
-          PopupMenuItem(value: 'Undo', child: Text('Undo')),
-          PopupMenuItem(value: 'Redo', child: Text('Redo')),
-          PopupMenuItem(value: 'Handwriting', child: Text('Handwriting')),
-          PopupMenuItem(value: 'Export PDF', child: Text('Export to PDF')),
-          PopupMenuItem(value: 'Edit Paper', child: Text('Edit Paper')),
-          PopupMenuItem(value: 'Save', child: Text('Save Drawing')),
-        ],
-      ),
+        IconButton(
+          icon: Icon(
+            Icons.circle,
+            color: selectedMode == DrawingMode.bubble ? Colors.blue : null,
+          ),
+          onPressed: () => setState(() => selectedMode = DrawingMode.bubble),
+          tooltip: 'Bubble',
+        ),
+        IconButton(
+          icon: Icon(Icons.fit_screen),
+          onPressed: _resetScale,
+          tooltip: 'Reset Zoom',
+        ),
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          onSelected: _handleMoreMenuAction,
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'Eraser',
+              child: Row(
+                children: [
+                  FaIcon(FontAwesomeIcons.eraser, size: 16),
+                  SizedBox(width: 8),
+                  Text('Eraser'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'Text',
+              child: Row(
+                children: [
+                  Icon(Icons.text_fields, size: 16),
+                  SizedBox(width: 8),
+                  Text('Text Mode'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'Handwriting',
+              child: Row(
+                children: [
+                  FaIcon(FontAwesomeIcons.signature, size: 16),
+                  SizedBox(width: 8),
+                  Text('Handwriting'),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem(
+              value: 'Undo',
+              child: Row(
+                children: [
+                  Icon(Icons.undo, size: 16),
+                  SizedBox(width: 8),
+                  Text('Undo'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'Redo',
+              child: Row(
+                children: [
+                  Icon(Icons.redo, size: 16),
+                  SizedBox(width: 8),
+                  Text('Redo'),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
+            PopupMenuItem(
+              value: 'Export PDF',
+              child: Row(
+                children: [
+                  FaIcon(FontAwesomeIcons.shareFromSquare, size: 16),
+                  SizedBox(width: 8),
+                  Text('Export to PDF'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'Edit Paper',
+              child: Row(
+                children: [
+                  FaIcon(FontAwesomeIcons.bars, size: 16),
+                  SizedBox(width: 8),
+                  Text('Edit Paper'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'Save',
+              child: Row(
+                children: [
+                  Icon(Icons.save, size: 16),
+                  SizedBox(width: 8),
+                  Text('Save Drawing'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
     ];
   }
 
@@ -1208,29 +1252,6 @@ class _PaperPageState extends State<PaperPage> {
       ),
     );
   }
-
-  // List<Widget> _buildRecognizedTexts(String paperId) {
-  //   final texts = _drawingService.getRecognizedTextsForPage(paperId);
-  //   if (texts.isEmpty) {
-  //     return [];
-  //   }
-
-  //   return texts.map((result) {
-  //     return Positioned(
-  //       left:
-  //           result.position.dx - (result.text.length * result.fontSize * 0.25),
-  //       top: result.position.dy - (result.fontSize * 0.5),
-  //       child: Text(
-  //         result.text,
-  //         style: TextStyle(
-  //           color: result.color,
-  //           fontSize: result.fontSize,
-  //           fontWeight: FontWeight.w500,
-  //         ),
-  //       ),
-  //     );
-  //   }).toList();
-  // }
 
   void _clearHandwritingData() {
     _ink.strokes.clear();

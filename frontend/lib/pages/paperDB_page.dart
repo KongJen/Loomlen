@@ -112,8 +112,6 @@ class _PaperDBPageState extends State<PaperDBPage> {
             WidgetsBinding.instance.window.devicePixelRatio <
         600;
 
-    if (isPhone) selectedMode = DrawingMode.read;
-
     _drawingDBService = DrawingDBService(
         roomId: widget.roomId,
         fileId: widget.fileId,
@@ -670,16 +668,19 @@ class _PaperDBPageState extends State<PaperDBPage> {
 
   List<Widget> _buildPhoneActions() {
     return [
-      if (isReadOnly)
+      if (_isHandwritingMode) ...[
         IconButton(
-          icon: FaIcon(
-            FontAwesomeIcons.handPointer,
-            color: selectedMode == DrawingMode.read ? Colors.blue : null,
-          ),
-          onPressed: () => setState(() => selectedMode = DrawingMode.read),
-          tooltip: 'Reading Mode',
+          icon: const Icon(Icons.check, color: Colors.green),
+          onPressed: () {
+            _processHandwritingConfirm(_activePaperId!);
+            setState(() {
+              _isHandwritingMode = false;
+              selectedMode = DrawingMode.pencil;
+            });
+          },
+          tooltip: 'Confirm Handwriting',
         )
-      else ...[
+      ] else ...[
         IconButton(
           icon: FaIcon(
             FontAwesomeIcons.handPointer,
