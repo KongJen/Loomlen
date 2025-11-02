@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'package:multicast_dns/multicast_dns.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:frontend/services/logger.dart';
 
 const String _lastKnownBackendIpKey = 'last_known_backend_ip';
 
@@ -12,9 +13,9 @@ class BackendDiscovery {
   factory BackendDiscovery() => _instance;
   BackendDiscovery._internal();
 
-  //final String _defaultUrl = "http://10.0.2.2:8080";
+  final String _defaultUrl = "http://10.0.2.2:8080";
   //For server :
-  final String _defaultUrl = "http://40.81.28.113:8080";
+  // final String _defaultUrl = "http://40.81.28.113:8080";
   //For Test : http://10.0.2.2:8080
 
   String? _currentBackendUrl;
@@ -49,6 +50,8 @@ class BackendDiscovery {
         await prefs.setString(_lastKnownBackendIpKey, discoveredUrl);
 
         print('Discovered and saved backend URL: $_currentBackendUrl');
+        LogService()
+            .error('Discovered and saved backend URL: $_currentBackendUrl');
       }
       _isDiscovering = false;
     });
@@ -66,6 +69,7 @@ class BackendDiscovery {
       return response.statusCode >= 200 && response.statusCode < 400;
     } catch (e) {
       print('Backend connectivity test failed: $e');
+      LogService().error('Backend connectivity test failed: $e');
       return false;
     }
   }
@@ -77,6 +81,8 @@ Future<String?> discoverBackendIp() async {
   Timer(Duration(seconds: _discoveryTimeoutSeconds), () {
     if (!completer.isCompleted) {
       print('mDNS discovery timed out after $_discoveryTimeoutSeconds seconds');
+      LogService().error(
+          'mDNS discovery timed out after $_discoveryTimeoutSeconds seconds');
       completer.complete(null);
     }
   });
@@ -94,6 +100,8 @@ Future<String?> discoverBackendIp() async {
   try {
     print(
         'Starting mDNS discovery with timeout of $_discoveryTimeoutSeconds seconds...');
+    LogService().error(
+        'starting mDNS discovery with timeout of $_discoveryTimeoutSeconds seconds...');
 
     final String serviceName = 'my-backend._http._tcp.local';
 
@@ -101,12 +109,15 @@ Future<String?> discoverBackendIp() async {
         .lookup<SrvResourceRecord>(ResourceRecordQuery.service(serviceName))
         .listen((SrvResourceRecord srv) async {
       print('Found service: ${srv.name} at ${srv.target}:${srv.port}');
+      LogService()
+          .error('Found service: ${srv.name} at ${srv.target}:${srv.port}');
 
       var ipSubscription = client
           .lookup<IPAddressResourceRecord>(
               ResourceRecordQuery.addressIPv4(srv.target))
           .listen((IPAddressResourceRecord ip) {
         print('Found IP: ${ip.address.address}:${srv.port}');
+        LogService().error('Found IP: ${ip.address.address}:${srv.port}');
         discoveredUrl = 'http://${ip.address.address}:${srv.port}';
 
         if (!completer.isCompleted) {
@@ -116,25 +127,31 @@ Future<String?> discoverBackendIp() async {
 
       ipSubscription.onError((e) {
         print('Error resolving IP for ${srv.target}: $e');
+        LogService().error('Error resolving IP for ${srv.target}: $e');
       });
     });
 
     srvSubscription.onError((e) {
       print('Error looking up SRV records: $e');
+      LogService().error('Error looking up SRV records: $e');
     });
 
     discoveredUrl = await completer.future;
   } catch (e, stackTrace) {
     print("mDNS discovery error: $e");
+    LogService().error('mDNS discovery error: $e');
     print("Stack trace: $stackTrace");
+    LogService().error('Stack trace: $stackTrace');
   } finally {
     client.stop();
   }
 
   if (discoveredUrl == null) {
     print('No backend service discovered via mDNS');
+    LogService().error('No backend service discovered via mDNS');
   } else {
     print('Discovered backend at: $discoveredUrl');
+    LogService().error('Discovered backend at: $discoveredUrl');
   }
 
   return discoveredUrl;
